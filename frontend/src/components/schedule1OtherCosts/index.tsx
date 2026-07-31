@@ -274,6 +274,14 @@ const OtherCostsPage: FC = () => {
 
   const editable = data.editable
 
+  // Live $/m³ preview for the Add form (entered cost ÷ shared volume). Display-only; the authoritative
+  // value is server-computed and shown in the list after Add.
+  const addCostNum = toNum(addCost)
+  const addPerUnitPreview =
+    addCostNum !== null && data.volume !== null && data.volume !== 0
+      ? numStr(addCostNum / data.volume)
+      : ''
+
   const rowCells = (row: OtherCostRow) => {
     if (editable && editingId === row.id) {
       return (
@@ -291,6 +299,7 @@ const OtherCostsPage: FC = () => {
               invalidText={editErrors.description}
             />
           </TableCell>
+          <TableCell className="schedule-1__num">{fmt(data.volume)}</TableCell>
           <TableCell className="schedule-1__num">
             <TextInput
               id={`edit-cost-${row.id}`}
@@ -318,6 +327,7 @@ const OtherCostsPage: FC = () => {
     return (
       <>
         <TableCell>{row.description}</TableCell>
+        <TableCell className="schedule-1__num">{fmt(data.volume)}</TableCell>
         <TableCell className="schedule-1__num">{fmt(row.cost)}</TableCell>
         <TableCell className="schedule-1__num">{fmt(row.perUnit)}</TableCell>
         {editable && (
@@ -335,62 +345,21 @@ const OtherCostsPage: FC = () => {
     <div className="app-page">
       {header}
       <Grid fullWidth className="app-page__body">
-        <Column sm={4} md={8} lg={16} className="schedule-1__meta">
-          <TextInput
-            id="otherCostsSharedVolume"
-            labelText="Volume m³ (shared, from Schedule 1)"
-            size="sm"
-            value={numStr(data.volume)}
-            onChange={() => undefined}
-            disabled
-          />
-        </Column>
-
         {message && <NotificationColumn kind="success" title="Success" subtitle={message} />}
         {actionError && (
           <NotificationColumn kind="error" title="Action failed" subtitle={actionError} />
         )}
 
-        <Column sm={4} md={8} lg={16} className="schedule-1__section">
-          <TableContainer title="Other Costs">
-            <Table aria-label="Other Costs">
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Description</TableHeader>
-                  <TableHeader className="schedule-1__num">Cost</TableHeader>
-                  <TableHeader className="schedule-1__num">$/m³</TableHeader>
-                  {editable && <TableHeader>Actions</TableHeader>}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {(data.rows ?? []).map((row) => (
-                  <TableRow key={row.id}>{rowCells(row)}</TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <dl className="schedule-1__summary">
-            <div className="schedule-1__summary-item">
-              <dt>Rows</dt>
-              <dd>{data.count}</dd>
-            </div>
-            <div className="schedule-1__summary-item">
-              <dt>Subtotal Cost</dt>
-              <dd>{fmt(data.costSubtotal)}</dd>
-            </div>
-            <div className="schedule-1__summary-item">
-              <dt>$/m³</dt>
-              <dd>{fmt(data.perUnit)}</dd>
-            </div>
-          </dl>
-        </Column>
-
+        {/* Legacy layout: the Add form sits ABOVE the list (Description, Volume, Cost, $/m³ stacked
+            with left labels). Volume is the shared Schedule 1 volume and $/m³ is a live cost÷volume
+            preview — both read-only; only Description and Cost are entered. */}
         {editable && (
           <Column sm={4} md={8} lg={16} className="schedule-1__section">
             <h3 className="schedule-1__heading">Add Other Cost</h3>
-            <div className="schedule-1-other-costs__add">
+            <div className="oc-add">
               <TextInput
                 id="add-description"
+                className="oc-add__field oc-add__field--wide"
                 labelText="Description"
                 size="sm"
                 maxLength={DESCRIPTION_MAX_LENGTH}
@@ -400,7 +369,17 @@ const OtherCostsPage: FC = () => {
                 invalidText={addErrors.description}
               />
               <TextInput
+                id="add-volume"
+                className="oc-add__field oc-add__field--narrow"
+                labelText="Volume"
+                size="sm"
+                value={numStr(data.volume)}
+                onChange={() => undefined}
+                disabled
+              />
+              <TextInput
                 id="add-cost"
+                className="oc-add__field oc-add__field--narrow"
                 labelText="Cost"
                 size="sm"
                 value={addCost}
@@ -408,12 +387,55 @@ const OtherCostsPage: FC = () => {
                 invalid={Boolean(addErrors.cost)}
                 invalidText={addErrors.cost}
               />
-              <Button kind="primary" disabled={saving || editingId !== null} onClick={handleAdd}>
-                Add
-              </Button>
+              <TextInput
+                id="add-perunit"
+                className="oc-add__field oc-add__field--narrow"
+                labelText="$ / m³"
+                size="sm"
+                value={addPerUnitPreview}
+                onChange={() => undefined}
+                disabled
+              />
+              <div className="oc-add__actions">
+                <Button kind="primary" disabled={saving || editingId !== null} onClick={handleAdd}>
+                  Add
+                </Button>
+              </div>
             </div>
           </Column>
         )}
+
+        <Column sm={4} md={8} lg={16} className="schedule-1__section">
+          <TableContainer title="Other Cost List">
+            <Table aria-label="Other Cost List">
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Description</TableHeader>
+                  <TableHeader className="schedule-1__num">Volume m³</TableHeader>
+                  <TableHeader className="schedule-1__num">Cost $</TableHeader>
+                  <TableHeader className="schedule-1__num">$ / m³</TableHeader>
+                  {editable && <TableHeader>Action</TableHeader>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(data.rows ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={editable ? 5 : 4}>No records found.</TableCell>
+                  </TableRow>
+                ) : (
+                  (data.rows ?? []).map((row) => <TableRow key={row.id}>{rowCells(row)}</TableRow>)
+                )}
+                <TableRow className="schedule-1-other-costs__totals">
+                  <TableCell>Totals</TableCell>
+                  <TableCell className="schedule-1__num">{fmt(data.volume)}</TableCell>
+                  <TableCell className="schedule-1__num">{fmt(data.costSubtotal)}</TableCell>
+                  <TableCell className="schedule-1__num">{fmt(data.perUnit)}</TableCell>
+                  {editable && <TableCell />}
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Column>
 
         <Column sm={4} md={8} lg={16} className="schedule-1__actions">
           <Button kind="secondary" onClick={goBack}>

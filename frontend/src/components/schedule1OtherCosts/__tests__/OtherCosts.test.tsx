@@ -40,8 +40,8 @@ describe('Other Costs sub-page (Story 2.5)', () => {
 
     expect(await screen.findByText('Existing Row A')).toBeInTheDocument()
     expect(screen.getByText('Existing Row B')).toBeInTheDocument()
-    // Shared volume is disabled (read-only, from Schedule 1).
-    const shared = screen.getByLabelText('Volume m³ (shared, from Schedule 1)')
+    // Shared volume is disabled (read-only, from Schedule 1) — now the Add form's Volume field.
+    const shared = screen.getByLabelText('Volume')
     expect(shared).toBeDisabled()
     expect(shared).toHaveValue('5000')
     // Editable schedule shows the add form.
