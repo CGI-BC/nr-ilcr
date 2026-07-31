@@ -95,10 +95,10 @@ public class Schedule3Service {
   }
 
   private static final List<CheckLine> CHECK_LINES = List.of(
-      new CheckLine(27, 125, "Licence, Fees, Insurance", true),
+      new CheckLine(27, 125, "Licenses, Fees, Insurance", true),
       new CheckLine(28, 126, "Taxes, Leases, Rentals", true),
       new CheckLine(CODE_ANNUAL_RENTS, null, "Annual Rents", false),
-      new CheckLine(30, 128, "Wages/Salaries, incl benefits", true),
+      new CheckLine(30, 128, "Wages/Salaries, incl Benefits", true),
       new CheckLine(31, 129, "Vehicle Expense", true),
       new CheckLine(32, 130, "Office Expense", true),
       new CheckLine(CODE_SCALING, null, "Scaling Expense", false),
@@ -107,9 +107,10 @@ public class Schedule3Service {
       new CheckLine(36, 134, "Depreciation Expense", true),
       new CheckLine(CODE_SILV_ADMIN, null, "Silviculture Admin Costs", false));
 
+  // Verbatim legacy check-status labels (checkStatusSchedule3.xhtml:75/78; <sup>3</sup> → "m³").
   private static final String LABEL_POP_TIMBER =
-      "Privately Owned & Purchased (PO&P) Timber (Harvest Volume)";
-  private static final String LABEL_CROWN_TIMBER = "Crown Timber (Harvest Volume)";
+      "Privately Owned & Purchased (PO&P) Timber Harvest (Volume m³)";
+  private static final String LABEL_CROWN_TIMBER = "Crown Timber Harvest (Volume m³)";
   // Sub-page check-status labels (verbatim legacy Schedule3MB.java:303-330, Story 4.4).
   private static final String LABEL_OA_DESCRIPTION = "Subtotal Other Costs (Description)";
   private static final String LABEL_OA_TOTAL = "Subtotal Other Costs (Harvest Total $)";
@@ -485,7 +486,7 @@ public class Schedule3Service {
       Integer popCost = pair[1] == null ? null : pair[1].cost();
       rowDtos.add(new OtherAcceptableRow(
           tot.detailId(), tot.itemDescription(), tot.cost(), popCost,
-          crownCost(tot.cost(), popCost)));
+          otherAcceptableCrown(tot.cost(), popCost)));
       harvest += nullToZero(tot.cost());
       pop += nullToZero(popCost);
     }
@@ -571,21 +572,30 @@ public class Schedule3Service {
   private UnacceptableDocument buildUnacceptableDocument(int summaryId, boolean editable) {
     List<SubPageRow> rows = repository.findSubPageRows(summaryId, CODE_UNACCEPTABLE);
     List<UnacceptableRow> rowDtos = new ArrayList<>();
-    long subtotal = 0L;
+    long rowsTotal = 0L;
     for (SubPageRow row : rows) {
       rowDtos.add(new UnacceptableRow(row.detailId(), row.itemDescription(), row.cost()));
-      subtotal += nullToZero(row.cost());
+      rowsTotal += nullToZero(row.cost());
     }
     Integer annualRents = firstCost(summaryId, CODE_ANNUAL_RENTS);
+    // Legacy "Totals" footer (Schedule3DO.getUnaccecptableCostsTotals) = Σ item-38 rows + the Annual
+    // Rents Harvest cost — so the subtotal shown under the table INCLUDES Annual Rents.
+    long subtotal = rowsTotal + nullToZero(annualRents);
     return new UnacceptableDocument(editable, rowDtos.size(), subtotal, annualRents, rowDtos, null);
   }
 
-  /** The COST of the first detail row for a cost item under a summary (item-29 Annual Rents Harvest). */
+  /**
+   * The COST of the first detail row for a cost item under a summary (item-29 Annual Rents Harvest).
+   * Faithful to legacy {@code Schedule3DO.getUnaccecptableCostsAnnualRents()} = the Annual Rents Harvest
+   * cost, which may be null (not entered) — the legacy renders that blank. Select the row FIRST (never
+   * null) and map to its nullable cost afterward; {@code Stream.findFirst()} throws NPE if the selected
+   * element is itself null, which is exactly what happened when Annual Rents had no Harvest cost.
+   */
   private Integer firstCost(int summaryId, int costItemCode) {
     return repository.findDetails(summaryId).stream()
         .filter(r -> r.costItemCode() != null && r.costItemCode() == costItemCode)
-        .map(DetailRow::cost)
         .findFirst()
+        .map(DetailRow::cost)
         .orElse(null);
   }
 
@@ -608,17 +618,19 @@ public class Schedule3Service {
     List<MessageInfo> errors = new ArrayList<>();
     appendFixedLineCheckErrors(byCode, override, errors);
 
-    // Sub-page checks (Story 4.4) — legacy order places Other Acceptable + Unacceptable BEFORE the
-    // Total Overhead (timber) checks (Schedule3MB.java:303-340).
-    appendOtherAcceptableCheckErrors(details, override, errors);
-    appendUnacceptableCheckErrors(details, errors);
-
+    // Rendered legacy order (checkStatusSchedule3.xhtml): the Total Overhead (timber) volume checks
+    // at lines 75/78 precede the Subtotal Other Costs (81) and Included Unacceptable (90) sub-page
+    // checks.
     if (volumeOf(byCode.get(CODE_POP_TIMBER)) == null) {
       errors.add(valueRequired(LABEL_POP_TIMBER));
     }
     if (volumeOf(byCode.get(CODE_CROWN_TIMBER)) == null) {
       errors.add(valueRequired(LABEL_CROWN_TIMBER));
     }
+
+    // Sub-page checks (Story 4.4).
+    appendOtherAcceptableCheckErrors(details, override, errors);
+    appendUnacceptableCheckErrors(details, errors);
 
     boolean requirementsMet = errors.isEmpty();
     MessageInfo message = requirementsMet
@@ -643,7 +655,8 @@ public class Schedule3Service {
       }
       Integer pop = costOf(byCode.get(line.popCode()));
       if (pop == null) {
-        errors.add(valueRequired(line.name() + " (PO&P Total $)"));
+        // Verbatim legacy label "<name> (PO&P $)" (checkStatusSchedule3.xhtml:14,21,31,…), not "Total".
+        errors.add(valueRequired(line.name() + " (PO&P $)"));
       }
       if (!override && harvest != null && pop != null && harvest < pop) {
         errors.add(harvestNotGreaterThanPop(line.name() + " (Harvest Total $)"));
@@ -789,12 +802,18 @@ public class Schedule3Service {
     }
   }
 
-  /** The persisted VOLUME of a detail item (first-by-id), or null — used for crown-change detection. */
+  /**
+   * The persisted VOLUME of a detail item (first-by-id), or null — used for crown-change detection.
+   * Select the row FIRST (never null) and map to its nullable volume afterward: {@code
+   * Stream.findFirst()} throws NPE if the selected element is itself null, so a code-119 row with a
+   * NULL volume (e.g. a prior save with no crown volume) would crash the next save (same class of bug
+   * as {@link #firstCost}).
+   */
   private BigDecimal persistedVolume(int summaryId, int costItemCode) {
     return repository.findDetails(summaryId).stream()
         .filter(r -> r.costItemCode() != null && r.costItemCode() == costItemCode)
-        .map(DetailRow::volume)
         .findFirst()
+        .map(DetailRow::volume)
         .orElse(null);
   }
 
@@ -875,6 +894,19 @@ public class Schedule3Service {
       return comments.substring(GROUPKEY_POP.length());
     }
     return null;
+  }
+
+  /**
+   * Other Acceptable per-row Crown — legacy {@code DescriptionCostType.getCrownCost} =
+   * {@code bigDecimalCostSubtraction(total, pop)}: the Total itself when PO&P is blank, null only when
+   * the Total is blank. This is a DIFFERENT null rule than the fixed-line {@link #crownCost} (which is
+   * null if either side is absent); item-124 rows use this one.
+   */
+  private static Integer otherAcceptableCrown(Integer total, Integer pop) {
+    if (total == null) {
+      return null;
+    }
+    return pop == null ? total : total - pop;
   }
 
   /**

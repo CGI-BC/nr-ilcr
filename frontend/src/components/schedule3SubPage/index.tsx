@@ -335,7 +335,9 @@ function Schedule3SubPage<TRow extends Schedule3SubPageRow, TDoc extends Schedul
 
   const editable = data.editable
   const readonlyColumns = config.readonlyColumns ?? []
-  const showMeta = Boolean(config.intro) || Boolean(config.metaField)
+  // Description + numeric (field + readonly) columns + optional Action column — for the empty-state colSpan.
+  const totalColumns = 1 + config.fields.length + readonlyColumns.length + (editable ? 1 : 0)
+  const rows = config.rows(data)
 
   const rowCells = (row: TRow) => {
     if (editable && editingId === row.id) {
@@ -414,29 +416,68 @@ function Schedule3SubPage<TRow extends Schedule3SubPageRow, TDoc extends Schedul
     <div className="app-page">
       {header}
       <Grid fullWidth className="app-page__body">
-        {showMeta && (
-          <Column sm={4} md={8} lg={16} className="schedule-3__meta">
-            {config.intro && <p className="schedule-3__intro">{config.intro}</p>}
-            {config.metaField && (
-              <TextInput
-                id={config.metaField.id}
-                labelText={config.metaField.label}
-                size="sm"
-                value={numStr(config.metaField.value(data))}
-                onChange={() => undefined}
-                disabled
-              />
-            )}
-          </Column>
-        )}
-
         {message && <NotificationColumn kind="success" title="Success" subtitle={message} />}
         {actionError && (
           <NotificationColumn kind="error" title="Action failed" subtitle={actionError} />
         )}
 
+        {/* Add section — TOP (legacy: the "Add …" panel precedes the list). Intro + stacked fields. */}
+        {editable && (
+          <Column sm={4} md={8} lg={16} className="schedule-3__section">
+            <h3 className="schedule-3__heading">{config.addHeading}</h3>
+            {config.intro && <p className="schedule-3__intro">{config.intro}</p>}
+            <div className="schedule-3-sub__add">
+              <TextInput
+                id="add-description"
+                className="schedule-3-sub__field schedule-3-sub__field--wide"
+                labelText="Description"
+                size="sm"
+                maxLength={config.descriptionMaxLength}
+                value={addDescription}
+                onChange={(e) => setAddDescription(e.target.value)}
+                invalid={Boolean(addErrors.description)}
+                invalidText={addErrors.description}
+              />
+              {config.fields.map((field) => (
+                <TextInput
+                  key={field.key}
+                  id={`add-${field.key}`}
+                  className="schedule-3-sub__field schedule-3-sub__field--narrow"
+                  labelText={field.header}
+                  size="sm"
+                  value={addValues[field.key] ?? ''}
+                  onChange={(e) =>
+                    setAddValues((prev) => ({ ...prev, [field.key]: e.target.value }))
+                  }
+                  invalid={Boolean(addErrors[field.key])}
+                  invalidText={addErrors[field.key]}
+                />
+              ))}
+              <div className="schedule-3-sub__actions">
+                <Button kind="primary" disabled={saving || editingId !== null} onClick={handleAdd}>
+                  Add
+                </Button>
+              </div>
+            </div>
+          </Column>
+        )}
+
+        {/* List section — BELOW. The page title already names the section, so no in-panel heading; the
+            read-only meta field (Annual Rents S111) sits above the table, then the table with a "No
+            records found." empty state and a Totals footer row. */}
         <Column sm={4} md={8} lg={16} className="schedule-3__section">
-          <TableContainer title={config.tableTitle}>
+          {config.metaField && (
+            <TextInput
+              id={config.metaField.id}
+              className="schedule-3-sub__meta-field"
+              labelText={config.metaField.label}
+              size="sm"
+              value={numStr(config.metaField.value(data))}
+              onChange={() => undefined}
+              disabled
+            />
+          )}
+          <TableContainer>
             <Table aria-label={config.tableTitle}>
               <TableHead>
                 <TableRow>
@@ -451,64 +492,31 @@ function Schedule3SubPage<TRow extends Schedule3SubPageRow, TDoc extends Schedul
                       {col.header}
                     </TableHeader>
                   ))}
-                  {editable && <TableHeader>Actions</TableHeader>}
+                  {editable && <TableHeader>Action</TableHeader>}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {config.rows(data).map((row) => (
-                  <TableRow key={row.id}>{rowCells(row)}</TableRow>
-                ))}
+                {rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={totalColumns}>No records found.</TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((row) => <TableRow key={row.id}>{rowCells(row)}</TableRow>)
+                )}
+                {/* Totals footer: summaryItems align 1:1 with the numeric (field + readonly) columns. */}
+                <TableRow className="schedule-3-sub__totals">
+                  <TableCell>Totals</TableCell>
+                  {config.summaryItems.map((item) => (
+                    <TableCell key={item.label} className="schedule-3__num">
+                      {fmt(item.value(data))}
+                    </TableCell>
+                  ))}
+                  {editable && <TableCell />}
+                </TableRow>
               </TableBody>
             </Table>
           </TableContainer>
-          <dl className="schedule-3__summary">
-            <div className="schedule-3__summary-item">
-              <dt>Rows</dt>
-              <dd>{data.count}</dd>
-            </div>
-            {config.summaryItems.map((item) => (
-              <div key={item.label} className="schedule-3__summary-item">
-                <dt>{item.label}</dt>
-                <dd>{fmt(item.value(data))}</dd>
-              </div>
-            ))}
-          </dl>
         </Column>
-
-        {editable && (
-          <Column sm={4} md={8} lg={16} className="schedule-3__section">
-            <h3 className="schedule-3__heading">{config.addHeading}</h3>
-            <div className="schedule-3-sub__add">
-              <TextInput
-                id="add-description"
-                labelText="Description"
-                size="sm"
-                maxLength={config.descriptionMaxLength}
-                value={addDescription}
-                onChange={(e) => setAddDescription(e.target.value)}
-                invalid={Boolean(addErrors.description)}
-                invalidText={addErrors.description}
-              />
-              {config.fields.map((field) => (
-                <TextInput
-                  key={field.key}
-                  id={`add-${field.key}`}
-                  labelText={field.header}
-                  size="sm"
-                  value={addValues[field.key] ?? ''}
-                  onChange={(e) =>
-                    setAddValues((prev) => ({ ...prev, [field.key]: e.target.value }))
-                  }
-                  invalid={Boolean(addErrors[field.key])}
-                  invalidText={addErrors[field.key]}
-                />
-              ))}
-              <Button kind="primary" disabled={saving || editingId !== null} onClick={handleAdd}>
-                Add
-              </Button>
-            </div>
-          </Column>
-        )}
 
         <Column sm={4} md={8} lg={16} className="schedule-3__actions">
           <Button kind="secondary" onClick={goBack}>

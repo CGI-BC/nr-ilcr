@@ -2,6 +2,7 @@ package ca.bc.gov.nrs.ilcr.schedule3;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -85,6 +86,25 @@ class Schedule3SubPageServiceTest {
   }
 
   @Test
+  void getOtherAcceptable_totWithoutPop_crownEqualsTotal() {
+    stubDraft();
+    // A group with a TOT row but no PO&P peer: legacy DescriptionCostType.getCrownCost
+    // (bigDecimalCostSubtraction) returns the Total itself when PO&P is blank — Crown = Total, NOT null.
+    when(repository.findSubPageRows(SUMMARY, 124))
+        .thenReturn(List.of(tot(5501, 800, "Consulting", 1)));
+
+    OtherAcceptableDocument doc = service.getOtherAcceptableDocument(MILL, YEAR, true);
+
+    assertEquals(1, doc.count());
+    assertEquals(800, doc.rows().get(0).total());
+    assertNull(doc.rows().get(0).pop());
+    assertEquals(800, doc.rows().get(0).crown()); // = Total when PO&P is blank
+    assertEquals(800L, doc.subtotal().harvest());
+    assertEquals(0L, doc.subtotal().pop());
+    assertEquals(800L, doc.subtotal().crown());
+  }
+
+  @Test
   void addOtherAcceptable_insertsTotAndPopWithNextGroupNumber() {
     stubDraft();
     // One existing group (GRP1) → next group number is 2.
@@ -135,8 +155,27 @@ class Schedule3SubPageServiceTest {
     UnacceptableDocument doc = service.getUnacceptableDocument(MILL, YEAR, true);
 
     assertEquals(1, doc.count());
-    assertEquals(250L, doc.subtotalTotal());
+    // Legacy footer total = Σ item-38 rows (250) + Annual Rents Harvest (777) = 1027.
+    assertEquals(1027L, doc.subtotalTotal());
     assertEquals(777, doc.annualRentsTotal()); // item-29 Harvest, read-only
+  }
+
+  @Test
+  void getUnacceptable_nullAnnualRentsCost_returnsNullWithoutNpe() {
+    stubDraft();
+    when(repository.findSubPageRows(SUMMARY, 38))
+        .thenReturn(List.of(new SubPageRow(5505, 250, "Penalty", null)));
+    // Annual Rents (item 29) row present but its Harvest cost is null (not entered). Legacy renders
+    // this blank (Schedule3DO.getUnaccecptableCostsAnnualRents = annualRents.harvestTotalCost, nullable);
+    // firstCost() must return null, not NPE via Stream.findFirst() on a null-mapped element.
+    when(repository.findDetails(SUMMARY))
+        .thenReturn(List.of(new DetailRow(29, null, null, null, null)));
+
+    UnacceptableDocument doc = service.getUnacceptableDocument(MILL, YEAR, true);
+
+    assertEquals(1, doc.count());
+    assertEquals(250L, doc.subtotalTotal());
+    assertNull(doc.annualRentsTotal());
   }
 
   // ---- Check-status sub-page branches ----
