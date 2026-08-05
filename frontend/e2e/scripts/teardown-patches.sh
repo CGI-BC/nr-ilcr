@@ -71,8 +71,10 @@ for (( i=${#teardowns[@]}-1; i>=0; i-- )); do
   echo ""
   echo "-> $rel"
   # Connect via `/nolog` + a CONNECT command on stdin so the password (in $ORACLE_DSN) never lands in
-  # argv/`ps`. WHENEVER SQLERROR EXIT (armed first) aborts on a failed connect or any SQL error.
-  { printf 'WHENEVER SQLERROR EXIT SQL.SQLCODE\n'; printf 'CONNECT %s\n' "$ORACLE_DSN"; \
+  # argv/`ps`. `SET ECHO OFF` first so the CONNECT line is never echoed into the log (belt-and-braces
+  # against a patch that flips `SET ECHO ON`). WHENEVER SQLERROR EXIT (armed before CONNECT) aborts on a
+  # failed connect or any SQL error.
+  { printf 'SET ECHO OFF\nWHENEVER SQLERROR EXIT SQL.SQLCODE\nCONNECT %s\n' "$ORACLE_DSN"; \
     cat "$patch"; printf '\nEXIT\n'; } \
     | "$SQLPLUS" -S /nolog | sed 's/^/    /'
 done

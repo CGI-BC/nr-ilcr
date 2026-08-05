@@ -3,6 +3,12 @@
 # for hosts (like this dev container) that have no system-wide `sqlplus`/Oracle Instant Client on PATH.
 # You don't invoke this directly — apply-patches.sh / teardown-patches.sh auto-select it when no local
 # `sqlplus` is found. Container name comes from DB_CONTAINER (see .env.example).
+#
+# NOT a transparent sqlplus shim: it is a stdin FILTER. The caller connects with `sqlplus /nolog` and a
+# `CONNECT <dsn>` command on stdin (so the password never reaches argv), and this wrapper rewrites the
+# published host port (1525) to the container-internal listener port (1521) on that CONNECT line as it
+# streams through. Consequences: it expects a piped script on stdin (run by hand it will block waiting
+# for stdin), and a DSN passed as an argv argument is NOT port-rewritten anymore.
 set -euo pipefail
 
 # Default matches the pre-seeded image's container (docker run --name real-data-seeded-db …); override

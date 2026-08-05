@@ -38,7 +38,8 @@ e2e/
   preflight/anchors.setup.ts   # `setup` project the chromium project depends on: asserts anchors +
                          #   applied-seed presence resolve BEFORE any scenario (fail fast, one clear message)
   scripts/               # apply-patches.sh / teardown-patches.sh (seed patches, auto-discovered);
-                         #   docker-sqlplus.sh (run sqlplus inside the DB container when no local client)
+                         #   docker-sqlplus.sh (stdin filter used BY the seed scripts to run sqlplus inside
+                         #     the DB container when no local client; not a standalone drop-in — see its header)
   real-test-data-patches/   # minimal per-domain seed patches (<name>.sql + <name>.teardown.sql) the
                          #   real extract can't supply — applied via scripts/ (see that folder's README)
   .features-gen/         # generated Playwright tests (git-ignored, disposable — never edit/commit)

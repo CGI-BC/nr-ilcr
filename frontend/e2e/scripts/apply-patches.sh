@@ -71,10 +71,11 @@ for patch in "$PATCHES_DIR"/*/*.sql; do
   echo "-> $rel"
   # Pipe the file CONTENT (not @file) so this works identically for a local sqlplus and for
   # docker-sqlplus.sh (docker exec can't read a host path). Connect via `/nolog` + a CONNECT command on
-  # stdin so the password (in $ORACLE_DSN) never lands in argv/`ps`. WHENEVER SQLERROR EXIT (armed
-  # first) aborts on a failed connect or any SQL error; pipefail + set -e then stop the run instead of
-  # silently continuing.
-  { printf 'WHENEVER SQLERROR EXIT SQL.SQLCODE\n'; printf 'CONNECT %s\n' "$ORACLE_DSN"; \
+  # stdin so the password (in $ORACLE_DSN) never lands in argv/`ps`. `SET ECHO OFF` first so the CONNECT
+  # line is never echoed into the log (belt-and-braces against a patch that flips `SET ECHO ON`).
+  # WHENEVER SQLERROR EXIT (armed before CONNECT) aborts on a failed connect or any SQL error; pipefail
+  # + set -e then stop the run instead of silently continuing.
+  { printf 'SET ECHO OFF\nWHENEVER SQLERROR EXIT SQL.SQLCODE\nCONNECT %s\n' "$ORACLE_DSN"; \
     cat "$patch"; printf '\nEXIT\n'; } \
     | "$SQLPLUS" -S /nolog | sed 's/^/    /'
 done
