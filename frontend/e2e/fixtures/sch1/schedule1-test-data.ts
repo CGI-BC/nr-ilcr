@@ -14,10 +14,14 @@ export interface ScheduleKey {
 }
 
 /**
- * The MUTATING happy-path target — an EMPTY, editable Draft (all line-item/silviculture values null).
- * The S01 save test writes here and the cleanup fixture restores it to empty afterwards, so nothing
- * else may lean on this combo. Found: GET .../schedule1?millId=13050&year=2017 ->
- * {trackStatus:"D", editable:true, lineItems all value-less, otherCosts.count:0} (2026-07-29).
+ * The MUTATING happy-path target — an editable Draft empty in every field S01 writes/restores: no
+ * comments, no writable line items 12–18, no silviculture 1/2, and zero itemized Other-Costs rows. The
+ * S01 save test writes here and the cleanup fixture restores those fields to empty, so nothing else may
+ * lean on this combo. NOTE: it DOES carry a shared Other-Costs(19) volume — harmless, and intentionally
+ * NOT part of the "empty" contract: S01 never writes item 19 and the backend null-guards it, so preflight
+ * ignores it (checking it only produced noise). Found: GET .../schedule1?millId=13050&year=2017 ->
+ * {trackStatus:"D", editable:true, writable line items + silviculture 1/2 value-less, otherCosts.count:0}
+ * (2026-07-29; shared item-19 volume noted 2026-08).
  */
 export const MUTABLE_DRAFT: ScheduleKey = { millId: 13050, year: 2017 };
 

@@ -28,57 +28,40 @@ type ScheduleDoc = {
   otherCosts?: { volume?: number | null; count?: number };
 };
 
-type TargetFindings = { destructible: string[]; advisory: string[] };
-
 /**
- * Classify the mutable target against its pinned "pristine empty Draft" contract, split by whether S01
- * would actually damage each field — so the failure message is ACTIONABLE (SScholefield review):
+ * List the fields that make the mutable target non-empty in a way that MATTERS for S01 — i.e. the fields
+ * S01's cleanup (`emptyScheduleRequest`) actually blanks: `comments`, line items 12–18 (volume + cost),
+ * silviculture actualSpent(1) / accruedLessActual(2) (volume + cost), plus any itemized Other-Costs rows
+ * (S01 asserts `count === 0` and never touches them, so a stale row breaks its precondition). A non-empty
+ * result is a genuine data-loss / precondition risk → preflight fails.
  *
- *  - DESTRUCTIBLE (→ HARD FAIL): fields `emptyScheduleRequest` really blanks — `comments`, line items
- *    12–18 (volume + cost), silviculture actualSpent(1) / accruedLessActual(2) (volume + cost) — plus
- *    itemized Other-Costs rows (S01 asserts `count === 0` and never touches them, so a stale row breaks
- *    its precondition). A value here is a genuine data-loss / precondition risk.
- *  - ADVISORY (→ WARN, don't fail): the volume-only, server-null-guarded fields S01 neither writes nor
- *    restores — line items 143/144, silviculture lessAdmin(139) / total(140), and the shared
- *    Other-Costs(19) volume. The backend null-guards these on write (`if (request.forestMgmtAdminVolume()
- *    != null)` …, Schedule1Service:324-373) and `emptyScheduleRequest` sends them null / omits them, so
- *    S01 CANNOT overwrite them. A value here means the anchor drifted from its pinned empty baseline, but
- *    the run itself is safe — flagging it as a hard "S01 will overwrite" failure would send a maintainer
- *    chasing the wrong fix (and needlessly cascade-fail all 41 tests on a safe target).
- *
- * Cost on 143/144/139/140 is intentionally NOT inspected: it is pulled from Schedule 3 / derived
- * server-side, so a non-null cost is normal on an empty Draft.
+ * DELIBERATELY NOT checked — the volume-only, server-null-guarded fields S01 neither writes nor restores:
+ * line items 143/144, silviculture lessAdmin(139) / total(140), and the shared Other-Costs(19) volume.
+ * The backend null-guards these on write (Schedule1Service ~324-405) and `emptyScheduleRequest` sends
+ * them null / omits them, so S01 CANNOT overwrite them — a value there is irrelevant to S01's safety.
+ * (Our pinned 13050/2017 legitimately carries a shared item-19 volume; checking it only produced noise.)
+ * Cost on 143/144/139/140 is likewise ignored — it is pulled from Schedule 3 / derived server-side.
  */
-function classifyMutableTarget(doc: ScheduleDoc): TargetFindings {
+function nonEmptyWritableFields(doc: ScheduleDoc): string[] {
   const items = doc.lineItems ?? [];
   const byCode = (code: number): ResponseLineItem | undefined =>
     items.find((li) => li.costItemCode === code);
   const present = (v: number | null | undefined): boolean => v !== null && v !== undefined;
   const s = doc.silviculture;
 
-  const destructible: string[] = [];
-  if (doc.comments?.trim()) destructible.push('comments');
+  const findings: string[] = [];
+  if (doc.comments?.trim()) findings.push('comments');
   for (const code of [12, 13, 14, 15, 16, 17, 18]) {
     const li = byCode(code);
-    if (li && (present(li.volume) || present(li.cost))) destructible.push(`lineItem ${code} (vol/cost)`);
+    if (li && (present(li.volume) || present(li.cost))) findings.push(`lineItem ${code} (vol/cost)`);
   }
   if (present(s?.actualSpent?.volume) || present(s?.actualSpent?.cost))
-    destructible.push('silviculture actualSpent(1)');
+    findings.push('silviculture actualSpent(1)');
   if (present(s?.accruedLessActual?.volume) || present(s?.accruedLessActual?.cost))
-    destructible.push('silviculture accruedLessActual(2)');
+    findings.push('silviculture accruedLessActual(2)');
   if ((doc.otherCosts?.count ?? 0) !== 0)
-    destructible.push(`otherCosts.count=${doc.otherCosts?.count} (itemized rows present)`);
-
-  const advisory: string[] = [];
-  for (const code of [143, 144]) {
-    const li = byCode(code);
-    if (li && present(li.volume)) advisory.push(`lineItem ${code} volume`);
-  }
-  if (present(s?.lessAdmin?.volume)) advisory.push('silviculture lessAdmin(139) volume');
-  if (present(s?.total?.volume)) advisory.push('silviculture total(140) volume');
-  if (present(doc.otherCosts?.volume)) advisory.push('shared Other-Costs(19) volume');
-
-  return { destructible, advisory };
+    findings.push(`otherCosts.count=${doc.otherCosts?.count} (itemized rows present)`);
+  return findings;
 }
 
 /**
@@ -115,7 +98,7 @@ test('preflight: Schedule 1 read-only anchor resolves (editable Draft)', async (
   ).toBe('D');
 });
 
-test('preflight: Schedule 1 mutable target resolves (empty, editable Draft)', async ({ request }, testInfo) => {
+test('preflight: Schedule 1 mutable target resolves (empty, editable Draft)', async ({ request }) => {
   const doc = await getDraft(request, MUTABLE_DRAFT.millId, MUTABLE_DRAFT.year);
   const at = `${MUTABLE_DRAFT.millId}/${MUTABLE_DRAFT.year}`;
   expect(
@@ -125,23 +108,13 @@ test('preflight: Schedule 1 mutable target resolves (empty, editable Draft)', as
   ).toBeTruthy();
 
   // Guardrail against silent seed destruction. S01 writes here and its cleanup blanks the writable
-  // fields, which is lossless ONLY if the target started empty. Split the check so the message is
-  // actionable: DESTRUCTIBLE fields are a real data-loss / precondition risk (hard fail); ADVISORY
-  // fields are drift the backend's write-time null-guards protect from S01 (warn, let the safe run go).
-  const { destructible, advisory } = classifyMutableTarget(doc);
-
-  if (advisory.length > 0) {
-    const msg =
-      `[preflight] mutable target ${at} is non-pristine at: ${advisory.join(', ')}. S01 does NOT write ` +
-      `these (the backend null-guards them on write), so THIS run is safe — but the anchor has drifted ` +
-      `from the empty Draft it is pinned as; re-verify the pin. ${REGROUND}`;
-    console.warn(msg);
-    testInfo.annotations.push({ type: 'warning', description: msg });
-  }
-
+  // fields, lossless ONLY if the target started empty in those fields. Fail fast if any are populated.
+  // (Volume-only null-guarded fields S01 never touches — 143/144/139/140/item-19 — are intentionally
+  // NOT checked; see nonEmptyWritableFields.)
+  const populated = nonEmptyWritableFields(doc);
   expect(
-    destructible.length === 0,
-    `[preflight] mutable target ${at} is a Draft but NOT empty at: ${destructible.join(', ')}. S01's ` +
+    populated.length === 0,
+    `[preflight] mutable target ${at} is a Draft but NOT empty at: ${populated.join(', ')}. S01's ` +
       `blank-restore would overwrite these real seeded values (or a stale itemized row breaks its ` +
       `count:0 precondition). Pick a different empty editable Draft for MUTABLE_DRAFT, or snapshot/` +
       `restore it like the delete/retry targets. ${REGROUND}`,

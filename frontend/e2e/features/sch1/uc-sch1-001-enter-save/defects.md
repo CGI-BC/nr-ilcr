@@ -14,6 +14,7 @@
   - **Priority / env:** p1 · branch `e2e-test/epic2-2.8-delivery-db-a11y` · local seeded delivery DB `THE/…@localhost:1525/DBDOCK_01`.
   - **Status:** RESOLVED — found and fixed 2026-07-30; S09 now a normal green scenario. (BA/QA to confirm the fix is intentional/persistent and whether the real delivery Oracle shared the strict schema.)
   - **Test:** `other-costs.feature` `@S09 @p1` — GREEN (was the `@discovered-bug` red that tracked this).
+  - **Note (2026-08 bcgov sync):** the add path described above (per-row `POST`) is superseded — the Other Costs sub-page now persists the whole row set via `PUT …?intent=save` (shared `useEditableCostRows`). The 2026-08 live run confirms Other Costs add still persists cleanly on the delivery DB; this entry is retained as the historical record of the original bug and its fix.
 
 **Divergences:**
 
@@ -38,6 +39,17 @@
   - **Priority / env:** p1 · branch `e2e-scaffold` · local seeded DB.
   - **Status:** OPEN. Found 2026-07-29.
   - **Test:** `validation.feature` (S06, re-grounded field) — GREEN.
+
+- **#3 — The per-row Other Costs delete-confirmation modal was removed (bcgov EditableSubPage rewrite).**
+  - **What's wrong:** Legacy-derived S12 removes an itemized Other Cost "after confirming the prompt" — the fork's app popped a Carbon danger Modal ("Delete other cost") to confirm before deleting. After the 2026-08 sync to bcgov's shared `EditableSubPageLayout` / `useEditableCostRows` rewrite, the per-row delete is an icon-only **"Remove"** button that deletes the row **immediately** (optimistic) and persists the whole set via one `PUT …?intent=delete` — there is no confirmation step.
+  - **Expected vs actual:** Expected a confirm-before-delete prompt (legacy S12). Actual — Remove deletes immediately; SUC-002 "Data deleted successfully" is echoed from the API after the whole-set PUT.
+  - **How we caught it (verified on real data 2026-08):** Re-grounding S12 against the merged app — the "Delete other cost" dialog no longer renders; `components/schedule1OtherCosts/index.tsx` renders a `hasIconOnly iconDescription="Remove"` button whose `onClick` → `useEditableCostRows.removeRow` → immediate `persist(next, 'delete')`.
+  - **Why (technical):** The Other Costs sub-page was migrated to the shared editable-cost-rows pattern (also used by Schedule 3), which drops per-row confirm modals for an inline edit + whole-set save.
+  - **Is it a defect?** A behaviour/parity change owned upstream (bcgov), not this suite. BA/QA to confirm whether the confirmation should exist (does legacy ILCR confirm a per-row Other Costs delete?). If it should, it is a parity regression to raise upstream; if not, dropping it is fine.
+  - **Action:** BA/QA to confirm parity. S12 re-grounded to the no-confirm behaviour and kept **GREEN** (the remove-and-persist guarantee still holds); **not** a `@discovered-divergence` red, since the app behaves consistently — only the confirmation step differs. (Note: the whole-schedule delete S13 still has its "Delete schedule" confirm Modal — only the per-row Other Costs confirm was removed.)
+  - **Priority / env:** p1 · branch `e2e/post-sync-suite-cleanup` · local seeded DB THE/…@localhost:1525/DBDOCK_01.
+  - **Status:** OPEN. Found 2026-08 (bcgov sync).
+  - **Test:** `other-costs.feature` `@S12 @p1` — GREEN (re-grounded).
 
 **Coverage gaps (not tested yet — no app problem):**
 
