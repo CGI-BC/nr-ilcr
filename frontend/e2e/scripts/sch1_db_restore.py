@@ -38,7 +38,11 @@ def connect() -> oracledb.Connection:
     dsn = os.environ.get("ORACLE_DSN", "THE/default@localhost:1525/DBDOCK_01")
     m = re.match(r"^(?P<user>[^/]+)/(?P<pw>[^@]+)@(?P<rest>.+)$", dsn)
     if not m:
-        raise SystemExit(f"ORACLE_DSN not in user/pw@host:port/service form: {dsn!r}")
+        # Do NOT echo the raw DSN — it carries the password. Report the expected shape only.
+        raise SystemExit(
+            "ORACLE_DSN is not in the expected user/pw@host:port/service form "
+            "(value withheld because it may contain a password)."
+        )
     return oracledb.connect(user=m["user"], password=m["pw"], dsn=m["rest"])
 
 

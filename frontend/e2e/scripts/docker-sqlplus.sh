@@ -10,14 +10,13 @@ set -euo pipefail
 # (e.g. `real-data-seeded-ilcr-db`).
 CONTAINER="${DB_CONTAINER:-real-data-seeded-db}"
 SQLPLUS_BIN="${DB_SQLPLUS_BIN:-/opt/oracle/product/26ai/dbhomeFree/bin/sqlplus}"
-# Callers pass the HOST-facing DSN (port 1525, the container's published port); translate to the
-# CONTAINER-internal listener port (1521) since sqlplus runs inside the container via docker exec.
+# Callers connect with `sqlplus /nolog` and pass the HOST-facing DSN (port 1525, the container's
+# published port) via a CONNECT command on STDIN — not in argv, so the password never reaches `ps`.
+# Since sqlplus runs inside the container, translate that CONNECT line's host port to the
+# container-internal listener port (1521) as the stream passes through. Scoped to CONNECT lines so the
+# patch SQL itself is never rewritten. Args ($@, e.g. `-S /nolog`) carry no DSN and pass through as-is.
 HOST_PORT="${DB_HOST_PORT:-1525}"
 CONTAINER_PORT="${DB_CONTAINER_PORT:-1521}"
 
-args=()
-for a in "$@"; do
-  args+=("${a//:$HOST_PORT\//:$CONTAINER_PORT/}")
-done
-
-exec docker exec -i "$CONTAINER" "$SQLPLUS_BIN" "${args[@]}"
+sed "/^CONNECT /s#:${HOST_PORT}/#:${CONTAINER_PORT}/#g" \
+  | docker exec -i "$CONTAINER" "$SQLPLUS_BIN" "$@"

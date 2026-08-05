@@ -29,12 +29,10 @@ ENV_FILE="$HERE/../.env"
 
 ORACLE_DSN="${ORACLE_DSN:-THE/default@localhost:1525/DBDOCK_01}"
 
-# Masked copy for the log line only — never echo the password (user/pw@host -> user/***@host).
-# Caveats (this masks the LOG, not the process): the sed under-masks if the password itself contains
-# '/' or '@' (it leaves part visible rather than failing); and the password is still passed to sqlplus
-# in argv below, so it's visible via `ps` to any local user. Both are acceptable for the local throwaway
-# THE/default seed DB. If this ever points at a real credential, switch to `sqlplus /nolog` + a CONNECT
-# on stdin so the secret never reaches argv.
+# The DSN is sent to sqlplus via a CONNECT command on stdin (see the run loop below) with `/nolog`, so
+# the password is NEVER passed as a command-line argument and can't be read from the process list
+# (`ps`). For the log line we still print a masked copy (user/pw@host -> user/***@host); the lone
+# residual is cosmetic — this sed under-masks a password that itself contains '/' or '@'.
 ORACLE_DSN_MASKED="$(printf '%s' "$ORACLE_DSN" | sed 's#/[^@/]*@#/***@#')"
 
 # Auto-select the sqlplus client (same rule as apply-patches.sh: $SQLPLUS override, else local sqlplus, else Docker wrapper).
@@ -72,8 +70,11 @@ for (( i=${#teardowns[@]}-1; i>=0; i-- )); do
   rel="$(basename "$(dirname "$patch")")/$(basename "$patch")"
   echo ""
   echo "-> $rel"
-  { printf 'WHENEVER SQLERROR EXIT SQL.SQLCODE\n'; cat "$patch"; printf '\nEXIT\n'; } \
-    | "$SQLPLUS" -S -L "$ORACLE_DSN" | sed 's/^/    /'
+  # Connect via `/nolog` + a CONNECT command on stdin so the password (in $ORACLE_DSN) never lands in
+  # argv/`ps`. WHENEVER SQLERROR EXIT (armed first) aborts on a failed connect or any SQL error.
+  { printf 'WHENEVER SQLERROR EXIT SQL.SQLCODE\n'; printf 'CONNECT %s\n' "$ORACLE_DSN"; \
+    cat "$patch"; printf '\nEXIT\n'; } \
+    | "$SQLPLUS" -S /nolog | sed 's/^/    /'
 done
 
 echo ""
