@@ -21,10 +21,19 @@ import { defineBddConfig } from 'playwright-bdd';
 // BASE_URL from .env (defaulting to the Vite dev server).
 const BASE_URL = process.env.E2E_BASE_URL ?? process.env.BASE_URL ?? 'http://localhost:3000';
 
-// Browser channel: locally we pin the machine's installed Google Chrome because the CGI corporate proxy
-// blocks Playwright's managed-chromium CDN download. CI has no such proxy and runs
-// `npx playwright install chromium`, so there we leave the channel unset to use the managed chromium.
-const CHANNEL = process.env.CI ? undefined : 'chrome';
+// Browser channel resolution:
+//  - Locally we DEFAULT to the machine's installed Google Chrome (`chrome`), because the CGI corporate
+//    proxy blocks Playwright's managed-chromium CDN download. This is only a default, not a hard pin.
+//  - A machine WITHOUT system Google Chrome (e.g. a fresh WSL/headless box) opts into managed chromium
+//    by setting E2E_BROWSER_CHANNEL to `chromium` (or empty) in .env, after `npx playwright install
+//    chromium`. Playwright has no `chromium` *channel* — an unset channel launches the managed build —
+//    so we map `chromium`/empty to `undefined`.
+//  - CI has no proxy and installs managed chromium, so it leaves the channel unset.
+//  - Any other value (e.g. `msedge`, `chrome-beta`) is passed straight through.
+// `.trim()` so a stray trailing space in .env (`E2E_BROWSER_CHANNEL=chromium `) still maps to the
+// managed build rather than being passed through as an unknown channel name.
+const rawChannel = (process.env.E2E_BROWSER_CHANNEL ?? (process.env.CI ? '' : 'chrome')).trim();
+const CHANNEL = rawChannel === '' || rawChannel === 'chromium' ? undefined : rawChannel;
 
 // Compile features/*.feature + steps/*.ts into generated Playwright tests; returns their dir.
 const testDir = defineBddConfig({
@@ -85,11 +94,8 @@ export default defineConfig({
       grepInvert: /@smoke/,
       use: {
         ...devices['Desktop Chrome'],
-        // Use the machine's installed Google Chrome instead of Playwright's managed chromium: the
-        // CGI corporate proxy intercepts TLS and blocks the chromium CDN download
-        // (UNABLE_TO_GET_ISSUER_CERT_LOCALLY), so `npx playwright install chromium` cannot fetch the
-        // build 1.62.0 expects. The system Chrome channel needs no download and is the same approach
-        // the app's own frontend e2e suite uses.
+        // Browser channel resolved above (CHANNEL): system Google Chrome by default, overridable via
+        // E2E_BROWSER_CHANNEL; unset in CI to use managed chromium.
         channel: CHANNEL,
         // Taller than devices['Desktop Chrome']'s own 1280x720 default (must come AFTER the spread —
         // devices['Desktop Chrome'] sets its own viewport, which would otherwise win the merge): at

@@ -38,7 +38,8 @@ e2e/
   preflight/anchors.setup.ts   # `setup` project the chromium project depends on: asserts anchors +
                          #   applied-seed presence resolve BEFORE any scenario (fail fast, one clear message)
   scripts/               # apply-patches.sh / teardown-patches.sh (seed patches, auto-discovered);
-                         #   docker-sqlplus.sh (run sqlplus inside the DB container when no local client)
+                         #   docker-sqlplus.sh (stdin filter used BY the seed scripts to run sqlplus inside
+                         #     the DB container when no local client; not a standalone drop-in — see its header)
   real-test-data-patches/   # minimal per-domain seed patches (<name>.sql + <name>.teardown.sql) the
                          #   real extract can't supply — applied via scripts/ (see that folder's README)
   .features-gen/         # generated Playwright tests (git-ignored, disposable — never edit/commit)
@@ -146,7 +147,9 @@ auto-sourced by `scripts/apply-patches.sh` / `teardown-patches.sh`.
 cd e2e
 cp .env.example .env    # then edit BASE_URL / DB vars for your local stack
 npm install
-npx playwright install chromium
+# Browser: by DEFAULT the config uses your system Google Chrome (the CGI proxy blocks the managed-
+# chromium download). If you have NO system Chrome (fresh WSL/headless), install the managed build and
+# opt in via .env instead:  npx playwright install chromium  +  E2E_BROWSER_CHANNEL=chromium
 npm test                # regenerates from features (pretest -> bddgen test), then runs headless
 npm run test:headed     # watch it drive the browser (recommended first run)
 npm run bddgen          # just regenerate .features-gen/ from features + steps
@@ -250,8 +253,9 @@ env-guarded/opt-in job; keep it off the default path so it never runs without li
 **Prerequisites (this host):**
 - The stack up per *Prerequisites* above: frontend `:3000`, backend `:8080`, seeded Oracle on
   `:1525/DBDOCK_01` (`THE`/`default`).
-- **Node**: `cd e2e && npm install && npx playwright install chromium` (or use system Chrome — the
-  config pins `channel: 'chrome'` because the CGI proxy blocks the chromium CDN).
+- **Node**: `cd e2e && npm install`. Browser channel defaults to your system Google Chrome (the CGI
+  proxy blocks the chromium CDN); on a box with no system Chrome, `npx playwright install chromium` and
+  set `E2E_BROWSER_CHANNEL=chromium` in `.env` (see *Install & run*).
 - **python-oracledb** for the S13/S24 DB snapshot-restore and the S12/S17/S18 row seeding
   (`scripts/sch1_db_restore.py`): `python -m pip install oracledb`. This host has **no local sqlplus**
   and reaches the Oracle directly on `:1525`, so the suite's DB work goes through thin-mode oracledb

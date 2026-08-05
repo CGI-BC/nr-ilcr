@@ -33,6 +33,12 @@ ENV_FILE="$HERE/../.env"
 
 ORACLE_DSN="${ORACLE_DSN:-THE/default@localhost:1525/DBDOCK_01}"
 
+# The DSN is sent to sqlplus via a CONNECT command on stdin (see the run loop below) with `/nolog`, so
+# the password is NEVER passed as a command-line argument and can't be read from the process list
+# (`ps`). For the log line we still print a masked copy (user/pw@host -> user/***@host); the lone
+# residual is cosmetic — this sed under-masks a password that itself contains '/' or '@'.
+ORACLE_DSN_MASKED="$(printf '%s' "$ORACLE_DSN" | sed 's#/[^@/]*@#/***@#')"
+
 # Auto-select the sqlplus client: an explicit $SQLPLUS override, else a local `sqlplus`, else the Docker wrapper.
 DB_CONTAINER="${DB_CONTAINER:-real-data-seeded-db}"; export DB_CONTAINER
 if [ -n "${SQLPLUS:-}" ]; then
@@ -54,7 +60,7 @@ shopt -s nullglob
 
 echo "Applying E2E seed patches"
 echo "  from: $PATCHES_DIR"
-echo "  DSN:  $ORACLE_DSN   (SQLPLUS=$SQLPLUS)"
+echo "  DSN:  $ORACLE_DSN_MASKED   (SQLPLUS=$SQLPLUS)"
 
 found=0
 for patch in "$PATCHES_DIR"/*/*.sql; do
@@ -63,12 +69,15 @@ for patch in "$PATCHES_DIR"/*/*.sql; do
   rel="$(basename "$(dirname "$patch")")/$(basename "$patch")"
   echo ""
   echo "-> $rel"
-  # Pipe the file CONTENT (not @file) so this works identically for a local
-  # sqlplus and for docker-sqlplus.sh (docker exec can't read a host path).
-  # WHENEVER SQLERROR EXIT makes a SQL error abort with a non-zero status;
-  # pipefail + set -e then stop the run instead of silently continuing.
-  { printf 'WHENEVER SQLERROR EXIT SQL.SQLCODE\n'; cat "$patch"; printf '\nEXIT\n'; } \
-    | "$SQLPLUS" -S -L "$ORACLE_DSN" | sed 's/^/    /'
+  # Pipe the file CONTENT (not @file) so this works identically for a local sqlplus and for
+  # docker-sqlplus.sh (docker exec can't read a host path). Connect via `/nolog` + a CONNECT command on
+  # stdin so the password (in $ORACLE_DSN) never lands in argv/`ps`. `SET ECHO OFF` first so the CONNECT
+  # line is never echoed into the log (belt-and-braces against a patch that flips `SET ECHO ON`).
+  # WHENEVER SQLERROR EXIT (armed before CONNECT) aborts on a failed connect or any SQL error; pipefail
+  # + set -e then stop the run instead of silently continuing.
+  { printf 'SET ECHO OFF\nWHENEVER SQLERROR EXIT SQL.SQLCODE\nCONNECT %s\n' "$ORACLE_DSN"; \
+    cat "$patch"; printf '\nEXIT\n'; } \
+    | "$SQLPLUS" -S /nolog | sed 's/^/    /'
 done
 
 if [ "$found" -eq 0 ]; then

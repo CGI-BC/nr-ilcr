@@ -38,7 +38,11 @@ def connect() -> oracledb.Connection:
     dsn = os.environ.get("ORACLE_DSN", "THE/default@localhost:1525/DBDOCK_01")
     m = re.match(r"^(?P<user>[^/]+)/(?P<pw>[^@]+)@(?P<rest>.+)$", dsn)
     if not m:
-        raise SystemExit(f"ORACLE_DSN not in user/pw@host:port/service form: {dsn!r}")
+        # Do NOT echo the raw DSN — it carries the password. Report the expected shape only.
+        raise SystemExit(
+            "ORACLE_DSN is not in the expected user/pw@host:port/service form "
+            "(value withheld because it may contain a password)."
+        )
     return oracledb.connect(user=m["user"], password=m["pw"], dsn=m["rest"])
 
 
@@ -50,7 +54,16 @@ def ensure_backup_tables(cur) -> None:
         )
         if cur.fetchone()[0] == 0:
             # Same shape as the real table, no rows — a structural clone for the row copy.
-            cur.execute(f"CREATE TABLE {bak} AS SELECT * FROM {src} WHERE 1 = 0")
+            # The local data-backed suite is fully parallel, so S13 and S24 can both reach this on a
+            # fresh DB and race: both see COUNT=0, both issue CREATE TABLE, and the loser hits
+            # ORA-00955 (name already used). That collision is benign — the table now exists either
+            # way — so treat it as success rather than failing the snapshot.
+            try:
+                cur.execute(f"CREATE TABLE {bak} AS SELECT * FROM {src} WHERE 1 = 0")
+            except oracledb.DatabaseError as err:
+                (error_obj,) = err.args
+                if error_obj.code != 955:  # ORA-00955: name is already used by an existing object
+                    raise
 
 
 def find_summary_id(cur, table, mill_id, year):

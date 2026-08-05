@@ -56,7 +56,7 @@ browser `S04` **stale** (it assumed the old `514` default was absent). Flagged f
 No CI wiring (the app + delivery Oracle are not containerized in this pipeline). Manual gate:
 1. Bring up the stack per `../../../README.md` (backend `:8080` `local` profile + datasource on; Vite `:3000`;
    seeded Docker Oracle `THE/…@localhost:1525/DBDOCK_01`, security off).
-2. `cd _bmad-output/implementation-artifacts/e2e && npm test` (the `pretest` hook runs `bddgen`).
+2. `cd frontend/e2e && npm test` (the `pretest` hook runs `bddgen`).
    Scope to this UC with `npx playwright test --grep "@UC-SEC-001"`; a11y is included (`@a11y`).
 3. Flake gate: `npx playwright test --grep "@UC-SEC-001" --repeat-each=5`.
 
