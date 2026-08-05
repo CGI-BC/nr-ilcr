@@ -50,7 +50,16 @@ def ensure_backup_tables(cur) -> None:
         )
         if cur.fetchone()[0] == 0:
             # Same shape as the real table, no rows — a structural clone for the row copy.
-            cur.execute(f"CREATE TABLE {bak} AS SELECT * FROM {src} WHERE 1 = 0")
+            # The local data-backed suite is fully parallel, so S13 and S24 can both reach this on a
+            # fresh DB and race: both see COUNT=0, both issue CREATE TABLE, and the loser hits
+            # ORA-00955 (name already used). That collision is benign — the table now exists either
+            # way — so treat it as success rather than failing the snapshot.
+            try:
+                cur.execute(f"CREATE TABLE {bak} AS SELECT * FROM {src} WHERE 1 = 0")
+            except oracledb.DatabaseError as err:
+                (error_obj,) = err.args
+                if error_obj.code != 955:  # ORA-00955: name is already used by an existing object
+                    raise
 
 
 def find_summary_id(cur, table, mill_id, year):

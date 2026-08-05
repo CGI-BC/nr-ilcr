@@ -21,10 +21,17 @@ import { defineBddConfig } from 'playwright-bdd';
 // BASE_URL from .env (defaulting to the Vite dev server).
 const BASE_URL = process.env.E2E_BASE_URL ?? process.env.BASE_URL ?? 'http://localhost:3000';
 
-// Browser channel: locally we pin the machine's installed Google Chrome because the CGI corporate proxy
-// blocks Playwright's managed-chromium CDN download. CI has no such proxy and runs
-// `npx playwright install chromium`, so there we leave the channel unset to use the managed chromium.
-const CHANNEL = process.env.CI ? undefined : 'chrome';
+// Browser channel resolution:
+//  - Locally we DEFAULT to the machine's installed Google Chrome (`chrome`), because the CGI corporate
+//    proxy blocks Playwright's managed-chromium CDN download. This is only a default, not a hard pin.
+//  - A machine WITHOUT system Google Chrome (e.g. a fresh WSL/headless box) opts into managed chromium
+//    by setting E2E_BROWSER_CHANNEL to `chromium` (or empty) in .env, after `npx playwright install
+//    chromium`. Playwright has no `chromium` *channel* — an unset channel launches the managed build —
+//    so we map `chromium`/empty to `undefined`.
+//  - CI has no proxy and installs managed chromium, so it leaves the channel unset.
+//  - Any other value (e.g. `msedge`, `chrome-beta`) is passed straight through.
+const rawChannel = process.env.E2E_BROWSER_CHANNEL ?? (process.env.CI ? '' : 'chrome');
+const CHANNEL = rawChannel === '' || rawChannel === 'chromium' ? undefined : rawChannel;
 
 // Compile features/*.feature + steps/*.ts into generated Playwright tests; returns their dir.
 const testDir = defineBddConfig({
