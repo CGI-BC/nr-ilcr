@@ -30,7 +30,9 @@ const BASE_URL = process.env.E2E_BASE_URL ?? process.env.BASE_URL ?? 'http://loc
 //    so we map `chromium`/empty to `undefined`.
 //  - CI has no proxy and installs managed chromium, so it leaves the channel unset.
 //  - Any other value (e.g. `msedge`, `chrome-beta`) is passed straight through.
-const rawChannel = process.env.E2E_BROWSER_CHANNEL ?? (process.env.CI ? '' : 'chrome');
+// `.trim()` so a stray trailing space in .env (`E2E_BROWSER_CHANNEL=chromium `) still maps to the
+// managed build rather than being passed through as an unknown channel name.
+const rawChannel = (process.env.E2E_BROWSER_CHANNEL ?? (process.env.CI ? '' : 'chrome')).trim();
 const CHANNEL = rawChannel === '' || rawChannel === 'chromium' ? undefined : rawChannel;
 
 // Compile features/*.feature + steps/*.ts into generated Playwright tests; returns their dir.
@@ -92,11 +94,8 @@ export default defineConfig({
       grepInvert: /@smoke/,
       use: {
         ...devices['Desktop Chrome'],
-        // Use the machine's installed Google Chrome instead of Playwright's managed chromium: the
-        // CGI corporate proxy intercepts TLS and blocks the chromium CDN download
-        // (UNABLE_TO_GET_ISSUER_CERT_LOCALLY), so `npx playwright install chromium` cannot fetch the
-        // build 1.62.0 expects. The system Chrome channel needs no download and is the same approach
-        // the app's own frontend e2e suite uses.
+        // Browser channel resolved above (CHANNEL): system Google Chrome by default, overridable via
+        // E2E_BROWSER_CHANNEL; unset in CI to use managed chromium.
         channel: CHANNEL,
         // Taller than devices['Desktop Chrome']'s own 1280x720 default (must come AFTER the spread —
         // devices['Desktop Chrome'] sets its own viewport, which would otherwise win the merge): at

@@ -29,8 +29,12 @@ ENV_FILE="$HERE/../.env"
 
 ORACLE_DSN="${ORACLE_DSN:-THE/default@localhost:1525/DBDOCK_01}"
 
-# Masked copy for logging only — never print the password (user/pw@host -> user/***@host). Passed to
-# sqlplus in full below, but only ORACLE_DSN_MASKED is ever echoed.
+# Masked copy for the log line only — never echo the password (user/pw@host -> user/***@host).
+# Caveats (this masks the LOG, not the process): the sed under-masks if the password itself contains
+# '/' or '@' (it leaves part visible rather than failing); and the password is still passed to sqlplus
+# in argv below, so it's visible via `ps` to any local user. Both are acceptable for the local throwaway
+# THE/default seed DB. If this ever points at a real credential, switch to `sqlplus /nolog` + a CONNECT
+# on stdin so the secret never reaches argv.
 ORACLE_DSN_MASKED="$(printf '%s' "$ORACLE_DSN" | sed 's#/[^@/]*@#/***@#')"
 
 # Auto-select the sqlplus client (same rule as apply-patches.sh: $SQLPLUS override, else local sqlplus, else Docker wrapper).

@@ -1,42 +1,64 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { MUTABLE_DRAFT, READONLY_ANCHOR, scheduleUrl } from '../fixtures/sch1/schedule1-test-data';
 
-/** Line-item / silviculture / summary shape needed to prove the mutable target starts EMPTY. */
+/** A Schedule 1 fixed line item as it appears in the GET response (backend `Schedule1Response.LineItem`). */
+type ResponseLineItem = { costItemCode: number; volume: number | null; cost: number | null };
+
+/**
+ * The GET (`Schedule1Response`) shape — the fields needed to prove the mutable target starts EMPTY.
+ * NOTE: read the RESPONSE shape, not the PUT request shape. The request's top-level `otherCostsVolume`
+ * / `forestMgmtAdminVolume` / `subtotalCompanyLoggingVolume` do NOT exist on the response — the shared
+ * Other-Costs volume is `otherCosts.volume`, and 143/144 are rows inside `lineItems`.
+ */
 type ScheduleDoc = {
   trackStatus: string;
   editable: boolean;
-  lineItems?: Array<{ volume: number | null; cost: number | null }>;
+  comments?: string | null;
+  lineItems?: ResponseLineItem[];
+  // SilvicultureBlock (codes 1/2/139/140); each member is null when its detail row is absent.
   silviculture?: {
-    actualSpent?: { volume: number | null; cost: number | null };
-    accruedLessActual?: { volume: number | null; cost: number | null };
+    actualSpent?: ResponseLineItem | null; // 1  — volume + cost
+    accruedLessActual?: ResponseLineItem | null; // 2  — volume + cost
+    lessAdmin?: ResponseLineItem | null; // 139 — volume only (cost pulled from Sch 3)
+    total?: ResponseLineItem | null; // 140 — volume only (cost derived)
   };
-  otherCosts?: { count?: number };
-  otherCostsVolume?: number | null;
-  forestMgmtAdminVolume?: number | null;
-  subtotalCompanyLoggingVolume?: number | null;
+  // OtherCostsSummary: `volume` is the shared item-19 volume; `count` is the itemized-row count.
+  otherCosts?: { volume?: number | null; count?: number };
 };
 
+// Which cost-item codes carry a CLIENT-WRITABLE value. 12–18 carry volume + cost; 143/144 (and
+// silviculture 139/140) carry volume only — their cost is pulled from Schedule 3 or derived
+// server-side (`upsertFixedDetail` writes it null), so a non-null cost is normal on an empty Draft and
+// must NOT be read as "populated" (that would false-positive-fail a perfectly good anchor).
+const VOL_AND_COST_CODES = new Set([12, 13, 14, 15, 16, 17, 18]);
+const VOL_ONLY_CODES = new Set([143, 144]);
+
 /**
- * True when a Schedule 1 carries NO report data — every writable value null and no itemized Other-Costs
- * rows. The S01 happy-path cleanup restores the mutable target by blanking every writable field
- * (`emptyScheduleRequest`), which is lossless ONLY if that target was empty to begin with. Preflight
- * asserts this so a re-extract that leaves 13050/2017 Draft-but-POPULATED fails fast here instead of
- * letting S01 silently overwrite real seeded values with blanks.
+ * True when a Schedule 1 carries NO client-entered report data — every writable value null, no itemized
+ * Other-Costs rows, and no comment. The S01 happy-path cleanup restores the mutable target by blanking
+ * the writable fields (`emptyScheduleRequest`: comments, 12–18, silviculture 1/2), which is lossless
+ * ONLY if that target was empty to begin with. Preflight asserts full emptiness so a re-extract that
+ * leaves 13050/2017 Draft-but-POPULATED (line item, silviculture, shared Other-Costs volume, OR a
+ * comment) fails fast here instead of letting S01 silently overwrite real seeded values with blanks.
  */
 function isEmptySchedule(doc: ScheduleDoc): boolean {
-  const cells = [
-    ...(doc.lineItems ?? []).flatMap((li) => [li.volume, li.cost]),
-    doc.silviculture?.actualSpent?.volume ?? null,
-    doc.silviculture?.actualSpent?.cost ?? null,
-    doc.silviculture?.accruedLessActual?.volume ?? null,
-    doc.silviculture?.accruedLessActual?.cost ?? null,
-    doc.otherCostsVolume ?? null,
-    doc.forestMgmtAdminVolume ?? null,
-    doc.subtotalCompanyLoggingVolume ?? null,
+  const items = doc.lineItems ?? [];
+  const s = doc.silviculture;
+  const cells: Array<number | null | undefined> = [
+    ...items.filter((li) => VOL_AND_COST_CODES.has(li.costItemCode)).flatMap((li) => [li.volume, li.cost]),
+    ...items.filter((li) => VOL_ONLY_CODES.has(li.costItemCode)).map((li) => li.volume),
+    s?.actualSpent?.volume,
+    s?.actualSpent?.cost,
+    s?.accruedLessActual?.volume,
+    s?.accruedLessActual?.cost,
+    s?.lessAdmin?.volume, // 139 volume only
+    s?.total?.volume, // 140 volume only
+    doc.otherCosts?.volume, // shared item-19 Other-Costs volume (itemized rows counted below)
   ];
   const allValuesNull = cells.every((v) => v === null || v === undefined);
   const noItemizedRows = (doc.otherCosts?.count ?? 0) === 0;
-  return allValuesNull && noItemizedRows;
+  const noComments = !doc.comments;
+  return allValuesNull && noItemizedRows && noComments;
 }
 
 /**
