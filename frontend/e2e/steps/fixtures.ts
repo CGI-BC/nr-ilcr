@@ -76,10 +76,12 @@ type Fixtures = {
    */
   schedule1SaveFault: { failTimes: number };
   /**
-   * Other-Costs add-endpoint spy. Counts POST calls to `/api/v1/schedule1/other-costs` so a
-   * client-rejected add (S10/S11) can PROVE the negative — a blocked Add fires NO mutating POST.
+   * Other-Costs mutation spy. Add/remove now persist the WHOLE row set via one PUT to
+   * `/api/v1/schedule1/other-costs?…&intent=save|delete` (bcgov's EditableSubPage rewrite), not a
+   * per-row POST. Counts that base PUT so a client-rejected add (S10/S11) can PROVE the negative — a
+   * blocked Add validates and returns BEFORE persisting, firing NO mutating request.
    */
-  otherCostsSpy: { posts: number };
+  otherCostsSpy: { mutations: number };
   /**
    * Cleanup registry for itemized Other-Costs rows a scenario adds (S09 adds one; S12 seeds one to
    * remove). On teardown every row carrying the registered marker is deleted via the app's DELETE
@@ -185,10 +187,13 @@ export const test = base.extend<Fixtures>({
   },
 
   otherCostsSpy: async ({ page }, use) => {
-    const spy = { posts: 0 };
+    const spy = { mutations: 0 };
     await page.route('**/api/v1/schedule1/other-costs**', async (route) => {
-      if (route.request().method() === 'POST') {
-        spy.posts += 1;
+      const req = route.request();
+      // The UI mutates via the base whole-set PUT (…/other-costs?…&intent=…); count that, never the
+      // per-row PUT /{id} or the GET read-backs. A client-rejected add fires none of these.
+      if (req.method() === 'PUT' && !/\/other-costs\/\d+/.test(req.url())) {
+        spy.mutations += 1;
       }
       await route.continue();
     });

@@ -3,15 +3,17 @@ import { type Locator, type Page, expect } from '@playwright/test';
 /**
  * Subtotal Other Costs sub-page (components/schedule1OtherCosts/index.tsx), reached from the main
  * Schedule 1 page. Add form is `#add-description` / `#add-cost` / the "Add" button (rendered only when
- * editable); rows live in the aria-labelled "Other Costs" table with per-row Edit/Delete buttons; a
- * Carbon danger Modal ("Delete other cost") confirms a remove. Selectors live here, never in steps.
+ * editable). Rows live in the aria-labelled "Other Cost List" table; on an editable Draft each row's
+ * description is an inline TextInput (accessible name "Edit description") and the per-row delete is an
+ * icon-only "Remove" button that persists the whole set IMMEDIATELY with no confirm modal (bcgov's
+ * EditableSubPage rewrite dropped the legacy per-row confirm). Selectors live here, never in steps.
  */
 export class OtherCostsPage {
   constructor(private readonly page: Page) {}
 
   /** The aria-labelled rows table — present once the sub-page GET resolves. */
   get table(): Locator {
-    return this.page.getByRole('table', { name: 'Other Costs' });
+    return this.page.getByRole('table', { name: 'Other Cost List' });
   }
 
   get addDescription(): Locator {
@@ -42,17 +44,25 @@ export class OtherCostsPage {
     await this.addButton.click();
   }
 
-  /** A table row located by its (unique) description text. */
-  rowByText(text: string): Locator {
-    return this.table.getByRole('row').filter({ hasText: text });
+  /**
+   * The live description values currently listed. On an editable Draft each row renders its description
+   * as a controlled TextInput (name "Edit description"), so the value lives on the input property — not
+   * as row text — and must be read via the DOM value (a `hasText` / `[value=]` match would miss it).
+   */
+  async descriptions(): Promise<string[]> {
+    const inputs = this.table.getByRole('textbox', { name: 'Edit description' });
+    return inputs.evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
   }
 
-  /** Delete a listed row by description: its danger Delete button, then the confirm Modal's Delete. */
+  /**
+   * Remove a listed row by its description. The per-row action is now an icon-only "Remove" button that
+   * deletes immediately (no confirm modal). Description inputs and Remove buttons share row order, so the
+   * value's index selects the matching Remove button.
+   */
   async deleteRow(text: string): Promise<void> {
-    await this.rowByText(text).getByRole('button', { name: 'Delete' }).click();
-    const dialog = this.page.getByRole('dialog', { name: 'Delete other cost' });
-    await expect(dialog).toBeVisible();
-    await dialog.getByRole('button', { name: 'Delete' }).click();
+    const idx = (await this.descriptions()).indexOf(text);
+    expect(idx, `Other Cost row "${text}" not found to delete`).toBeGreaterThanOrEqual(0);
+    await this.table.getByRole('button', { name: 'Remove' }).nth(idx).click();
   }
 
   async backToSchedule1(): Promise<void> {

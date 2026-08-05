@@ -63,7 +63,7 @@ Given('an itemized Other Cost line item exists to remove', async ({ request, wor
 });
 
 Given('a spy is watching the Other Costs add request', async ({ otherCostsSpy }) => {
-  expect(otherCostsSpy.posts, 'spy must start at zero POSTs').toBe(0);
+  expect(otherCostsSpy.mutations, 'spy must start at zero mutating requests').toBe(0);
 });
 
 When('I note the Subtotal Other Costs count', async ({ schedule1Page, world }) => {
@@ -89,11 +89,13 @@ When('I go back to Schedule 1', async ({ otherCostsPage, schedule1Page }) => {
 });
 
 Then('the Other Cost {string} appears in the Other Costs list', async ({ otherCostsPage }, description) => {
-  await expect(otherCostsPage.rowByText(description)).toBeVisible();
+  // Editable rows render the description as an input value (not row text); poll the live values since
+  // the list re-seeds from the save response after the whole-set PUT.
+  await expect.poll(() => otherCostsPage.descriptions()).toContain(description);
 });
 
 Then('the Other Cost {string} is no longer in the Other Costs list', async ({ otherCostsPage }, description) => {
-  await expect(otherCostsPage.rowByText(description)).toHaveCount(0);
+  await expect.poll(() => otherCostsPage.descriptions()).not.toContain(description);
 });
 
 Then('the Subtotal Other Costs count has increased by one', async ({ schedule1Page, world }) => {
@@ -129,7 +131,8 @@ Then('the Other Cost {string} is not persisted', async ({ request, world }, desc
 });
 
 Then('the Other Cost add request should not have been sent', async ({ otherCostsSpy }) => {
-  expect(otherCostsSpy.posts, 'a client-rejected Add must not POST to the Other Costs endpoint').toBe(
-    0,
-  );
+  expect(
+    otherCostsSpy.mutations,
+    'a client-rejected Add must not send the mutating Other Costs PUT',
+  ).toBe(0);
 });

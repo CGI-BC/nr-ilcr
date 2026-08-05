@@ -58,8 +58,11 @@ Feature: Report Average Cost of Logging (Schedule 1) — maintain Subtotal Other
       | cost out of range  | 150000000 | Entered cost must be between -99,999,999 and 99,999,999. |
       | non-numeric cost   | abc       | Entered cost is invalid.                                |
 
+  # PARITY CHANGE (bcgov EditableSubPage rewrite): the per-row delete-confirmation modal was removed —
+  # Remove now deletes immediately and persists the whole set. Re-grounded to that behavior; flagged for
+  # BA review (the legacy per-row confirm no longer exists in the app).
   @S12 @p1
-  Scenario: Remove an Other Cost line item after confirming the prompt
+  Scenario: Remove an Other Cost line item
     Given an itemized Other Cost line item exists to remove
     And I have selected that mill and reporting year on the Home page
     And I open Schedule 1
