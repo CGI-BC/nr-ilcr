@@ -5,7 +5,7 @@
 # All four anchors are READ-ONLY: the Home Save is a resolve GET that writes no schedule data, so these
 # scenarios need no cleanup and are parallel-safe by construction.
 #
-# DIVERGENCE on S20 (defects.md DIV-3): legacy DISABLED the Add panel's six fields, both Save
+# DIVERGENCE on S20 (defects.md DIV-2): legacy DISABLED the Add panel's six fields, both Save
 # buttons, both Check Status buttons, and every per-row control. The React app instead OMITS the Add
 # panel and the per-row Actions entirely when `editable` is false, and disables the single Check Status
 # button. Absence is the modern read-only contract; asserted as the app behaves.

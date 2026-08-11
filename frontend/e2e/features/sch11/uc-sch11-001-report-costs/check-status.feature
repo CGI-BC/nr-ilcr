@@ -8,7 +8,7 @@
 # ... met" only on the pass branch. That asymmetry is legacy-faithful and is asserted BOTH ways below:
 # the fail branches assert the flag message AND that the "met" message is absent.
 #
-# There is ONE Check Status button in the React app, not legacy's top+bottom pair (DIV-4).
+# There is ONE Check Status button in the React app, not legacy's top+bottom pair (DIV-3).
 #
 # Each of the three scenarios owns its own anchor, so they can run in parallel without one scenario's
 # seeded row appearing in another's check-status result.

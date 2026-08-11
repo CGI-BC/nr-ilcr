@@ -186,12 +186,17 @@ location with no costs stores real NULLs (which render as blank, not "0").
     path — which is why no Draft-focused scenario would ever have caught it. If reviewers/auditors relied
     on it to spot what a licensee changed after submitting, this is a real functional gap; if the audit
     tables now serve that need, dropping it is fine. Same question, same answer needed, as Schedule 1.
-  - **Same root cause as Schedule 1's DIV-5** (`features/sch1/uc-sch1-001-enter-save/defects.md`), which
-    is already with the Schedule 1 developer. This is **not a second defect** — it is the same missing
-    capability surfacing on a second screen, so it should ride that same ticket rather than a new one.
-    Recorded here so Schedule 11's ledger is not silently missing it.
+  - **Same root cause as Schedule 1's DIV-5** (`features/sch1/uc-sch1-001-enter-save/defects.md`) — the same
+    missing capability surfacing on a second screen, not a second defect.
+  - **No ticket exists for it, and there may never be one** (confirmed with Iman 2026-08-10). An earlier
+    revision of this entry said it "should ride that same ticket"; there is no ticket to ride, so that
+    assumption is withdrawn. It needs a triage decision of its own.
   - **Priority / env:** p2 pending triage · local seeded delivery DB.
-  - **Status:** OPEN — cross-referenced to Schedule 1 DIV-5; BA/QA to confirm it rides that ticket.
+  - **Status:** OPEN — **BA/QA to triage.** The decision needed is whether losing the post-submission
+    change-tracking view matters: if reviewers relied on it to see what a licensee altered after submitting,
+    this is a real functional gap needing a backend change (the API exposes no prior value); if the audit
+    tables now serve that need, it can be closed as an accepted drop. Cross-referenced to Schedule 1 DIV-5
+    so both screens are decided together rather than twice.
   - **Test:** none — out of reach for this UC's scenarios, which all write against **Draft** schedules
     (the indicator only renders once a report has left Draft). S20 covers the non-Draft render but asserts
     only that the Add panel and row actions are absent and Check Status is disabled. `not-applicable
@@ -209,21 +214,45 @@ location with no costs stores real NULLs (which render as blank, not "0").
     back), but nothing tries to exceed the cap. The app enforces it two ways — Carbon's `maxCount` counter
     in the browser and `@Size(max=3500)` on the server (message: "Comments must be 3500 characters or
     fewer.") — so the message is only reachable by calling the API directly.
-  - **Why deferred:** low risk (two independent enforcement points, no data-loss path) and a 3,500-character
-    UI test is slow and brittle. **Status:** OPEN — `deferred` in coverage.md.
+  - **Checked for existing unit coverage 2026-08-10: there is NONE.** Neither layer tests the cap —
+    `Schedule11WriteIT` has no `@Size`/3500 case (its validation tests are blank-location, missing-enhanced,
+    missing-selections, out-of-range, NAR-decimals, unresolvable-biogeo), and
+    `components/schedule11/__tests__/validation.test.ts` covers only `parseDecimalInput`, the cost range and
+    the NAR one-decimal rule. So this gap is real and currently uncovered at every level.
+  - **Where it belongs — NOT here.** The browser cannot reach it: Carbon's `maxCount` stops the 3,501st
+    character, so no UI test can produce the server message. The right home is a **backend bean-validation
+    test** on `SilvicultureLocationRequest` (one `@Size(max=3500)` case, ~5 lines beside the existing
+    `blankLocation_returns400`), which is Story 25.2 territory, not 25.4.
+  - **Status:** OPEN — `deferred` in coverage.md; **ACTION: backend team to add the `@Size` case.** Low risk
+    (two independent enforcement points, no data-loss path), so this is tidy-up, not a blocker.
 
 - **GAP-2 — The 30-character Location limit is not tested.**
   - The Add field carries `maxLength={30}`, so a 31st character cannot be typed and the server message
-    ("Location must be 30 characters or fewer.") is unreachable through the UI. **Status:** OPEN —
-    `not-applicable (UI)` in coverage.md. Would need an API-level test to cover at all.
+    ("Location must be 30 characters or fewer.") is unreachable through the UI.
+  - **Checked for existing unit coverage 2026-08-10: there is NONE** — same finding as GAP-1, same two test
+    files searched. Uncovered at every level today.
+  - **Where it belongs — NOT here**, for the same reason as GAP-1: a backend bean-validation case on
+    `SilvicultureLocationRequest`'s `@Size(max=30)`. Pair it with GAP-1's in one small backend change.
+  - **Status:** OPEN — `not-applicable (UI)` in coverage.md; **ACTION: backend team**, with GAP-1.
 
 - **GAP-3 — The per-row "changed by another user" conflict is not tested.**
   - Each row carries an optimistic-lock token (`revisionCount`). We **confirmed the behaviour works** by
     calling the API directly on 2026-08-10: a PUT carrying a stale token returns HTTP 409 "This schedule
     was changed by another user. Please reload and try again." What is *not* automated is driving it from
     the UI, which needs two browser sessions editing the same row concurrently.
-  - **Why deferred:** needs a two-context scenario the suite has no pattern for yet. This is genuine
-    concurrency protection with no legacy counterpart — see SPEC-1. **Status:** OPEN — `deferred`.
+  - **IT COVERAGE EXISTS (found 2026-08-10):** `Schedule11WriteIT.staleAndMissingRevision()` —
+    *"AC7: PUT with a stale revisionCount → 409; PUT omitting it → clean 400"* — asserts **both** halves at
+    the endpoint. So the behaviour is not unverified; only the *browser* path is.
+  - **Is that enough to close this gap? Not quite, and here is the honest reason.** Every `*IT.java` in this
+    repo is **skipped in CI**: `backend/pom.xml` defaults `<skip.integration.tests>true</skip.integration.tests>`
+    and `.github/workflows/analysis.yml` runs a plain `mvn -B -ntp verify` with no `-P all-tests`. So the IT
+    only runs when someone runs it locally — a regression here would be caught by **no automated gate**.
+    That is the pre-existing AR17 limitation, not a Schedule 11 problem.
+  - **Downgraded, not closed:** the endpoint contract is verified, so this is no longer "untested" — it is
+    "tested by a suite CI does not run". Driving it through the UI still needs a two-browser-context
+    scenario the suite has no pattern for, and would add little over the IT.
+  - **Status:** OPEN (downgraded) — `deferred` in coverage.md, cross-referenced to the IT. See SPEC-1 for
+    the missing slice and AR17 for the CI lane.
 
 - **GAP-4 — Duplicate-location and invalid-BEC-code rejections are not tested.**
   - `Schedule11Api.addLocation` documents a 409 for a duplicate biogeo/location key, and a 400
@@ -231,13 +260,30 @@ location with no costs stores real NULLs (which render as blank, not "0").
     saved."` for a BEC id that no longer resolves. Neither is reachable from the UI in normal use: forced
     selection means the browser can only submit an id the catalogue just returned, and the invalid-code
     path needs a dangling reference in the data.
-  - **Status:** OPEN — `deferred` / `not-applicable (UI)`. See SPEC-1.
+  - **IT COVERAGE EXISTS for BOTH (found 2026-08-10):**
+    `Schedule11WriteIT.duplicateBiogeoLocation_returns409()` — *"AC6: duplicate (year,mill,cat,biogeo,location)
+    → 409 verbatim biogeo-unique"* — and `Schedule11WriteIT.unresolvableBiogeo_returns400()`. Both rules are
+    verified at the endpoint.
+  - **Same CI caveat as GAP-3:** those ITs do not run in CI (AR17), so the contract is verified but
+    ungated. Neither rule is UI-reachable anyway — forced selection means the browser can only submit an id
+    the catalogue just returned.
+  - **Status:** OPEN (downgraded) — `deferred` / `not-applicable (UI)`, cross-referenced to the two ITs.
+    See SPEC-1.
 
-- **GAP-5 — Column sorting is not tested.**
-  - The new table sorts on eight columns with a three-state cycle (ascending → descending → back to the
-    server's order). It is presentational, persists nothing, and has no legacy slice — legacy's
-    PrimeFaces table only toggled ascending/descending, so the "back to original order" state is new.
-  - **Status:** OPEN — `deferred`. See SPEC-2.
+- **GAP-5 — CLOSED 2026-08-10: column sorting is already covered by unit tests, and they run in CI.**
+  - **What we found:** `components/schedule11/__tests__/Schedule11.test.tsx` has a dedicated
+    `describe('Schedule 11 column sorting (legacy p:column sortBy parity)')` block with **7 tests**,
+    including *"every column carries a sort control except Comments and Actions (xhtml:353/364)"* — i.e. it
+    pins the legacy `sortBy` parity directly.
+  - **And unlike the ITs, these DO gate:** CI runs `npm run test:cov` (`analysis.yml`), so a sorting
+    regression fails the build.
+  - **So neither an E2E scenario nor a manual test is warranted.** E2E would be strictly worse here:
+    slower, needs the full stack + seeded DB, and would assert the same pure-presentation logic the Vitest
+    block already covers deterministically. Sorting persists nothing and issues no request, so there is no
+    integration risk for E2E to find that the unit tests miss. Manual testing would be worse again —
+    unrepeatable and ungated.
+  - **Status:** CLOSED — covered by Vitest (in CI). `covered (unit)` in coverage.md. SPEC-2 (no slice
+    describes sorting) stays open as a BA paperwork item, independent of test coverage.
 
 - **GAP-6 — There is no role-dependent Schedule 11 behaviour to cover yet.** _(REWORDED 2026-08-10 — the
   earlier wording said the 403 paths were "blocked (env)" because security is off locally, which implied we
@@ -369,7 +415,8 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Status:** CLOSED as verified 2026-08-10.
 
 - **VER-5 — The legacy `ILCR_LICENSEE` role was re-grounded to the new two-group model.**
-  _(was DIV-5; reclassified 2026-08-10 to match how Schedule 1 files the identical finding)_
+  _(previously logged here as a divergence; reclassified 2026-08-10 to match how Schedule 1 files the
+  identical finding)_
   - **Why it looked wrong:** every UC-SCH11-001 scenario opens "Given I am authenticated as a Licensee
     (Mill Reporter, `ILCR_LICENSEE`)", and no such role exists in the new app.
   - **What we found:** the ratified model is `ILCR_ADMIN` + `ILCR_SUBMITTER` (**PRD DL-23**). Legacy really
@@ -387,7 +434,7 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Status:** CLOSED as verified 2026-08-10. Mirrors Schedule 1's equivalent Verified entry.
 
 - **VER-6 — Derived totals refresh on save, not as you type — and legacy behaved the same way.**
-  _(was DIV-2, where it was wrongly logged as a divergence; reclassified 2026-08-10)_
+  _(previously logged here as a divergence, wrongly; reclassified 2026-08-10)_
   - **Why it looked wrong:** the S03 Gherkin asserts "the row's Total Act Plus Plan Cost and Total/NAR(ha)
     columns recompute immediately via AJAX" and "the footer Totals row recomputes" — both **before** the
     Save click — and attributes it to "the row-level `p:ajax` listener (BR-08, CNT-001)". The new app
