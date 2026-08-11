@@ -20,6 +20,7 @@ import {
   MSG,
   MULTI_ADD_ANCHOR,
   PERSIST_ANCHOR,
+  STALE_EDIT_ANCHOR,
   type BecOption,
   type Sch11Anchor,
   TRACK_INDEPENDENCE_ANCHOR,
@@ -30,6 +31,7 @@ import { type Sch11Column } from '../../pages/sch11/schedule11Page';
 import {
   type Sch11Location,
   addLocation,
+  editLocationAsAnotherSession,
   getSchedule11,
   locationByMarker,
   locationsByMarker,
@@ -72,6 +74,7 @@ const MUTATING_ANCHORS: Record<string, { anchor: Sch11Anchor; marker: string }> 
   },
   a11y: { anchor: A11Y_ANCHOR, marker: MARKER.a11y },
   correction: { anchor: CORRECTION_ANCHOR, marker: MARKER.correction },
+  'stale-edit': { anchor: STALE_EDIT_ANCHOR, marker: MARKER.staleEdit },
 };
 
 /**
@@ -377,6 +380,17 @@ When('I change the inline {string} to {string}', async ({ schedule11Page }, fiel
       throw new Error(`unknown inline field "${field}"`);
   }
 });
+
+When(
+  'another session changes the Schedule 11 location {string} to actual cost {int}',
+  async ({ request, world }, marker, cost: number) => {
+    // GAP-3: mutate the row through the API while the browser holds an OPEN editor. `startEdit` already
+    // captured the row's revisionCount into React state, so this write bumps the stored token and the
+    // browser's pending save becomes stale — exactly the two-user conflict, without needing a second
+    // browser context.
+    await editLocationAsAnotherSession(request, claimedKey(world), marker, { actualCost: cost });
+  },
+);
 
 When('I save the inline edit', async ({ schedule11Page }) => {
   await schedule11Page.saveEdit();

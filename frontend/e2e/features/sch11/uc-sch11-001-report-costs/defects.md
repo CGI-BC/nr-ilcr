@@ -198,43 +198,38 @@ location with no costs stores real NULLs (which render as blank, not "0").
     `SilvicultureLocationRequest`'s `@Size(max=30)`. Pair it with GAP-1's in one small backend change.
   - **Status:** OPEN — `not-applicable (UI)` in coverage.md; **ACTION: backend team**, with GAP-1.
 
-- **GAP-3 — The per-row "changed by another user" conflict is not tested THROUGH THE UI; the endpoint
-  contract is IT-covered but that IT does not run in CI.**
-  - Each row carries an optimistic-lock token (`revisionCount`). Confirmed working by calling the API
-    directly on 2026-08-10: a PUT carrying a stale token returns HTTP 409 "This schedule was changed by
-    another user. Please reload and try again." What this suite does not do is drive it from the **UI**,
-    which needs two browser sessions editing the same row concurrently.
-  - **IT COVERAGE EXISTS (found 2026-08-10):** `Schedule11WriteIT.staleAndMissingRevision()` —
-    *"AC7: PUT with a stale revisionCount → 409; PUT omitting it → clean 400"* — asserts **both** halves at
-    the endpoint. So the behaviour is not unverified; only the *browser* path is.
-  - **Is that enough to close this gap? Not quite, and here is the honest reason.** Every `*IT.java` in this
-    repo is **skipped in CI**: `backend/pom.xml` defaults `<skip.integration.tests>true</skip.integration.tests>`
-    and `.github/workflows/analysis.yml` runs a plain `mvn -B -ntp verify` with no `-P all-tests`. So the IT
-    only runs when someone runs it locally — a regression here would be caught by **no automated gate**.
-    That is the pre-existing AR17 limitation, not a Schedule 11 problem.
-  - **Downgraded, not closed:** the endpoint contract is verified, so this is no longer "untested" — it is
-    "tested by a suite CI does not run". Driving it through the UI still needs a two-browser-context
-    scenario the suite has no pattern for, and would add little over the IT.
-  - **Status:** OPEN (downgraded) — `deferred` in coverage.md, cross-referenced to the IT. See SPEC-1 for
-    the missing slice and AR17 for the CI lane.
-
-- **GAP-4 — Duplicate-location and invalid-BEC-code rejections are IT-covered at the endpoint, but that
-  IT does not run in CI, and neither rule is UI-reachable.**
-  - `Schedule11Api.addLocation` documents a 409 for a duplicate biogeo/location key, and a 400
-    `"Biogeo/Subzone/Variant code is invalid. The code must be corrected before the schedule can be
-    saved."` for a BEC id that no longer resolves. Neither is reachable from the UI in normal use: forced
-    selection means the browser can only submit an id the catalogue just returned, and the invalid-code
-    path needs a dangling reference in the data.
-  - **IT COVERAGE EXISTS for BOTH (found 2026-08-10):**
-    `Schedule11WriteIT.duplicateBiogeoLocation_returns409()` — *"AC6: duplicate (year,mill,cat,biogeo,location)
-    → 409 verbatim biogeo-unique"* — and `Schedule11WriteIT.unresolvableBiogeo_returns400()`. Both rules are
-    verified at the endpoint.
-  - **Same CI caveat as GAP-3:** those ITs do not run in CI (AR17), so the contract is verified but
-    ungated. Neither rule is UI-reachable anyway — forced selection means the browser can only submit an id
-    the catalogue just returned.
-  - **Status:** OPEN (downgraded) — `deferred` / `not-applicable (UI)`, cross-referenced to the two ITs.
-    See SPEC-1.
-
+- **GAP-3 — CLOSED 2026-08-10: the per-row conflict is now covered end-to-end.**
+  - **Test written:** `concurrency.feature` `@p1` — "Saving a row that another session already changed is
+    rejected, and their value survives". Opens the row's editor (which captures its `revisionCount`),
+    changes the row through the API so the stored token moves on, then saves from the browser: the PUT
+    carries the stale token, the 409 detail renders verbatim, and **the other session's value is asserted
+    as the survivor** so a lost-update bug cannot pass.
+  - **Why it was worth writing even though an IT existed:** `Schedule11WriteIT.staleAndMissingRevision()`
+    proves the *server* returns 409; it says nothing about what the *user* sees. If the app swallowed the
+    409 a licensee would believe their correction saved when it had not. That is the risk this covers, and
+    the IT could not.
+  - **Proven non-vacuous:** with the concurrent-change step removed the scenario FAILS (no conflict
+    message) — checked 2026-08-10, so the assertion genuinely depends on the staged conflict.
+  - **No second browser context needed:** `startEdit` copies the token into React state, so one context
+    plus one API call stages the conflict. (The earlier note claiming this needed two sessions overstated
+    the cost.)
+  - **Status:** CLOSED — `covered` in coverage.md. No legacy slice describes it; SPEC-1 stays open for that.
+- **GAP-4 — CLOSED 2026-08-10 as not-applicable to E2E: duplicate-location and invalid-BEC-code
+  rejections cannot be reached through the UI, and are IT-covered at the endpoint.**
+  - **Not reachable here, by design:** forced selection (BR-09) means the browser can only ever submit a
+    catalogue id it just received, so neither condition can be produced through the UI. Faking it would
+    mean intercepting the request and injecting a bad payload — that would test the interceptor, not the
+    app, so it is deliberately NOT done.
+  - **Already covered where it belongs:** `Schedule11WriteIT.duplicateBiogeoLocation_returns409()` ("AC6:
+    duplicate (year,mill,cat,biogeo,location) → 409 verbatim biogeo-unique") and
+    `Schedule11WriteIT.unresolvableBiogeo_returns400()`. Endpoint-level is the right layer for both.
+  - **Caveat, stated rather than implied:** those ITs **do not run in CI** —
+    `backend/pom.xml` defaults `skip.integration.tests=true` and `analysis.yml` runs a plain `mvn verify`.
+    So both rules are *verified once, ungated thereafter*. That is the pre-existing AR17 limitation; closing
+    this gap does **not** mean the rules are protected against regression, only that E2E is the wrong place
+    to protect them.
+  - **Status:** CLOSED — `not-applicable (UI)` in coverage.md, cross-referenced to the two ITs and AR17.
+    See SPEC-1 for the missing slices.
 - **GAP-5 — CLOSED 2026-08-10: column sorting is already covered by unit tests, and they run in CI.**
   - **What we found:** `components/schedule11/__tests__/Schedule11.test.tsx` has a dedicated
     `describe('Schedule 11 column sorting (legacy p:column sortBy parity)')` block with **7 tests**,

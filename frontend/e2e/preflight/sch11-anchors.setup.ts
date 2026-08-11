@@ -16,6 +16,7 @@ import {
   INLINE_EDIT_ANCHOR,
   MULTI_ADD_ANCHOR,
   PERSIST_ANCHOR,
+  STALE_EDIT_ANCHOR,
   type Sch11Anchor,
   TRACK_INDEPENDENCE_ANCHOR,
   VALIDATION_ANCHOR,
@@ -44,6 +45,7 @@ const EDITABLE_DRAFT_ANCHORS: { name: string; anchor: Sch11Anchor }[] = [
   { name: 'track-independence (S10)', anchor: TRACK_INDEPENDENCE_ANCHOR },
   { name: 'validate-only (S14-S19)', anchor: VALIDATION_ANCHOR },
   { name: 'correction', anchor: CORRECTION_ANCHOR },
+  { name: 'stale-edit (GAP-3)', anchor: STALE_EDIT_ANCHOR },
   { name: 'a11y', anchor: A11Y_ANCHOR },
 ];
 

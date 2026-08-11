@@ -49,6 +49,7 @@ export interface Sch11Anchor {
 
 const MILL_8888: MillRef = { millNumber: '8888', millName: 'CGI TEST MILL8' }; // millId 24051, ACT
 const MILL_2121: MillRef = { millNumber: '2121', millName: 'SESAME STREET' }; // millId 10050, ACT
+const MILL_514: MillRef = { millNumber: '514', millName: 'AAA MILLING' }; // millId 16050, ACT
 
 /** S01 — add one location with both costs and read it back. */
 export const ADD_ANCHOR: Sch11Anchor = { key: { millId: 24051, year: 2015 }, mill: MILL_8888 };
@@ -91,6 +92,17 @@ export const CHECK_MISSING_PLANNED_ANCHOR: Sch11Anchor = {
 
 /** Accessibility sweep of the fully-populated EDITABLE page (Add panel + a real row + Actions column). */
 export const A11Y_ANCHOR: Sch11Anchor = { key: { millId: 10050, year: 2020 }, mill: MILL_2121 };
+
+/**
+ * GAP-3 — the per-row optimistic lock. A row is opened for edit (capturing its `revisionCount`), changed
+ * out from under the browser through the API, then saved: the PUT carries a now-stale token and must be
+ * rejected with the ERR conflict message rather than silently overwriting.
+ *
+ * Confirmed pristine 2026-08-10: `GET /v1/schedule11?millId=16050&year=2018` → {trackStatus:"D",
+ * editable:true, locations:[]}. Distinct from the `no-schedule` guard anchor, which is the same mill in a
+ * DIFFERENT year (16050/2016).
+ */
+export const STALE_EDIT_ANCHOR: Sch11Anchor = { key: { millId: 16050, year: 2018 }, mill: MILL_514 };
 
 /**
  * The correct-and-retry loop (the recovery arm the S14–S19 legacy scenarios each carry). The recovery
@@ -253,6 +265,13 @@ export const MSG = {
   requirementsMet: 'All requirements for this schedule have been met',
 } as const;
 
+/**
+ * The per-row optimistic-lock rejection (GAP-3). Verbatim from a live 409 on 2026-08-10; the frontend
+ * renders the ProblemDetail `detail` unchanged (AD-8).
+ */
+export const ERR_STALE_EDIT =
+  'This schedule was changed by another user. Please reload and try again.';
+
 export const ERR = {
   /**
    * ERR-001. The CLIENT-side literal has NO trailing space (components/schedule11/index.tsx
@@ -331,4 +350,5 @@ export const MARKER = {
   trackIndependence: 'E2E S10 indep',
   a11y: 'E2E a11y row',
   correction: 'E2E corrected',
+  staleEdit: 'E2E stale edit',
 } as const;

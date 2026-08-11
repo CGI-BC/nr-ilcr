@@ -110,6 +110,48 @@ export async function addLocation(
   return added!.locationId;
 }
 
+/**
+ * PUT one location through the app's own endpoint, using whatever `revisionCount` the row currently
+ * carries. Used to simulate **another session** changing a row while the browser holds an open editor
+ * (GAP-3): this write succeeds and bumps the token, so the browser's pending save is then stale.
+ *
+ * Deliberately re-reads the row first rather than taking a token from the caller — hard-coding one would
+ * make the helper itself the thing under test.
+ */
+export async function editLocationAsAnotherSession(
+  request: APIRequestContext,
+  key: ScheduleKey,
+  marker: string,
+  changes: Partial<SeedLocation>,
+): Promise<Sch11Location> {
+  const row = await locationByMarker(request, key, marker);
+  const res = await request.put(locationUrl(row.locationId, key.millId, key.year), {
+    data: {
+      location: row.location,
+      enhancedIndicator: row.enhancedIndicator,
+      biogeoclimaticCatalogueId: row.biogeoclimaticCatalogueId,
+      netArea: row.netArea,
+      actualCost: row.actualCost ?? null,
+      plannedCost: row.plannedCost ?? null,
+      comments: row.comments ?? null,
+      revisionCount: row.revisionCount,
+      ...changes,
+    },
+  });
+  expect(
+    res.ok(),
+    `concurrent PUT on "${marker}" (${key.millId}/${key.year}) returned HTTP ${res.status()}: ${await res.text()}`,
+  ).toBeTruthy();
+  const after = await locationByMarker(request, key, marker);
+  // The whole point is that the token MOVED — if it didn't, the browser's save would not be stale and the
+  // scenario would prove nothing.
+  expect(
+    after.revisionCount,
+    `concurrent edit must bump revisionCount (was ${row.revisionCount})`,
+  ).not.toBe(row.revisionCount);
+  return after;
+}
+
 /** Every location currently on the schedule whose `location` text equals `marker`. */
 export async function locationsByMarker(
   request: APIRequestContext,

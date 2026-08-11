@@ -21,13 +21,13 @@ edit (`inline-edit.feature`); S04–S06 Check Status (`check-status.feature`); S
 (`delete.feature`); S09 add-is-save persistence (`persistence.feature`); S10 track independence
 (`track-independence.feature`); S11–S13 + S20 guard/read-only renders (`render-states.feature`);
 S14–S19 entry rejection (`validation.feature`); the correct-and-retry recovery arm
-(`correction.feature`); and WCAG 2.1 AA (NFR1) across **six** structurally distinct renders.
+(`correction.feature`); per-row optimistic locking (`concurrency.feature`, closing GAP-3); and WCAG 2.1 AA (NFR1) across **six** structurally distinct renders.
 **Five are clean** — editable-with-a-row, the open inline row editor, read-only and a guard state
 (`accessibility.feature`), plus the Check-Status result (`check-status.feature`). The **sixth**, the
 **validation-error** state, carries a genuine pre-existing violation and is therefore a deliberate RED
 (`accessibility.feature` `@discovered-bug`) rather than a clean pass.
 
-**Every one of the 20 slices is dispositioned `covered`.** 28 scenarios: 27 green + **1 deliberate
+**Every one of the 20 slices is dispositioned `covered`.** 29 scenarios: 28 green + **1 deliberate
 `@discovered-bug` RED** tracking a pre-existing, app-wide accessibility defect (defects.md
 BUG-1 — Carbon's validation-error markup is never announced to assistive technology; it
 affects every schedule page and is already recorded in `deferred-work.md`, which asked for exactly this
@@ -75,7 +75,7 @@ VER-1–VER-4. Two of them (`S15` Enhanced, `S18` NAR range) are the exact strin
 work. **The comments in `validation.ts` should now be updated to drop the PROVISIONAL label**
 (GAP-7 tracks that follow-up; it is an app-source comment, and this suite changes no app source).
 
-Suite state: **27 green + 1 intentional red** (the `@discovered-bug` accessibility check above). The
+Suite state: **28 green + 1 intentional red** (the `@discovered-bug` accessibility check above). The
 whole-suite clean run `npx playwright test --grep-invert @discovered-bug` is green; the two excluded reds
 are this UC's accessibility bug and Schedule 1's pre-existing `clear-amounts` bug — both genuine,
 pre-existing app defects with `defects.md` entries, neither masked or weakened.
@@ -105,6 +105,11 @@ internal field id as the error text). So an accessibility finding here is **not*
 and must not be triaged by asking "did legacy do this?". NFR1 is also satisfied by *triage*, not only by
 zero: the epic AC reads "violations are zero, **or** each remaining violation is triaged with a recorded
 disposition".
+
+Non-flaky proof: the suite stresses cleanly at `--repeat-each=3` **except** `concurrency.feature`, which is
+a SINGLE-OWNER mutating scenario and must be stressed **serially** (`--repeat-each=5 --workers=1`, 33/33 on
+2026-08-10). Parallel copies self-collide on the app's own duplicate-(location, biogeo) rule — a harness
+artifact, not a defect. Same constraint Schedule 1 records for its destructive scenarios.
 
 Cleanup: a Schedule 11 location is a row the scenario itself creates, so teardown **deletes** it via the
 app's own `DELETE` endpoint (the preferred route — no DB fallback needed, unlike Schedule 1 whose summary
@@ -147,9 +152,9 @@ pre-exists and must be restored). The `schedule11Cleanup` registry fails loud on
 | Comments field, optional, max 3500 (BR-10) | slices.md; `commentsMaxLengthErrorMsg` | `maxCount` + `enableCounter` (index.tsx:959); `@Size(max=3500)` | `happy-path` `@S01` (entry + read-back only) | covered (+ gap) | Entry and persistence are covered; the 3500 CAP is not — GAP-1 |
 | Location max length 30 | `locationMaxLengthErrorMsg`; slices.md | `maxLength={30}` (index.tsx:895); `@Size(max=30)` | — | not-applicable (UI) | The Carbon `maxLength` attribute makes a 31st character untypeable, so the message is unreachable through the UI. Reachable only by calling the API directly — GAP-2 |
 | Character counter ("n characters remaining") | technical.md control ref `characterCounter` | Carbon `enableCounter` renders "x/3500" instead | — | deferred | Different mechanism, presentational only, no message contract. GAP-1 covers the cap it belongs to |
-| Per-row optimistic lock — stale `revisionCount` → 409 | **no legacy slice** (new-app concurrency) | `Schedule11Service.editLocation` stale check; `revisionCount` read at `startEdit` (index.tsx:639) | — | deferred (ungated) | **GAP-3** — verified at the endpoint by `Schedule11WriteIT.staleAndMissingRevision()` (stale → 409, omitted → clean 400), but that IT is **skipped in CI** (`skip.integration.tests=true`; AR17), so the contract is tested yet ungated. UI path needs two browser contexts. Also SPEC-1 |
-| Duplicate biogeo/location key → 409 | **no legacy slice**; `Schedule11Api.addLocation` javadoc | `Schedule11Service.addLocation` duplicate check | — | deferred (ungated) | **GAP-4** — verified by `Schedule11WriteIT.duplicateBiogeoLocation_returns409()`; IT skipped in CI (AR17). Not UI-reachable. Also SPEC-1 |
-| Unresolvable BEC id → 400 `invalidBiogeoCode` | **no legacy slice**; `InvalidBiogeoCodeException` | `Schedule11Service` biogeo resolution | — | not-applicable (UI) | **GAP-4** — verified by `Schedule11WriteIT.unresolvableBiogeo_returns400()`; IT skipped in CI (AR17). Forced selection means the UI can only submit an id the catalogue just returned |
+| Per-row optimistic lock — stale `revisionCount` → 409 | **no legacy slice** (new-app concurrency; SPEC-1) | `Schedule11Service.editLocation` stale check; token captured at `startEdit` (index.tsx:639) | `concurrency.feature` `@p1` | **covered** | **GAP-3 CLOSED** — opens the editor, moves the token via the API, saves: 409 detail renders verbatim AND the other session's value is asserted as the survivor (so a lost-update cannot pass). Proven non-vacuous by removing the conflict step. Complements `Schedule11WriteIT.staleAndMissingRevision()`, which proves the server side but not the user-visible handling |
+| Duplicate biogeo/location key → 409 | **no legacy slice** (SPEC-1) | `Schedule11Service.addLocation` duplicate check | — | not-applicable (UI) | **GAP-4 CLOSED** — unreachable through the UI (forced selection); covered by `Schedule11WriteIT.duplicateBiogeoLocation_returns409()`. That IT is skipped in CI (AR17), so verified-but-ungated |
+| Unresolvable BEC id → 400 `invalidBiogeoCode` | **no legacy slice** (SPEC-1) | `Schedule11Service` biogeo resolution | — | not-applicable (UI) | **GAP-4 CLOSED** — same reason; covered by `Schedule11WriteIT.unresolvableBiogeo_returns400()`, likewise ungated in CI (AR17) |
 | `revisionCount` omitted on PUT → 400 | `revisionCountRequiredErrorMsg`; `OnUpdate` group | `@NotNull(groups=OnUpdate.class)` | — | not-applicable (UI) | `handleSaveEdit` refuses to fire when `editRevision` is null (index.tsx:665), so the UI cannot produce this request |
 | Column sorting (3-state, per column) | **no legacy slice** — new-app behaviour | `handleSort` / `COLUMNS` (index.tsx:524, 258) | — | **covered (unit)** | **GAP-5 CLOSED** — 7 Vitest tests in `Schedule11.test.tsx`'s `describe('Schedule 11 column sorting (legacy p:column sortBy parity)')`, incl. the every-column-except-Comments/Actions parity check. These **do** gate (CI runs `npm run test:cov`). E2E would be slower and add nothing: sorting persists nothing and fires no request. SPEC-2 (no slice) stays open separately |
 | Role-dependent behaviour / a role-driven 403 | `Schedule11Api` javadoc; codebase-map role model | `SchedulePermissions.ROLE_ACTIONS` grants ADMIN and SUBMITTER the SAME two actions; every `Schedule11Controller` endpoint guards on `VIEW_SCHEDULE`/`EDIT_SCHEDULE` only | — | not-applicable (no role-dependent behaviour) | **GAP-6** — there is no admin-only branch and no role-driven 403 on this UC, so there is nothing to assert (NOT merely something we cannot reach — reworded 2026-08-10, the same correction Schedule 1 made to its GAP-1) |
