@@ -266,8 +266,11 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Future action:** revisit when FAM auth lands **and the two `ROLE_ACTIONS` sets actually diverge**. The
     lever would then be a CI matrix (a second run against `ilcr.security.mock-role=ILCR_ADMIN`), not a
     per-test switch, because the authority is fixed per process.
-  - **Status:** OPEN (informational). Verified 2026-08-10.
-  - **Test:** none needed today — `not-applicable (no role-dependent behaviour)` in coverage.md.
+  - **Status:** OPEN — **`deferred`** (2026-08-10). Deferred rather than not-applicable because there is a
+    named future trigger: the day the two `ROLE_ACTIONS` sets diverge, this becomes an ordinary owed test.
+    "Not applicable" would wrongly imply never. (Schedule 1's equivalent GAP-1 still reads
+    `not-applicable`; this is a deliberate difference in framing, not a contradiction — same facts.)
+  - **Test:** none today — `deferred (no role-dependent behaviour yet)` in coverage.md.
 
 - **GAP-7 — Follow-up for the app team: two stale `PROVISIONAL` comments in `validation.ts`.**
   - `components/schedule11/validation.ts` marks two message strings "PROVISIONAL … the exact live-app text
@@ -293,16 +296,27 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Why it matters:** these are user-visible error messages with no requirement behind them, so nothing
     says what the *intended* wording or recovery is — and no slice means no test is owed, which is how a
     real behaviour ends up permanently unverified.
-  - **Suggested action (BA):** derive slices for these three, in the same way UC-SCH1-001-S25 was derived
-    when the Schedule 1 inline edit turned out to be missing. Then GAP-3/GAP-4 become ordinary
-    owed tests rather than judgement calls.
-  - **Status:** OPEN — awaiting BA review.
+  - **CLOSED 2026-08-10 (BA decision, Iman).** All three rules are now covered by tests, so the practical
+    purpose of a slice — making sure the behaviour is owed a test — is already served: the optimistic lock by
+    `concurrency.feature` `@p1` (GAP-3), and the duplicate-key and invalid-BEC rules by
+    `Schedule11WriteIT.duplicateBiogeoLocation_returns409()` / `unresolvableBiogeo_returns400()` (GAP-4).
+    This entry is the evidence trail; deriving slices retroactively would add paperwork, not coverage.
+  - **One residual, recorded rather than left open:** a test pins the *current* wording, whereas a
+    requirement would say what the wording *should be*. So if one of those three messages is changed later
+    there is no spec to appeal to — only a failing test. In practice that is the stronger guard (the test
+    fails loudly; a slice would not), which is why this closes rather than stays open. Reopen only if the
+    intended wording of those three messages is ever actually disputed.
+  - **Status:** CLOSED — covered by test, evidence retained here.
 
 - **SPEC-2 — Column sorting has no slice.**
   - The table sorts on eight columns with a three-state cycle, which is a deliberate improvement on
     legacy's two-state toggle (it adds a way back to the server's original order). No slice covers
     sorting in either form.
-  - **Status:** OPEN — awaiting BA review. Low priority: presentational, persists nothing.
+  - **CLOSED 2026-08-10 (BA decision, Iman).** Nothing is lost by closing: sorting is presentational,
+    persists nothing, issues no request, carries no user-facing message, and is already covered by 7 Vitest
+    tests that gate in CI (see GAP-5). A slice would document a behaviour that is already both implemented
+    and protected.
+  - **Status:** CLOSED — covered by unit tests; no requirement owed.
 
 ---
 
