@@ -102,10 +102,6 @@ location with no costs stores real NULLs (which render as blank, not "0").
 > The app genuinely differs from what the legacy-derived Gherkin describes. **We do not change app source
 > to match the spec, and we do not silently drop the spec's version** — each item below is asserted as the
 > app actually behaves, and the legacy expectation is recorded here.
->
-> **DIV-2 and DIV-5 are no longer here.** Both turned out not to be divergences and were moved to
-> *Verified — not a defect* (**VER-6** and **VER-5**) on 2026-08-10, so this register lists only live
-> divergences. Their numbers are not reused. Everything remaining is a real, open difference.
 
 - **DIV-1 — Schedule 11 has no "Save" button, and Delete now persists immediately instead of on a later Save.**
   - **NARROWED 2026-08-10 after checking the legacy source directly.** An earlier revision of this entry
@@ -138,7 +134,7 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Test:** covered as the app behaves — `happy-path.feature` `@S01`, `inline-edit.feature` `@S03`,
     `delete.feature` `@S07`, `persistence.feature` `@S09`. No red.
 
-- **DIV-3 — When the schedule is read-only, the editing controls are removed rather than greyed out.**
+- **DIV-2 — When the schedule is read-only, the editing controls are removed rather than greyed out.**
   - **What's different:** Once the silviculture track leaves Draft, legacy **disabled** the six Add
     fields, both Save buttons, both Check Status buttons and every per-row control — they stayed visible
     but unusable. The new screen **does not render** the "Add New Location" panel or the per-row
@@ -155,7 +151,7 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Status:** OPEN — awaiting BA/QA confirmation that omit-instead-of-disable is accepted.
   - **Test:** `render-states.feature` `@S20` (outline, both codes) asserts absence. No red.
 
-- **DIV-4 — There is one Check Status button, not two.**
+- **DIV-3 — There is one Check Status button, not two.**
   - **What's different:** Legacy rendered a Check Status button above *and* below the table. The new
     screen has one.
   - **Expected vs actual:** S04–S06 locate "the first instance" of the button and S20 asserts "**both**
@@ -167,7 +163,7 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Status:** OPEN — informational; no action expected.
   - **Test:** `render-states.feature` `@S20` asserts the single button is disabled. No red.
 
-- **DIV-6 — The per-field "original value" indicators from legacy do not exist anywhere in the new app.**
+- **DIV-4 — The per-field "original value" indicators from legacy do not exist anywhere in the new app.**
   _(NEW 2026-08-10 — found by checking whether Schedule 1's DIV-5 also applies to this screen. It does.)_
   - **What's missing:** in legacy, once a Schedule 11 report had been **submitted** (left Draft), each
     editable field on a location row whose value differed from the previously-saved one displayed a small
