@@ -11,16 +11,16 @@ in Carbon's validation-error markup that affects every schedule page and is alre
 `deferred-work.md`, which explicitly asked for it to be re-covered by a red check here. Schedule 11's own
 behaviour was correct on every path exercised, including the four legacy items the requirements could not
 pin down. Beyond that bug, what this log records is that **Schedule 11 was rebuilt rather than ported**, so
-**four** behaviours genuinely differ from the legacy Gherkin — DIV-1, DIV-3, DIV-4 and DIV-6. They are
+**four** behaviours genuinely differ from the legacy Gherkin — DIV-1 through DIV-4. They are
 logged as **Divergences for BA/QA to confirm as accepted**, not as faults: three trace to decisions already
 recorded in Story 25.1/25.2 (AD-8 "render the server's message verbatim", AD-12 the wire contract), while
-DIV-6 is a legacy capability with no new-app counterpart that should ride Schedule 1's existing ticket.
+DIV-4 is a legacy capability with no new-app counterpart and no ticket yet, so it needs its own triage call.
 **We are not adjudicating any of them; BA/QA own that call.**
 
 Two further findings were logged as divergences at first and then **disproved** by re-verifying against the
 legacy source rather than the derived sidecar. Both now sit in *Verified — not a defect* (**VER-5** the
 `ILCR_LICENSEE` rename, **VER-6** the pre-save recompute) so the Divergence register lists only live
-differences. Their old numbers are not reused.
+differences.
 
 ---
 
@@ -235,11 +235,12 @@ location with no costs stores real NULLs (which render as blank, not "0").
     `SilvicultureLocationRequest`'s `@Size(max=30)`. Pair it with GAP-1's in one small backend change.
   - **Status:** OPEN — `not-applicable (UI)` in coverage.md; **ACTION: backend team**, with GAP-1.
 
-- **GAP-3 — The per-row "changed by another user" conflict is not tested.**
-  - Each row carries an optimistic-lock token (`revisionCount`). We **confirmed the behaviour works** by
-    calling the API directly on 2026-08-10: a PUT carrying a stale token returns HTTP 409 "This schedule
-    was changed by another user. Please reload and try again." What is *not* automated is driving it from
-    the UI, which needs two browser sessions editing the same row concurrently.
+- **GAP-3 — The per-row "changed by another user" conflict is not tested THROUGH THE UI; the endpoint
+  contract is IT-covered but that IT does not run in CI.**
+  - Each row carries an optimistic-lock token (`revisionCount`). Confirmed working by calling the API
+    directly on 2026-08-10: a PUT carrying a stale token returns HTTP 409 "This schedule was changed by
+    another user. Please reload and try again." What this suite does not do is drive it from the **UI**,
+    which needs two browser sessions editing the same row concurrently.
   - **IT COVERAGE EXISTS (found 2026-08-10):** `Schedule11WriteIT.staleAndMissingRevision()` —
     *"AC7: PUT with a stale revisionCount → 409; PUT omitting it → clean 400"* — asserts **both** halves at
     the endpoint. So the behaviour is not unverified; only the *browser* path is.
@@ -254,7 +255,8 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Status:** OPEN (downgraded) — `deferred` in coverage.md, cross-referenced to the IT. See SPEC-1 for
     the missing slice and AR17 for the CI lane.
 
-- **GAP-4 — Duplicate-location and invalid-BEC-code rejections are not tested.**
+- **GAP-4 — Duplicate-location and invalid-BEC-code rejections are IT-covered at the endpoint, but that
+  IT does not run in CI, and neither rule is UI-reachable.**
   - `Schedule11Api.addLocation` documents a 409 for a duplicate biogeo/location key, and a 400
     `"Biogeo/Subzone/Variant code is invalid. The code must be corrected before the schedule can be
     saved."` for a BEC id that no longer resolves. Neither is reachable from the UI in normal use: forced
