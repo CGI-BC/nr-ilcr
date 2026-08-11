@@ -294,8 +294,10 @@ broken build. `test:gate` excludes those known reds and exits 0 when nothing new
 command that is safe to copy-paste and safe to wire into CI. Keeping this block on `test:gate` means it
 stays correct the next time a suspected defect is parked as an honest red.
 
-**As of 2026-08-11 the two commands are equivalent: the suite is all green, 57 passed, and no
-`@discovered-*` reds remain.** The three defects it surfaced have all been fixed and verified — the
+**Schedule 1 / working-context are all green as of 2026-08-11 — no `@discovered-*` reds remain there.**
+(Schedule 11, added after, contributes exactly **one** deliberate red — see its gate section below — so
+`npm test` exits 1 while `npm run test:gate` exits 0.) The three Schedule 1 defects have all been fixed
+and verified — the
 delivery-DB Other-Costs insert 500 (`defects.md` BUG-1, fixed during the story) and the two found by the
 2026-08-07 re-review: BUG-2 (five volume fields could not be cleared, issue #260) and BUG-3 (a null shared
 Other-Costs volume returned a 500, issue #261), both fixed in backend commit `3ee9ff2` and re-verified at
@@ -308,3 +310,38 @@ anchors after any DB re-extract (`preflight/` fails fast if one drifted).
 > merely go red on the single-owner keys (S02/S13/S24/clear-amounts) — it can overwrite one repeat's
 > backup with another's already-mutated state and restore that as the "baseline", silently drifting the
 > seeded anchor. See the ⚠️ note in `features/sch1/uc-sch1-001-enter-save/coverage.md`.
+
+## Manual gate — Schedule 11 (UC-SCH11-001 / Story 25.4)
+
+Same environment prerequisites as above (no CI delivery-DB access — AR17), but Schedule 11 needs **no**
+Python/oracledb: it has per-row ids and a real `DELETE` endpoint, so cleanup goes through the app's own
+API rather than a DB snapshot-restore.
+
+```bash
+cd e2e
+npm test -- --grep @sch11                       # all 28 scenarios: 27 green + 1 intentional red
+npm run test:gate -- --grep @sch11              # the gate: 27 passed, exits 0
+npm test -- --grep "@a11y"                      # the Schedule 11 accessibility sweeps (NFR1)
+```
+**Schedule 11's one red is `accessibility.feature` `@discovered-bug`** — an app-wide Carbon defect
+(validation errors are never announced to assistive technology), tracked in
+`features/sch11/uc-sch11-001-report-costs/defects.md` BUG-1 and in `deferred-work.md`. It is not Schedule
+11's to fix, and `test:gate` excludes it.
+
+Two gotchas worth knowing:
+- Use an `npm` script (not a bare `npx playwright test`) when scoping by tag, so the `pretest` hook
+  regenerates the features first — a bare run can execute stale compiled `.feature` output and give a
+  false green.
+- `--grep` is a **regex over the test title**, not a tag expression: `--grep "@sch11 and @a11y"` matches
+  **nothing** (verified). Combine tags with a regex (`--grep "@sch11.*@a11y"`) or use a single tag. `@a11y`
+  is Schedule 11's; Schedule 1 uses `@accessibility`.
+
+- **28 scenarios cover all 20 slices S01–S20** — see `features/sch11/uc-sch11-001-report-costs/coverage.md`
+  for the slice-by-slice ledger and `defects.md` for the divergences and gaps.
+- **Every mutating scenario owns its own `(mill, year)`** so `fullyParallel` cannot collide, and
+  `preflight/sch11-anchors.setup.ts` asserts that distinctness plus every pinned anchor and BEC option
+  before any scenario runs. A drifted DB fails there with one actionable "re-ground the fixtures" message.
+- **The seeded DB is left exactly as found** — the `schedule11Cleanup` registry deletes every row a
+  scenario created and throws on residue.
+- The one red is the app-wide accessibility defect above; it is **not** a Schedule 11 fault and not this
+  story's to fix.

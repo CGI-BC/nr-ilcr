@@ -32,6 +32,22 @@ export type World = {
   /** Other-Costs mutating-PUT tally captured mid-scenario, so a later reject can prove NO FURTHER write
    * was sent even when an earlier step in the same scenario legitimately saved (SG-1 inline edit). */
   otherCostsMutationsBefore?: number;
+  // --- sch11 ---
+  // NOTE: the (mill, year) and Home option text use the SHARED `scheduleKey` / `millOption` above —
+  // Schedule 11 deliberately reuses them so the promoted common step
+  // (steps/common/home-context.steps.ts) serves every domain from one definition.
+  /** The row marker the scenario seeded/created, so a later Then reads back the right location. */
+  sch11Marker?: string;
+  /**
+   * Location-mutation tally captured mid-scenario, so a later reject can prove NO FURTHER write was
+   * sent even when an earlier step in the same scenario legitimately wrote (the inline-edit reject arm).
+   */
+  sch11MutationsBefore?: number;
+  /** Per-row optimistic-lock token captured before a no-write assertion, re-checked to prove no write. */
+  sch11RevisionAtOpen?: number;
+  /** Listed row count noted before a cancel/reject, re-checked after to prove the table is unchanged. */
+  sch11RowCountBefore?: number;
+
   // --- sec ---
   /** The URL of the Schedule 1 GET fired on nav — proves the SAVED Home context drove the request (UC-SEC-001). */
   schedule1RequestUrl?: string;
