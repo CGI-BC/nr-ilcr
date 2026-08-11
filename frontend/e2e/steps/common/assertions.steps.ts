@@ -8,7 +8,7 @@ import { assertNoA11yViolations } from '../../pages/common/axe';
 
 Then(
   'the {string} view has no WCAG 2.1 AA accessibility violations',
-  async ({ page, $testInfo }, label) => {
+  async ({ page, $testInfo, $tags }, label) => {
     // An axe scan is CPU-heavy: it serialises the whole accessible tree and runs ~100 rules. A scenario
     // that scans TWICE (e.g. a page and then its open row editor) can exceed the 60 s default when
     // several copies run concurrently — observed 2026-08-10 as a timeout (never an assertion failure)
@@ -18,7 +18,11 @@ Then(
     // non-a11y scenario on the strict 60 s budget, so a genuine hang elsewhere still fails fast. Additive,
     // so a two-scan scenario gets twice the extension.
     $testInfo.setTimeout($testInfo.timeout + 60_000);
-    await assertNoA11yViolations(page, label);
+    // A scenario tagged `@discovered-bug` is a KNOWN, already-triaged red, so the helper logs one line
+    // instead of dumping the full rule/node/help-URL block on every run — that dump reads like a fresh
+    // emergency and buries any genuinely new finding next to it. The assertion is unchanged: the test still
+    // fails, because the failing state is the tracking signal.
+    await assertNoA11yViolations(page, label, { known: $tags.includes('@discovered-bug') });
   },
 );
 

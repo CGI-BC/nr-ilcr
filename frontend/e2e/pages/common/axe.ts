@@ -8,27 +8,51 @@ import { AxeBuilder } from '@axe-core/playwright';
  * label-content-name-mismatch, …), so a "2.1 AA" claim needs the 2.1 tags too (the same correction the
  * app team's Story 1.5 review applied). Any violation is printed (rule + impact + nodes + help URL) so a
  * real finding can be triaged with a recorded disposition rather than failing opaquely.
+ *
+ * ONE EXCEPTION to that printing: a scenario tagged `@discovered-bug` is a KNOWN, already-triaged red, so
+ * dumping the full rule/node/help-URL block on every run is noise that reads like a fresh emergency. Those
+ * pass `known: true` and get a single line instead. The assertion is unchanged — the test still fails,
+ * because that failing state IS the tracking signal. Only the logging is quieter.
  */
 
 const WCAG_2_1_AA_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
-export async function assertNoA11yViolations(page: Page, label: string): Promise<void> {
+export interface A11yOptions {
+  /** True when the caller's scenario is a documented `@discovered-bug` red (see the UC's defects.md). */
+  known?: boolean;
+}
+
+export async function assertNoA11yViolations(
+  page: Page,
+  label: string,
+  opts: A11yOptions = {},
+): Promise<void> {
   const results = await new AxeBuilder({ page }).withTags(WCAG_2_1_AA_TAGS).analyze();
   const { violations } = results;
   if (violations.length > 0) {
-    const report = violations
-      .map(
-        (v) =>
-          `  [${v.impact ?? 'n/a'}] ${v.id}: ${v.help}\n` +
-          `      nodes: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}\n` +
-          `      ${v.helpUrl}`,
-      )
-      .join('\n');
-    // Surfaced in the test output/trace so BA/QA can triage each finding (NFR1 disposition).
-    console.error(`axe WCAG 2.1 AA violations on ${label}:\n${report}`);
+    if (opts.known) {
+      // Known + already triaged: one line, no rule dump. The expect() below still fails.
+      console.log(
+        `axe: ${String(violations.length)} KNOWN violation(s) on ${label} ` +
+          `(${violations.map((v) => v.id).join(', ')}) — expected RED, see this UC's defects.md.`,
+      );
+    } else {
+      const report = violations
+        .map(
+          (v) =>
+            `  [${v.impact ?? 'n/a'}] ${v.id}: ${v.help}\n` +
+            `      nodes: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}\n` +
+            `      ${v.helpUrl}`,
+        )
+        .join('\n');
+      // Surfaced in the test output/trace so BA/QA can triage each finding (NFR1 disposition).
+      console.error(`axe WCAG 2.1 AA violations on ${label}:\n${report}`);
+    }
   }
   expect(
     violations.map((v) => v.id),
-    `WCAG 2.1 AA violations on ${label} — fix, or record a disposition per NFR1`,
+    opts.known
+      ? `KNOWN WCAG violation(s) on ${label} — expected RED, tracked in this UC's defects.md`
+      : `WCAG 2.1 AA violations on ${label} — fix, or record a disposition per NFR1`,
   ).toEqual([]);
 }
