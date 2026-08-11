@@ -26,67 +26,30 @@ differences.
 
 ## Bug / Regression
 
-- **BUG-1 — Validation errors are never announced to screen-reader users (critical accessibility defect,
-  app-wide — NOT Schedule 11's to fix).**
-  - **What's wrong:** When you press **Add** with a required field empty, the field turns red and an error
-    message appears underneath. A sighted user sees it immediately. A screen-reader user is told
-    **nothing** — the error is never announced, so the form appears to have simply done nothing. The user
-    has no way to know why the location was not added, or which field is at fault.
-  - **Expected vs actual:** Expected the error to be announced when it appears (a live region, or the
-    error text properly associated with the field). Actual — the field is marked invalid via
-    `aria-invalid="true"` and `aria-errormessage="add-location-error-msg"`, but nothing announces it and
-    the referenced element is not wired up in a way assistive technology will read.
-  - **How we caught it:** An axe (WCAG 2.1 AA) scan of the validation-error state on 2026-08-10 —
-    rule **`aria-valid-attr-value`**, impact **critical**, on node `#add-location`. Reproduced on the
-    Schedule 11 Add panel by leaving Location blank and pressing Add.
-  - **Why (technical):** The markup comes from `@carbon/react`'s `TextInput` `invalid`/`invalidText`
-    wiring, not from Schedule 11 code. There is no `aria-live`, no `role="alert"`, and no
-    `aria-describedby` on the announcement path.
-  - **Scope — this is NOT a Schedule 11 defect:** every schedule page uses the same Carbon `TextInput`
-    invalid wiring, so **Schedules 1/2/3/4/8/11 all carry it** in their validation states. Earlier axe
-    sweeps in this suite only ever scanned non-error states, which is why it went unseen for so long.
-  - **Already known and already triaged elsewhere:** recorded in
-    `_bmad-output/implementation-artifacts/deferred-work.md` as an app-wide WCAG 4.1.2 defect needing an
-    app-wide decision (a visually-hidden `role="alert"` region fed on validation failure, or a Carbon
-    version/config change). It was first found during the earlier, since-removed 25.4 attempt; that note
-    ends **"Re-cover it with a deliberately-RED accessibility check when the Schedule 11 E2E is
-    (re-)developed."** This entry and its red scenario are that re-cover.
-  - **Is it a defect?** Yes — genuine, critical, and pre-existing. It is **not** caused by any Schedule 11
-    change, and fixing it is out of scope for Story 25.4 (which changes no app source).
-  - **Is it a LEGACY-PARITY issue? No — and this is the important distinction for triage.** Every other
-    entry in this file is measured against the legacy app: if legacy did X and we do Y, that is a
-    Divergence. This one is different. It is measured against **NFR1**, which is an *additive
-    modernization requirement*, not a parity requirement — `epics.md:70`: *"Accessibility — pages meet
-    WCAG 2.1 AA (BC Gov standard); … axe checks ride the post-implementation Playwright suite."* The
-    legacy JSF/PrimeFaces app was never held to WCAG and demonstrably fails it **worse**: its Enhanced
-    dropdown had no `label` attribute at all (`UC-SCH11-001-technical.md` FLD-001), so it rendered a raw
-    internal field id as the error text. So do **not** triage this by asking "did legacy do this?" — the
-    answer is "legacy was worse, and that is not the bar". The bar is the new standard we committed to.
-  - **Does this block the AC?** No. The epic AC is *"WCAG 2.1 AA violations are zero, **or each remaining
-    violation is triaged with a recorded disposition** (NFR1)"* — this entry, plus the `deferred-work.md`
-    record and the red test, **is** that recorded disposition. NFR1 is satisfied by triage, not only by
-    zero.
-  - **A latent BUG, not a REGRESSION — don't go looking for the commit that broke it.** Nothing regressed:
-    this markup has never announced its errors, so there is no "previously green" state and no offending
-    change to bisect. It sat unseen because prior axe sweeps only ever scanned non-error states.
-  - **Why this register (so it isn't re-filed):** the registers classify by *what is compared*. This is
-    **app vs correct behaviour** (correct = the committed NFR1 standard) → Bug/Regression. It is **not** a
-    *Coverage gap*: that register means "we haven't tested it, and it isn't an app problem" — here we *do*
-    test it (the red scenario below) and it *is* an app problem. It is **not** a *Divergence* either: that
-    compares app vs the legacy-derived spec, and legacy is not the yardstick for NFR1 (see above). Being
-    **deferred is a `Status`, not a register** — Bug/Regression explicitly expects to be "kept as a
-    genuinely-failing `@discovered-bug` test if it can't be fixed right away".
-  - **Priority / env:** p1 · reproducible on any schedule's field-validation error · local seeded delivery DB.
-  - **Status:** **TRIAGED (deferred)** — triaged by the team on 2026-07-30 into
-    `_bmad-output/implementation-artifacts/deferred-work.md`, which gives it its own section
-    ("Deferred from: Schedule 11 a11y finding") and names the two candidate fixes (a visually-hidden
-    `role="alert"` region fed on validation failure, or a Carbon version/config change). Awaiting the
-    app-wide accessibility decision. No Jira key is set here and this is **not ours to close** — BA/QA own
-    that. Note NFR1 is MVP-deferred *in breadth only*, so whether a critical defect rides that deferral is
-    a product call, not a testing one.
-  - **Test:** `accessibility.feature` `@discovered-bug @p1` — "The validation-error state announces its
-    errors to assistive technology" is a genuine RED and will go green when the app-wide fix lands. It is
-    **not** masked, skipped or weakened. Exclude it from a clean run with `--grep-invert @discovered-bug`.
+- **BUG-1 — Validation errors are never announced to screen-reader users.**
+  _Pre-existing · app-wide · not Schedule 11's to fix · already deferred._
+  - **What's wrong:** press **Add** with a required field empty and the field turns red with a message
+    below it. A sighted user sees it; a screen-reader user is told **nothing**, so the form appears to have
+    silently done nothing and there is no way to know which field is at fault.
+  - **Evidence:** axe WCAG 2.1 AA scan of the validation-error state, 2026-08-10 — rule
+    `aria-valid-attr-value`, impact **critical**, node `#add-location`.
+  - **Scope:** the markup comes from `@carbon/react`'s `TextInput` `invalid`/`invalidText` wiring, so
+    **every schedule page carries it** (1/2/3/4/8/11). Nothing in Schedule 11 causes it, and it cannot be
+    fixed here — it needs an app-wide decision (a visually-hidden `role="alert"` region fed on validation
+    failure, or a Carbon version/config change).
+  - **WHAT HAPPENS NEXT: nothing, by this story.** It was triaged on 2026-07-30 into
+    `_bmad-output/implementation-artifacts/deferred-work.md`, which owns it and names the candidate fixes.
+    That note is what asked for the red check below. **No action is owed by Story 25.4.**
+  - **Does it block the AC?** No. The epic AC is "violations are zero, **or** each remaining violation is
+    triaged with a recorded disposition (NFR1)" — the `deferred-work.md` entry is that disposition.
+  - **Priority / env:** p1 · any schedule's field-validation error · local seeded delivery DB.
+  - **Status:** **TRIAGED (deferred)** — owned by `deferred-work.md`, awaiting the app-wide accessibility
+    decision. **Not ours to close.**
+  - **Test:** `accessibility.feature` `@discovered-bug @p1` — a genuine RED that flips green on its own when
+    the app-wide fix lands. Excluded from the documented gate:
+    `npx playwright test --grep-invert @discovered-bug`.
+  - **Why it is a Bug and not a Coverage gap / Divergence:** it is measured against NFR1 (correct
+    behaviour), not against legacy — legacy was worse. Being *deferred* is a Status, not a register.
 
 _No OTHER bugs found._ Every write, guard, validation and derived figure behaved as the contract
 specifies. For the record, four things were probed directly against the API looking for trouble and each
