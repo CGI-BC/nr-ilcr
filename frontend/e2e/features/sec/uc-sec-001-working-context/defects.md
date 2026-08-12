@@ -27,8 +27,9 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   - **Action:** BA/QA to confirm the role-specific notice is intentionally dropped (or file it as missing
     parity). Kept as a documentation item; the S01 scenario is **GREEN** and simply does not assert a
     notice that the app does not render.
-  - **Priority / env:** p2. **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll
-    double-check with the BA whether the role notice was dropped on purpose, when she gets a chance.
+  - **Priority / env:** p2. 
+  - **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll
+    double-check with the BA whether the role notice is needed or not, when she gets a chance.
   - **Test:** `working-context.feature` `@S01` (asserts SUC-001 + banner only) — GREEN.
 
 - **DIV-2 — The empty-mill / empty-year states (S04/S05/S08) cannot be produced through the UI.**
@@ -56,7 +57,8 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   - **Action:** BA/QA to confirm: is pre-selecting the default acceptable, or should Home land on empty
     dropdowns (restoring the S04/S05/S08 UI path)? Tracked as GAP-1. **Not** a `@discovered-*`
     red — the guarantee holds at the contract; there is no failing behaviour to track.
-  - **Priority / env:** p1. **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
+  - **Priority / env:** p1. 
+  - **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
     this when she gets a chance. Reconciling it is what unblocks the S04/S05/S08 browser tests — see GAP-1.
   - **Test:** none at the UI (unreachable); contract proven via API above.
 
@@ -72,7 +74,8 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
     says a real runtime-config/auth-driven context is deferred). It will change when the auth story lands.
   - **Action:** BA/QA aware only; re-verify this landing scenario once real context injection replaces the
     dev default. Kept as a **GREEN** re-grounded test asserting the actual behaviour.
-  - **Priority / env:** p2. **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
+  - **Priority / env:** p2. 
+  - **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
     this when she gets a chance. Same root cause as DIV-2 (the `millYearDefaults.ts` dev scaffold), so the
     two will likely move together.
   - **Test:** `working-context.feature` `@S01 @landing` — GREEN.
@@ -91,10 +94,8 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   - **The rule itself is not untested:** validation is backend-authoritative and proven by the three API
     calls documented in DIV-2 (each returning the exact legacy message). What's missing is only the
     click-through path.
-  - **How it gets unblocked:** once **DIV-2 and DIV-3 are reconciled** — i.e. Home stops pre-selecting the
-    dev default and lands on real (or empty) context — the empty state becomes reachable and **QA can then
-    implement the S04/S05/S08 browser tests**. Nothing else is needed; the slices are already written.
-  - **Status:** OPEN — waiting on DIV-2/DIV-3. `not-applicable (UI) / covered-by-contract` in coverage.md
+  - **Status:** OPEN — waiting on DIV-2/DIV-3. Once DIV-2 and DIV-3 are reconciled, QA can then
+    implement the S04/S05/S08 browser tests. `not-applicable (UI) / covered-by-contract` in coverage.md
     until then.
 
 - **GAP-2 — S02 single-mill pre-select is not reproducible on delivery data.**
@@ -119,10 +120,25 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
 
 **Spec gaps (the Gherkin is missing / underspecifies scenarios):**
 
-- **SPEC-1 — S07 left the banner outcome as `[UNKNOWN]`.** The legacy Gherkin S07 could not confirm from source
-  how the `#subMenu` banner renders a null status, and wrote `[UNKNOWN]`. Re-grounded to observed behaviour:
-  the banner shows the **Mill line only**, both status lines suppressed, no error. Now asserted green
-  (`@S07`). Recorded so the Gherkin's open question is closed by evidence, not fabrication.
+- **SPEC-1 — CLOSED 2026-08-10. S07's `[UNKNOWN]` banner outcome is answered and asserted.**
+  - **What this was, in plain terms:** slice S07 is "pick a mill/year that has no report-status row, and save".
+    Whoever wrote the legacy Gherkin couldn't tell from the legacy source what the banner should then show,
+    so instead of guessing they wrote `[UNKNOWN]`. This entry existed to record that open question.
+  - **The answer, from the running app:** the banner shows the **Mill line only** — both track-status lines
+    are suppressed, and no error appears.
+  - **Asserted, and not just superficially:** two green scenarios cover it (`working-context.feature` `@S07`
+    for the Home banner, `schedule-tombstone.feature` `@S07` for the schedule header). Each asserts the mill
+    line **is** visible *and* that the status lines are **absent** (`toHaveCount(0)` on `/- Status:/`), so an
+    empty-banner regression can't pass it either. The anchor's "no report-status row" premise is itself
+    asserted by `preflight/sec-anchors.setup.ts` on every run.
+  - **Why closing is safe here** (and why it differs from a spec gap that stays open): the Gherkin said
+    `[UNKNOWN]`, which was *honest* — the marker did its job by stopping someone fabricating an answer.
+    Contrast a spec that asserts something **false**, which actively misleads and must be corrected upstream.
+    This one just needed answering, and it has been.
+  - **One residual, noted not tracked:** the source Gherkin still reads `[UNKNOWN]`, so a future re-ground
+    would meet the same question — but the answer is recorded here and pinned by two green tests, so it is a
+    lookup, not a re-investigation.
+  - **Status:** CLOSED — answered by evidence and covered by test.
 
 **Verified — not a defect:**
 
