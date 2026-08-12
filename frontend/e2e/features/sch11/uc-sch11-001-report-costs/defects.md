@@ -11,11 +11,14 @@ in Carbon's validation-error markup that affects every schedule page and is alre
 `deferred-work.md`, which explicitly asked for it to be re-covered by a red check here. Schedule 11's own
 behaviour was correct on every path exercised, including the four legacy items the requirements could not
 pin down. Beyond that bug, what this log records is that **Schedule 11 was rebuilt rather than ported**, so
-**four** behaviours genuinely differ from the legacy Gherkin — DIV-1 through DIV-4. They are
-logged as **Divergences for BA/QA to confirm as accepted**, not as faults: three trace to decisions already
-recorded in Story 25.1/25.2 (AD-8 "render the server's message verbatim", AD-12 the wire contract), while
-DIV-4 is a legacy capability with no new-app counterpart and no ticket yet, so it needs its own triage call.
-**We are not adjudicating any of them; BA/QA own that call.**
+**four** behaviours genuinely differ from the legacy Gherkin — DIV-1 through DIV-4 — and all four were
+triaged with the Schedule 11 dev on 2026-08-10:
+- **DIV-2 — closed.** Hiding the editing controls in read-only is deliberate, so nothing more is needed.
+- **DIV-1 and DIV-3** — the dev will double-check these with the BA when she gets a chance.
+- **DIV-4** — the dev will take a closer look. This is the one with real substance: a legacy capability with
+  no new-app counterpart, which needs a backend change, and Schedule 1 is missing it too.
+
+We haven't adjudicated any of them ourselves — each entry carries its owner and next step.
 
 Two further findings were logged as divergences at first and then **disproved** by re-verifying against the
 legacy source rather than the derived sidecar. Both now sit in *Verified — not a defect* (**VER-5** the
@@ -38,7 +41,7 @@ differences.
     fixed here — it needs an app-wide decision (a visually-hidden `role="alert"` region fed on validation
     failure, or a Carbon version/config change).
   - **WHAT HAPPENS NEXT: nothing, by this story.** It was triaged on 2026-07-30 into
-    `_bmad-output/implementation-artifacts/deferred-work.md`, which owns it and names the candidate fixes.
+    `deferred-work.md`, which owns it and names the candidate fixes.
     That note is what asked for the red check below. **No action is owed by Story 25.4.**
   - **Does it block the AC?** No. The epic AC is "violations are zero, **or** each remaining violation is
     triaged with a recorded disposition (NFR1)" — the `deferred-work.md` entry is that disposition.
@@ -93,7 +96,9 @@ location with no costs stores real NULLs (which render as blank, not "0").
     navigating away silently kept the row). But it changes the user's mental model and removes a familiar
     control, so it needs an explicit product decision rather than our assumption.
   - **Priority / env:** p2 (informational) · local seeded delivery DB.
-  - **Status:** OPEN — awaiting BA/QA confirmation that the Add-is-save model is accepted for Schedule 11.
+  - **Status:** OPEN — with the dev. Triaged with the Schedule 11 dev (2026-08-10): she'll double-check the
+    Add-is-save / immediate-DELETE model with the BA when she gets a chance. Nothing needed from the E2E
+    side — just waiting on the two of them to confirm it reads right.
   - **Test:** covered as the app behaves — `happy-path.feature` `@S01`, `inline-edit.feature` `@S03`,
     `delete.feature` `@S07`, `persistence.feature` `@S09`. No red.
 
@@ -111,7 +116,10 @@ location with no costs stores real NULLs (which render as blank, not "0").
     remaining table is still fully readable and accessible (swept clean by axe). Flagged because it is a
     visible UX difference an auditor comparing screens will notice.
   - **Priority / env:** p2 · local seeded delivery DB.
-  - **Status:** OPEN — awaiting BA/QA confirmation that omit-instead-of-disable is accepted.
+  - **Status:** **CLOSED 2026-08-10 — confirmed intentional.** Triaged with the Schedule 11 dev: hiding the
+    Add panel and the per-row Actions in read-only is deliberate, not a parity slip. That's one of the two
+    documented ways a Divergence closes (*confirmed-intended*), so nothing further is needed here. The
+    `@S20` scenarios keep asserting the absence, so a drift back to rendering-but-disabled would still fail.
   - **Test:** `render-states.feature` `@S20` (outline, both codes) asserts absence. No red.
 
 - **DIV-3 — There is one Check Status button, not two.**
@@ -123,7 +131,9 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **Is it a defect?** Very unlikely — a duplicate control for convenience on a long page. Recorded only
     so the S20 assertion's wording change is traceable.
   - **Priority / env:** p3 (cosmetic) · local seeded delivery DB.
-  - **Status:** OPEN — informational; no action expected.
+  - **Status:** OPEN — with the dev. Triaged with the Schedule 11 dev (2026-08-10): she'll double-check the
+    single Check Status button with the BA when she gets a chance. We'd previously written this off as "no
+    action expected" on our own judgement — that call is really theirs, so it stays open until they make it.
   - **Test:** `render-states.feature` `@S20` asserts the single button is disabled. No red.
 
 - **DIV-4 — The per-field "original value" indicators from legacy do not exist anywhere in the new app.**
@@ -155,7 +165,11 @@ location with no costs stores real NULLs (which render as blank, not "0").
     revision of this entry said it "should ride that same ticket"; there is no ticket to ride, so that
     assumption is withdrawn. It needs a triage decision of its own.
   - **Priority / env:** p2 pending triage · local seeded delivery DB.
-  - **Status:** OPEN — **BA/QA to triage.** The decision needed is whether losing the post-submission
+  - **Status:** OPEN — with the dev. Triaged with the Schedule 11 dev (2026-08-10): she'll take a closer look
+    at the missing original-value indicators when she gets a chance. Worth knowing before she does: it needs
+    a **backend** change to be fixable at all (the API exposes no prior value), and Schedule 1 is missing the
+    same thing — see its DIV-5 — so a fix probably covers both screens at once.
+  - **The decision still needed:** whether losing the post-submission
     change-tracking view matters: if reviewers relied on it to see what a licensee altered after submitting,
     this is a real functional gap needing a backend change (the API exposes no prior value); if the audit
     tables now serve that need, it can be closed as an accepted drop. Cross-referenced to Schedule 1 DIV-5
@@ -186,8 +200,10 @@ location with no costs stores real NULLs (which render as blank, not "0").
     character, so no UI test can produce the server message. The right home is a **backend bean-validation
     test** on `SilvicultureLocationRequest` (one `@Size(max=3500)` case, ~5 lines beside the existing
     `blankLocation_returns400`), which is Story 25.2 territory, not 25.4.
-  - **Status:** OPEN — `deferred` in coverage.md; **ACTION: backend team to add the `@Size` case.** Low risk
-    (two independent enforcement points, no data-loss path), so this is tidy-up, not a blocker.
+  - **Status:** OPEN — with the dev. Triaged with the Schedule 11 dev (2026-08-10): she'll try to add the
+    backend `@Size` test when she gets a chance. Kept open simply because the test isn't there yet — it flips
+    to CLOSED when it lands. No hurry: two independent enforcement points already stop the bad input, so
+    there's no data-loss path in the meantime.
 
 - **GAP-2 — The 30-character Location limit is not tested.**
   - The Add field carries `maxLength={30}`, so a 31st character cannot be typed and the server message
@@ -196,7 +212,8 @@ location with no costs stores real NULLs (which render as blank, not "0").
     files searched. Uncovered at every level today.
   - **Where it belongs — NOT here**, for the same reason as GAP-1: a backend bean-validation case on
     `SilvicultureLocationRequest`'s `@Size(max=30)`. Pair it with GAP-1's in one small backend change.
-  - **Status:** OPEN — `not-applicable (UI)` in coverage.md; **ACTION: backend team**, with GAP-1.
+  - **Status:** OPEN — with the dev, alongside GAP-1. Triaged with the Schedule 11 dev (2026-08-10): she'll
+    pick both up together when she gets a chance. Open until the test lands.
 
 - **GAP-3 — CLOSED 2026-08-10: the per-row conflict is now covered end-to-end.**
   - **Test written:** `concurrency.feature` `@p1` — "Saving a row that another session already changed is
@@ -213,7 +230,8 @@ location with no costs stores real NULLs (which render as blank, not "0").
   - **No second browser context needed:** `startEdit` copies the token into React state, so one context
     plus one API call stages the conflict. (The earlier note claiming this needed two sessions overstated
     the cost.)
-  - **Status:** CLOSED — `covered` in coverage.md. No legacy slice describes it; SPEC-1 stays open for that.
+  - **Status:** CLOSED — `covered` in coverage.md. No legacy slice describes it; SPEC-1 records that and
+    is itself closed (the behaviour is covered by test, so no slice is owed).
 - **GAP-4 — CLOSED 2026-08-10 as not-applicable to E2E: duplicate-location and invalid-BEC-code
   rejections cannot be reached through the UI, and are IT-covered at the endpoint.**
   - **Not reachable here, by design:** forced selection (BR-09) means the browser can only ever submit a
@@ -279,7 +297,11 @@ location with no costs stores real NULLs (which render as blank, not "0").
     to say so.
   - **Why we did not just fix it:** this suite changes **no application source** — that is a hard rule.
     Raised here for the app team.
-  - **Status:** OPEN — trivial comment-only follow-up in app source.
+  - **Status:** **CLOSED 2026-08-10 — handed to the dev.** Triaged with the Schedule 11 dev: she's happy to
+    drop the two stale `PROVISIONAL` labels when she's next in that file. Closed because it's no longer an
+    open item for **this suite** — though note it's closed as *handed off*, not as done, so `validation.ts`
+    may still show the labels for a little while. Nothing here depends on it either way: both strings are
+    already asserted verbatim by `@S15`/`@S18`.
 
 ---
 

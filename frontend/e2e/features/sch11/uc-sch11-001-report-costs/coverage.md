@@ -62,6 +62,11 @@ fire, and no row-field `p:ajax` references a total cell or footer id. Both apps 
 save, so this is not a divergence at all; it now sits in *Verified — not a defect* as **VER-6**. The claim
 came from over-reading S03's Gherkin, which still needs correcting — **SPEC-3**.
 
+**Triage state (2026-08-10, with the Schedule 11 dev).** DIV-2 closed as confirmed-intentional; DIV-1 and
+DIV-3 to be double-checked by the dev with the BA; DIV-4 with the dev (needs a backend change, and Schedule 1
+has the same gap); GAP-1/GAP-2 assigned to the dev for backend `@Size` tests (still open — they close when
+the tests land, not when promised); GAP-7 closed as handed off. Nothing on the E2E side is outstanding.
+
 **Legacy-parity audit (2026-08-10).** Every legacy claim in this ledger was re-verified against the legacy
 source itself (`docs/nr-ilcr-2.0.4/…/schedule11.xhtml`, `Schedule11MB.java`, `messages.properties`,
 `validation.properties`, `Constant.java`) rather than the derived technical sidecar. Nine claims confirmed;
@@ -73,7 +78,7 @@ It also **resolves four items the legacy sidecar could not** — see `defects.md
 VER-1–VER-4. Two of them (`S15` Enhanced, `S18` NAR range) are the exact strings
 `components/schedule11/validation.ts` still labels `PROVISIONAL … confirmed in Story 25.4` — i.e. by this
 work. **The comments in `validation.ts` should now be updated to drop the PROVISIONAL label**
-(GAP-7 tracks that follow-up; it is an app-source comment, and this suite changes no app source).
+(GAP-7, now CLOSED — the dev accepted the follow-up; the labels may still be in `validation.ts` until she lands it).
 
 Suite state: **28 green + 1 intentional red** (the `@discovered-bug` accessibility check above). The
 whole-suite clean run `npx playwright test --grep-invert @discovered-bug` is green; the two excluded reds
@@ -136,7 +141,7 @@ pre-exists and must be restored). The `schedule11Cleanup` registry fails loud on
 | S17 NAR(ha) missing | S17.feature (EF4 r4); FLD-001 | `@NotNull netAreaRequiredErrorMsg` | `validation.feature` `@S17 @p1` | covered | Rejection + zero-write |
 | S18 NAR(ha) out of range | S18.feature (EF4 r5); FLD-002 `[TODO]` | `@DecimalMin/@DecimalMax/@Digits netAreaRangeErrorMsg`; `validateLocation` decimals cap | `validation.feature` `@S18 @p1` (outline ×2) | covered | **Resolves the legacy `[TODO — capture from live app]`** — VER-2. BOTH directions covered |
 | S19 Actual or Planned Cost out of range | S19.feature (EF4 r6); FLD-003 | `@DecimalMin/Max costValidatorErrorMsg` on both costs; `validateCost` (validation.ts:68) | `validation.feature` `@S19 @p1` (outline ×2) | covered | Outline crosses field × direction (Actual-above, Planned-below), not one corner |
-| S20 Silviculture track no longer Draft — read-only | S20.feature (EF5); STA-001 | `editable:false` → Add panel + Actions unrendered; Check Status `disabled` (index.tsx:881) | `render-states.feature` `@S20 @p1` (outline ×2) | covered | BOTH non-Draft codes ("S" and "V") covered. Also makes a POSITIVE assertion on each anchor's real seeded row, so an empty-table regression cannot pass vacuously. Omit-vs-disable — DIV-2 |
+| S20 Silviculture track no longer Draft — read-only | S20.feature (EF5); STA-001 | `editable:false` → Add panel + Actions unrendered; Check Status `disabled` (index.tsx:881) | `render-states.feature` `@S20 @p1` (outline ×2) | covered | BOTH non-Draft codes ("S" and "V") covered. Also makes a POSITIVE assertion on each anchor's real seeded row, so an empty-table regression cannot pass vacuously. Omit-vs-disable — DIV-2, **CLOSED as confirmed-intentional** (dev, 2026-08-10) |
 | Correct-and-retry recovery (the second scenario of S14–S19) | S14–S19.feature recovery arms | `handleAdd` clears `addErrors` and re-runs `validateLocation` over the whole form | `correction.feature` `@S14 @S17 @p2` | covered | Covered ONCE by equivalence: one code path serves every field, and each copy would need its own write anchor. The per-field REJECTIONS (what the 25.4 AC enumerates) are each covered individually |
 | SUC-001 "Data saved successfully" (add + edit) | technical.md SUC-001; `messages.properties:125` | echoed in `Schedule11Response.message` | `happy-path` `@S01`, `inline-edit` `@S03`, `multiple-locations` `@S02`, `persistence` `@S09`, `track-independence` `@S10`, `correction` | covered | API-owned, asserted verbatim |
 | SUC-002 "Data deleted successfully" | technical.md SUC-002; `messages.properties:126` | DELETE response `message` | `delete.feature` `@S07` | covered | Legacy fired this BEFORE persistence; the app fires it after the real delete — DIV-1 |

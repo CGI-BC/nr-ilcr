@@ -2,16 +2,19 @@
 # wcag21a + wcag21aa against Schedule 11 in each of its structurally distinct renders — the 2.0 tags
 # alone would silently skip every 2.1-only rule (see pages/common/axe.ts).
 #
-# Three renders are swept because they are genuinely different DOM, not the same page three times:
+# Each render swept below is genuinely different DOM, not the same page several times:
 #   1. EDITABLE with a real row — Add panel (7 controls incl. a Dropdown and a type-ahead ComboBox),
 #      the sortable column headers, the per-row Edit/Delete actions, and the footer Totals row.
-#   2. READ-ONLY — no Add panel, no Actions column, disabled Check Status: a different accessible tree
+#   2. The OPEN INLINE EDITOR — seven display cells swapped for inputs whose labels are visually hidden.
+#   3. READ-ONLY — no Add panel, no Actions column, disabled Check Status: a different accessible tree
 #      whose remaining table must still be navigable.
-#   3. A GUARD state — the PageState error notification that replaces the whole body, which must announce
+#   4. The VALIDATION-ERROR state — the deliberate red below.
+#   5. A GUARD state — the PageState error notification that replaces the whole body, which must announce
 #      itself rather than just render red text.
+# (A sixth, the Check-Status result, is swept in `check-status.feature` `@S04` where that state already exists.)
 #
-# The seeded row in (1) is what makes the sweep meaningful: an empty table would leave the row controls,
-# the inline editor and the Actions column entirely unexercised.
+# The seeded row in (1)/(2) is what makes those sweeps meaningful: an empty table would leave the row
+# controls, the inline editor and the Actions column entirely unexercised.
 
 @sch11 @UC-SCH11-001 @a11y
 Feature: Report Basic Silviculture Costs (Schedule 11) — accessibility
@@ -47,12 +50,11 @@ Feature: Report Basic Silviculture Costs (Schedule 11) — accessibility
   # ==================================================================================================
   # DELIBERATE RED — do not "fix" this by weakening the assertion.
   #
-  # `_bmad-output/implementation-artifacts/deferred-work.md` records a CRITICAL app-wide WCAG 4.1.2
-  # defect: Carbon `TextInput`'s invalid state renders `aria-invalid` + `aria-errormessage` with no
-  # announcement technique, so a validation error is never announced to assistive technology. It was
-  # found by an axe scan of exactly this state during the earlier (since-removed) 25.4 attempt, and that
-  # note ends: "Re-cover it with a deliberately-RED accessibility check when the Schedule 11 E2E is
-  # (re-)developed." This is that check.
+  # `deferred-work.md` records a CRITICAL app-wide WCAG 4.1.2 defect: Carbon `TextInput`'s invalid state
+  # renders `aria-invalid` + `aria-errormessage` with no announcement technique, so a validation error is
+  # never announced to assistive technology. It was found by an axe scan of exactly this state during the
+  # earlier (since-removed) 25.4 attempt, and that note ends: "Re-cover it with a deliberately-RED
+  # accessibility check when the Schedule 11 E2E is (re-)developed." This is that check.
   #
   # It is expected to FAIL until the app-wide fix lands (a visually-hidden role=alert region, or a Carbon
   # change) — the defect is NOT Schedule 11's to fix, and the failure IS the tracking signal. Filter it
