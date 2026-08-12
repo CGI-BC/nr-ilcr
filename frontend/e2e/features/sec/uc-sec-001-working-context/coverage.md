@@ -68,7 +68,9 @@ No CI wiring (the app + delivery Oracle are not containerized in this pipeline).
 **Symmetry check:** happy save (S01) + its banner variants (S06 closed still-saves, S07 null-status
 mill-line-only) + change/replace (S03) cover the positive/alternative arms; the mirror negative
 (required-field S04/S05/S08) is enforced server-side and proven at the contract (GAP-1),
-UI-unreachable by DIV-2 — not silently dropped. The context→page arm is covered both ways: it
+UI-unreachable by DIV-2 — not silently dropped. **Triage 2026-08-10:** the dev will work on DIV-2/DIV-3 when
+she gets a chance; once those are reconciled Home no longer pre-selects the dev default, the empty state
+becomes reachable, and QA can implement the S04/S05/S08 browser tests (GAP-1's unblock path). The context→page arm is covered both ways: it
 drives Schedule 1 (AC2) and blocks a closed mill's schedule (S06/S20). No asymmetric silent omission.
 
 **Cross-suite reconciliation (nr-ilcr/frontend/e2e — Story 1.5):** every journey it proved is now either

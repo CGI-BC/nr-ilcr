@@ -27,7 +27,8 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   - **Action:** BA/QA to confirm the role-specific notice is intentionally dropped (or file it as missing
     parity). Kept as a documentation item; the S01 scenario is **GREEN** and simply does not assert a
     notice that the app does not render.
-  - **Priority / env:** p2. **Status:** OPEN. Found 2026-07-30.
+  - **Priority / env:** p2. **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll
+    double-check with the BA whether the role notice was dropped on purpose, when she gets a chance.
   - **Test:** `working-context.feature` `@S01` (asserts SUC-001 + banner only) — GREEN.
 
 - **DIV-2 — The empty-mill / empty-year states (S04/S05/S08) cannot be produced through the UI.**
@@ -55,7 +56,8 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   - **Action:** BA/QA to confirm: is pre-selecting the default acceptable, or should Home land on empty
     dropdowns (restoring the S04/S05/S08 UI path)? Tracked as GAP-1. **Not** a `@discovered-*`
     red — the guarantee holds at the contract; there is no failing behaviour to track.
-  - **Priority / env:** p1. **Status:** OPEN. Found 2026-07-30.
+  - **Priority / env:** p1. **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
+    this when she gets a chance. Reconciling it is what unblocks the S04/S05/S08 browser tests — see GAP-1.
   - **Test:** none at the UI (unreachable); contract proven via API above.
 
 - **DIV-3 — On landing, the working-context banner is already populated (before any Save).**
@@ -70,23 +72,36 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
     says a real runtime-config/auth-driven context is deferred). It will change when the auth story lands.
   - **Action:** BA/QA aware only; re-verify this landing scenario once real context injection replaces the
     dev default. Kept as a **GREEN** re-grounded test asserting the actual behaviour.
-  - **Priority / env:** p2. **Status:** OPEN. Found 2026-07-30.
+  - **Priority / env:** p2. **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
+    this when she gets a chance. Same root cause as DIV-2 (the `millYearDefaults.ts` dev scaffold), so the
+    two will likely move together.
   - **Test:** `working-context.feature` `@S01 @landing` — GREEN.
 
 **Coverage gaps (not tested at the UI — no app problem):**
 
-- **GAP-1 — S04/S05/S08 required-field validation is contract-covered, not browser-covered.**
-  - **Why not:** The default context pre-selects both dropdowns and Carbon has no clear control, so the
-    empty state is unreachable from the browser (DIV-2). The validation itself is enforced
-    server-side and proven via the three API calls in DIV-2.
-  - **Future action:** author the browser path if/when Home lands on empty dropdowns, or a mock user whose
-    default context is absent from the lists. Meanwhile the contract evidence stands.
-  - **Status:** OPEN — `not-applicable (UI) / covered-by-contract` in coverage.md.
+- **GAP-1 — S04/S05/S08 have no browser test, because the empty-dropdown state can't be reached in the UI.**
+  - **In plain terms:** slices S04/S05/S08 are the "press Save with nothing selected and get *Mill: Value is
+    required.*" cases. We can't write those as browser tests today, because Home always lands with **both
+    dropdowns already filled** (from the `millYearDefaults.ts` dev default) and Carbon's `Dropdown` gives no
+    way to clear a selection back to its placeholder. So there is no way to *get into* the state those
+    slices describe by clicking around.
+  - **This is a direct consequence of DIV-2 and DIV-3, not a separate problem** — same root cause, the dev
+    default context. It is listed separately only because it is the *testing* consequence, while DIV-2/DIV-3
+    are the *behaviour* questions.
+  - **The rule itself is not untested:** validation is backend-authoritative and proven by the three API
+    calls documented in DIV-2 (each returning the exact legacy message). What's missing is only the
+    click-through path.
+  - **How it gets unblocked:** once **DIV-2 and DIV-3 are reconciled** — i.e. Home stops pre-selecting the
+    dev default and lands on real (or empty) context — the empty state becomes reachable and **QA can then
+    implement the S04/S05/S08 browser tests**. Nothing else is needed; the slices are already written.
+  - **Status:** OPEN — waiting on DIV-2/DIV-3. `not-applicable (UI) / covered-by-contract` in coverage.md
+    until then.
 
 - **GAP-2 — S02 single-mill pre-select is not reproducible on delivery data.**
   - **Why not:** The mount single-mill fallback fires only when the list has exactly one mill; the delivery
     extract has 21. Same conclusion the app team recorded (Vitest MSW 1-mill list covers it at unit level).
-  - **Status:** OPEN — `not-applicable` in coverage.md.
+  - **Status:** OPEN — with the dev. `not-applicable` in coverage.md. Triaged with the dev (2026-08-10): she'll double-check with
+    the BA whether this needs browser coverage at all, given the unit test already covers it.
 
 - **GAP-3 — Accessibility (axe) — NOW COVERED.**
   - **Resolved 2026-07-30:** `@axe-core/playwright` is wired into this suite (`pages/common/axe.ts`,
