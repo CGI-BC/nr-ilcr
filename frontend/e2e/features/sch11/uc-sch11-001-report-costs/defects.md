@@ -69,36 +69,20 @@ location with no costs stores real NULLs (which render as blank, not "0").
 > to match the spec, and we do not silently drop the spec's version** — each item below is asserted as the
 > app actually behaves, and the legacy expectation is recorded here.
 
-- **DIV-1 — Schedule 11 has no "Save" button, and Delete now persists immediately instead of on a later Save.**
-  - **NARROWED 2026-08-10 after checking the legacy source directly.** An earlier revision of this entry
-    also claimed legacy required a Save click to commit an **Add**. That was WRONG: legacy
-    `Schedule11MB.addLocation()` ends with `this.save(saveNewBasicSilv)` (`saveNewBasicSilv = true`), so
-    **legacy was add-is-save too** — the trailing Save click in the S01 Gherkin was already redundant
-    against legacy (the S01 `.feature` note says as much). Add is therefore NOT a divergence. What follows
-    is the part that survives verification.
-  - **What's different:** (a) legacy had two page-level **Save** buttons (`btnSaveTop` line 185,
-    `btnSave` line 420 of `schedule11.xhtml`) and the new screen has **none**, so every "…then click Save"
-    step in the Gherkin has no control to click; (b) **Delete changed from two-phase to immediate.**
-  - **The Delete change, precisely:** legacy `deleteLocation()` only sets
-    `reportSelected.setDaoTransactionType(DAO_TRANSACTION_TYPE.DELETE)`, re-filters the display list, and
-    fires `dataDeletedSuccesfullyInfoMsg` — **without touching the database**. The row was only really
-    removed by a subsequent Save. The new app issues `DELETE /locations/{id}` there and then.
-  - **How we verified it:** read the legacy source, not just the derived sidecar —
-    `Schedule11MB.deleteLocation()` and `addLocation()` quoted above; `btnSaveTop`/`btnSave` ids confirmed
-    in `schedule11.xhtml`. New-app side: `components/schedule11/index.tsx` has no page-level Save control;
-    `handleAdd` (596) POSTs, `handleSaveEdit` (662) PUTs, `handleDelete` (702) DELETEs. Confirmed
-    end-to-end by `persistence.feature` `@S09` (row survives a full reload after Add alone) and
-    `delete.feature` `@S07` (row gone from the DB with no further action).
-  - **Note the safety direction:** legacy's "Data deleted successfully" appeared while the delete was
-    still unpersisted, so navigating away silently kept the row. The new behaviour is strictly safer.
-  - **Is it a defect?** Almost certainly not — it is the shipped Story 25.2 contract and it is *safer*
-    than legacy (legacy's "Data deleted successfully" appeared while the delete was still unsaved, so
-    navigating away silently kept the row). But it changes the user's mental model and removes a familiar
-    control, so it needs an explicit product decision rather than our assumption.
+- **DIV-1 — Schedule 11 has no page-level Save button.**
+  - **What's different:** legacy had two **Save** buttons, above and below the table (`btnSaveTop` line 185,
+    `btnSave` line 420 of `schedule11.xhtml`). The new screen has neither, so every "…then click Save" step in
+    the legacy Gherkin has no control to click. Each action saves itself instead: **Add** writes the row and
+    per-row **Edit → Save** writes that row.
+  - **Add was never a divergence** (corrected 2026-08-10 against the legacy source): legacy
+    `Schedule11MB.addLocation()` already ended with `this.save(...)`, so legacy was add-is-save too.
+  - **Delete is not part of this finding.** It behaves well and consistently with the other schedule pages:
+    confirm the dialog, and the row is deleted and saved in one step.
+  - **Is it a defect?** Almost certainly not — it is the shipped Story 25.2 contract. But it removes a control
+    users know, so it wants an explicit product decision rather than our assumption.
   - **Priority / env:** p2 (informational) · local seeded delivery DB.
-  - **Status:** OPEN — with the dev. Triaged with the Schedule 11 dev (2026-08-10): she'll double-check the
-    Add-is-save / immediate-DELETE model with the BA when she gets a chance. Nothing needed from the E2E
-    side — just waiting on the two of them to confirm it reads right.
+  - **Status:** OPEN — with the dev. Triaged with the dev (2026-08-10): she'll double-check the no-Save-button
+    model with the BA when she gets a chance.
   - **Test:** covered as the app behaves — `happy-path.feature` `@S01`, `inline-edit.feature` `@S03`,
     `delete.feature` `@S07`, `persistence.feature` `@S09`. No red.
 
@@ -347,24 +331,21 @@ location with no costs stores real NULLs (which render as blank, not "0").
 > Checked because something looked wrong or unknown, and confirmed correct. Recorded so nobody re-opens
 > them. **All four resolve items the legacy requirements explicitly could not pin down.**
 
-- **SPEC-3 — S03's Gherkin asserts a pre-save recompute that legacy never had.** _(NEW 2026-08-10)_
-  - **What's wrong with the spec:** `UC-SCH11-001-S03.feature` asserts "the row's Total Act Plus Plan Cost
-    and Total/NAR(ha) columns recompute immediately via AJAX" and "the footer Totals row recomputes to
-    reflect the updated Actual Cost" — both **before** the Save click — and its trailing note attributes
-    this to "the row-level `p:ajax` listener (BR-08, CNT-001)".
-  - **Why that is not in the source:** the two derived cells are `disabled="true"` inputs, so their
-    `p:ajax` can never fire; the editable fields' `p:ajax` updates only `@this`, the `*OV` indicator and
-    the message panel (`schedule11.xhtml:283/303/319`); nothing references the total cells or a footer id.
-    Derived values refreshed on the Save re-render (`update=":mainPnl @form"`). The sidecar's CNT-001 entry
-    is accurate in itself ("recomputed on every render of `schedule11DTForm`") — the Gherkin turned
-    "on every render" into "immediately as you type", which is the over-read.
-  - **Why it matters:** it caused a false Divergence to be logged against the new app (disproved and
-    reclassified to VER-6). Left uncorrected, the next person to re-ground this UC would log it again.
-  - **Suggested action (BA):** correct S03's two Then steps to assert the refresh **after** Save, and drop
-    the "recompute immediately via AJAX" note.
-  - **Status:** OPEN — awaiting BA review. No app or test change needed; the tests already assert the
-    correct (post-save) behaviour.
-
+- **SPEC-3 — CLOSED 2026-08-10: S03's source Gherkin and slice entry are corrected.**
+  - **What was wrong:** S03 asserted that the row's Total / Total-per-NAR columns and the footer Totals
+    "recompute immediately via AJAX" **before** the Save click. Legacy never did that — the derived cells are
+    `p:inputText … disabled="true"` (`schedule11.xhtml:334-352`) so their `p:ajax` can never fire, and the
+    row-control handlers update only `@this`, that field's `*OV` indicator and the message panel. Derived
+    values refresh on the Save re-render (`btnSaveTop` → `update=":mainPnl @form"`).
+  - **Fixed at the source, not just noted:** the two Then steps in
+    `_bmad-output/.../tests/UC-SCH11-001/gherkin/UC-SCH11-001-S03.feature` now assert the refresh **after**
+    Save, and the misleading trailing note is replaced with the verified explanation. The over-read actually
+    originated one level up, in `UC-SCH11-001-slices.md` (its S03 Expected Outcome and CNT-001 row), so both
+    were corrected too — otherwise a regenerated `.feature` would have reintroduced it.
+  - **Not changed:** `UC-SCH11-001-technical.md` carries the same loose CNT-001 wording, but it is generated
+    ("Do not edit manually — regenerate by re-running `author-technical-sidecar`"), so it is left alone.
+  - **Status:** CLOSED — source corrected; the E2E test never needed changing (it always asserted the
+    post-save refresh, which is what both apps do — see VER-6).
 - **VER-1 — "Enhanced: Value is required." is correct, and better than legacy.**
   - **Why it looked wrong:** The legacy sidecar flagged this message `[UNKNOWN]` and predicted the app
     would show a raw internal field id — `"addLocationForm:addEnhancedIndicator: Value is required."` —

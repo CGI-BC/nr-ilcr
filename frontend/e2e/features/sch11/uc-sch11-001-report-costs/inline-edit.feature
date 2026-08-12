@@ -1,6 +1,7 @@
 # Re-grounded from UC-SCH11-001-S03.feature.
 #
-# SPEC GAP, NOT A DIVERGENCE (defects.md SPEC-3; verified-as-matching-legacy in VER-6).
+# NOT A DIVERGENCE — the source Gherkin was wrong, and has since been corrected (defects.md SPEC-3 and
+# VER-6, both CLOSED).
 # The legacy S03 scenario asserts:
 #   "Then the row's Total Act Plus Plan Cost and Total/NAR(ha) columns recompute immediately via AJAX"
 #   "And the footer Totals row recomputes to reflect the updated Actual Cost"   <- BEFORE Save

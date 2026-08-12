@@ -39,12 +39,11 @@ Schedule 11 was rebuilt, not ported, so some structural facts of the legacy `.fe
 counterpart** in the React app. Each is asserted as the app actually behaves and logged as a Divergence
 rather than silently dropped:
 
-1. **There is no page-level Save button, and Delete persists immediately.** Legacy `btnSaveTop`
-   (`schedule11.xhtml:185`) / `btnSave` (`:420`) are gone, so every "…then click Save" tail step has no
-   control to click; and legacy's `deleteLocation()` only flagged the row in memory (real removal came on a
-   later Save) whereas the app issues `DELETE /locations/{id}` at once (DIV-1).
-   **Add is NOT part of this** — legacy `addLocation()` itself called `save(true)`, so legacy was
-   add-is-save too (corrected 2026-08-10 against the legacy source).
+1. **There is no page-level Save button.** Legacy `btnSaveTop` (`schedule11.xhtml:185`) / `btnSave` (`:420`)
+   are gone, so every "…then click Save" tail step has no control to click — each action saves itself
+   instead (DIV-1). **Add is NOT part of this** — legacy `addLocation()` itself called `save(true)`, so
+   legacy was add-is-save too (corrected 2026-08-10 against the legacy source). Delete is not part of it
+   either: it behaves well and consistently with the other pages.
 2. **Read-only OMITS rather than disables.** Legacy disabled the six Add fields and every row control
    (20 `disableReportEdits()` bindings); the app does not render the Add panel or the Actions column at
    all when `editable` is false (DIV-2).
@@ -60,7 +59,8 @@ rather than silently dropped:
 live as you typed. It does not — the derived cells are `disabled="true"` inputs whose `p:ajax` can never
 fire, and no row-field `p:ajax` references a total cell or footer id. Both apps refresh derived figures on
 save, so this is not a divergence at all; it now sits in *Verified — not a defect* as **VER-6**. The claim
-came from over-reading S03's Gherkin, which still needs correcting — **SPEC-3**.
+came from over-reading S03's Gherkin — now **corrected at the source** (both the `.feature` and the
+slice catalog's CNT-001 row), so **SPEC-3 is CLOSED**.
 
 **Triage state (2026-08-10, with the Schedule 11 dev).** DIV-2 closed as confirmed-intentional; DIV-1 and
 DIV-3 to be double-checked by the dev with the BA; DIV-4 with the dev (needs a backend change, and Schedule 1
@@ -124,11 +124,11 @@ pre-exists and must be restored). The `schedule11Cleanup` registry fails loud on
 |---|---|---|---|---|---|
 | S01 Add and save a location (happy path) | S01.feature; slices.md | `Schedule11Api.addLocation` (POST `/locations`); `Schedule11.handleAdd` (index.tsx:596) | `happy-path.feature` `@S01 @p0` | covered | Legacy's trailing Save click has no analogue — DIV-1 |
 | S02 Report additional locations in one session | S02.feature (Alt, AF1) | same POST; `data.totals` re-echoed per write | `multiple-locations.feature` `@S02 @p1` | covered | Both rows asserted independently (own Enhanced flag + own BEC entry) plus accumulated footer totals |
-| S03 Edit an existing location inline | S03.feature (Alt, AF2) | `Schedule11Api.editLocation` (PUT `/locations/{id}`, `OnUpdate` group); `handleSaveEdit` (index.tsx:662); `EditRow` (index.tsx:337) | `inline-edit.feature` `@S03 @p1` | covered | Asserts the post-save refresh, which is what BOTH legacy and the app do (legacy's derived cells are disabled inputs; nothing recomputed on keystroke) — see defects.md VER-6 + SPEC-3. Reject arm proves zero-write with the spy |
+| S03 Edit an existing location inline | S03.feature (Alt, AF2) | `Schedule11Api.editLocation` (PUT `/locations/{id}`, `OnUpdate` group); `handleSaveEdit` (index.tsx:662); `EditRow` (index.tsx:337) | `inline-edit.feature` `@S03 @p1` | covered | Asserts the post-save refresh, which is what BOTH legacy and the app do (legacy's derived cells are disabled inputs; nothing recomputed on keystroke) — see defects.md VER-6 + SPEC-3 (both CLOSED). Reject arm proves zero-write with the spy |
 | S04 Check Status — all requirements met | S04.feature (AF3, BR-07 pass) | `Schedule11Service.checkStatus` (`requirementsMetMessage` non-null); `handleCheckStatus` (index.tsx:732) | `check-status.feature` `@S04 @p1` | covered | Asserts SUC-004 **and** SUC-003 together |
 | S05 Check Status — missing Actual Cost flagged | S05.feature (BR-07 fail) | `Schedule11Service.missingCost` (FLD-004 composition) | `check-status.feature` `@S05 @p1` | covered | Verbatim incl. the literal DOUBLE space, asserted against RAW `textContent` because Playwright's text matchers normalize whitespace — VER-3. Precondition asserts the seeded cost is really missing |
 | S06 Check Status — missing Planned Cost flagged | S06.feature (BR-07 fail) | as above, `"Planned cost"` label | `check-status.feature` `@S06 @p1` | covered | as above |
-| S07 Delete a location | S07.feature (Alt, AF4) | `Schedule11Api.deleteLocation` (DELETE); `handleDelete` (index.tsx:702) | `delete.feature` `@S07 @p1` | covered | Immediate delete, not legacy's flag-then-Save — DIV-1. Also asserts the table returns to its empty state AND that the footer totals blank out |
+| S07 Delete a location | S07.feature (Alt, AF4) | `Schedule11Api.deleteLocation` (DELETE); `handleDelete` (index.tsx:702) | `delete.feature` `@S07 @p1` | covered | Delete confirms, removes and persists in one step — consistent with the other pages. Also asserts the table returns to its empty state AND that the footer totals blank out |
 | S08 Cancel delete confirmation — row unchanged | S08.feature (Alt, gap-analysis 3d) | `Modal onRequestClose` (index.tsx:1045) | `delete.feature` `@S08 @p1` | covered | Proves the negative four ways: zero mutations (spy, after a settle window), unchanged row count, `revisionCount` still 0, and the delete-success message absent |
 | S09 Add persists without a separate Save click | S09.feature (Alt, gap-analysis 3c) | POST `/locations` is itself the write | `persistence.feature` `@S09 @p1` | covered | Legacy's "navigate away" strengthened to a full page reload (discards all React/router state) |
 | S10 Editability independent of the Schedule 1–10 status | S10.feature (BR-02 negative side) | `Schedule11Service:131` `editable = callerMayEdit ∧ trackStatus=="D"` — the 1–10 track is never read | `track-independence.feature` `@S10 @p0` | covered | The seed holds exactly ONE such (mill, year): 23050/2016 (1–10 = "S", silv = "D"). Preflight asserts both statuses so a re-extract fails loudly instead of testing nothing |
