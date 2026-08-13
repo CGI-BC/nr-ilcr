@@ -147,9 +147,6 @@ in `deferred-work.md`) — deliberately not listed here, so this file cannot go 
 > already-mutated state and restore that as the "baseline", silently drifting the seeded anchor. See the
 > ⚠️ note in `features/sch1/uc-sch1-001-enter-save/coverage.md`.
 
-**A freshly laid-down scaffold has no features yet**, so `npm test` reports "no tests" until you author your
-first `.feature` (the placeholder `preflight/anchors.setup.ts` skips itself until you fill it in).
-
 Set `BASE_URL` in `.env` (or inline, `BASE_URL=http://localhost:3001 npm test`) if your ports differ.
 Edit `features/` and `steps/` only — `.features-gen/` is regenerated on every `npm test`. An unbound step fails `bddgen`
 (before Playwright runs) and names the exact `.feature` line.
@@ -208,6 +205,24 @@ Two things that bite:
 At scale you can also filter at *generation* time so only matching scenarios compile:
 `npm run bddgen -- --tags @p0` (that regenerates, so the follow-up run is safe).
 
+## CI / manual gate — delivery-DB verification
+
+**This suite is a documented MANUAL gate, not a default CI job.** CI has **no delivery-DB access** (no Oracle
+in `docker-compose`; the app's own fixtures are Testcontainers-only), and the suite needs the running
+two-process stack plus the seeded Oracle. So run it locally per *Prerequisites*, gate on
+**`npm run test:gate`** (see *Install and run* for why that and not `npm test`), and record the run + the HTML
+report (`playwright-report/`) as the TEST-review evidence.
+
+If a pipeline ever gains delivery-DB access, wire the full data-backed suite (the `chromium` project) behind
+an **env-guarded opt-in job** so it can never run without live data — keep it off the default path.
+
+**What IS safe to run on every PR** is the data-independent `@smoke` project: no `setup`/seeded-DB dependency
+and all `/api` aborted, so it guards against a frontend-only deploy with nothing but the frontend served
+(see *Notes*).
+
+Re-verify the pinned anchors after any DB re-extract — `preflight/` fails fast, with one actionable message,
+if one has drifted.
+
 ## Oracle MCP server (data discovery / DB assertions) — optional
 
 An Oracle MCP server (thin-mode `mcp-oracle`, tools `list_tables` / `describe_table` / `run_query`)
@@ -245,24 +260,6 @@ project. Point `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` at your seeded D
   in *Scenario tags*). Wire THIS command into the per-PR CI job; gate the full data-backed suite
   (`chromium` project, needs the seeded delivery DB) behind an opt-in/live-data job — see
   *CI / manual gate — delivery-DB verification*.
-
-## CI / manual gate — delivery-DB verification
-
-**This suite is a documented MANUAL gate, not a default CI job.** CI has **no delivery-DB access** (no Oracle
-in `docker-compose`; the app's own fixtures are Testcontainers-only), and the suite needs the running
-two-process stack plus the seeded Oracle. So run it locally per *Prerequisites*, gate on
-**`npm run test:gate`** (see *Install and run* for why that and not `npm test`), and record the run + the HTML
-report (`playwright-report/`) as the TEST-review evidence.
-
-If a pipeline ever gains delivery-DB access, wire the full data-backed suite (the `chromium` project) behind
-an **env-guarded opt-in job** so it can never run without live data — keep it off the default path.
-
-**What IS safe to run on every PR** is the data-independent `@smoke` project: no `setup`/seeded-DB dependency
-and all `/api` aborted, so it guards against a frontend-only deploy with nothing but the frontend served
-(see *Notes*).
-
-Re-verify the pinned anchors after any DB re-extract — `preflight/` fails fast, with one actionable message,
-if one has drifted.
 
 ## Seeded database image — how it's built and refreshed
 
