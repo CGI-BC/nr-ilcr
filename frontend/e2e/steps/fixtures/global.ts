@@ -43,9 +43,11 @@ export type World = {
    * sent even when an earlier step in the same scenario legitimately wrote (the inline-edit reject arm).
    */
   sch11MutationsBefore?: number;
-  /** Per-row optimistic-lock token captured before a no-write assertion, re-checked to prove no write. */
-  sch11RevisionAtOpen?: number;
-  /** Listed row count noted before a cancel/reject, re-checked after to prove the table is unchanged. */
+  /**
+   * Listed row count noted before a cancel/reject, re-checked after to prove the table is unchanged.
+   * Always taken through the UI (`schedule11Page.rowCount()`) by the explicit "I note the listed
+   * Schedule 11 row count" step, so the baseline and the re-check are the same kind of count.
+   */
   sch11RowCountBefore?: number;
 
   // --- sec ---

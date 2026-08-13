@@ -29,6 +29,7 @@ import {
 } from '../../fixtures/sch11/schedule11-test-data';
 import { type Sch11Column } from '../../pages/sch11/schedule11Page';
 import {
+  type Sch11Document,
   type Sch11Location,
   addLocation,
   editLocationAsAnotherSession,
@@ -98,6 +99,27 @@ const namedAnchor = (name: string): { anchor: Sch11Anchor; marker: string } => {
   return entry;
 };
 
+/**
+ * Assert the anchor holds NO rows at all before the scenario seeds its own.
+ *
+ * WHY THIS IS ASSERTED RATHER THAN ASSUMED: the downstream footer-total, row-count and empty-table
+ * assertions are only true of an otherwise-empty anchor — happy-path's "the anchor starts pristine, so
+ * the single row IS the totals", multiple-locations' `lists 2 locations`, delete's `table is empty` plus
+ * blank footer. ONE escaped row (a killed run, a partial cleanup, a manual poke at the seeded DB) turns
+ * those into confusing reds with nothing pointing at the cause. Listing the offending rows here makes the
+ * failure self-diagnosing. Preflight makes the same check once for the whole set, so the usual case fails
+ * before any browser opens; this is the per-scenario backstop for a row that appeared mid-run.
+ *
+ * The S10 track-independence anchor is the ONE anchor that legitimately carries seeded rows — it has its
+ * own precondition below and deliberately asserts no totals or counts.
+ */
+const expectNoRowsAtRest = (doc: Sch11Document, anchor: Sch11Anchor): void => {
+  expect(
+    doc.locations.map((l) => l.location),
+    `precondition: anchor ${anchor.key.millId}/${anchor.key.year} must hold NO locations before this scenario seeds its own, found ${doc.locations.length}. Delete the listed rows (leftover E2E markers, or a hand-edit of the seeded DB) and re-run.`,
+  ).toEqual([]);
+};
+
 /** Resolve the Gherkin-facing BEC token to a real, discovered catalogue option. */
 const becByToken = (token: string): BecOption => {
   if (token === 'primary') return BEC_PRIMARY;
@@ -140,13 +162,10 @@ Given(
     const doc = await getSchedule11(request, anchor.key);
     expect(doc.trackStatus, 'precondition: silviculture track must be Draft ("D")').toBe('D');
     expect(doc.editable, 'precondition: schedule must be editable').toBe(true);
-    // Pristine: the anchor must hold none of THIS scenario's rows. A leftover would make an "added one
-    // row" assertion pass against residue from a previous run.
-    const existing = doc.locations.filter((l) => l.location === marker);
-    expect(
-      existing.length,
-      `precondition: anchor ${anchor.key.millId}/${anchor.key.year} already holds a "${marker}" row — clean it up before re-running`,
-    ).toBe(0);
+    // PRISTINE means EMPTY, not merely "no row of ours" — see expectNoRowsAtRest. An earlier version only
+    // checked for this scenario's own marker, which left every totals/row-count assertion downstream
+    // depending on an emptiness nobody verified.
+    expectNoRowsAtRest(doc, anchor);
   },
 );
 
@@ -162,6 +181,9 @@ Given(
     const doc = await getSchedule11(request, anchor.key);
     expect(doc.trackStatus, 'precondition: silviculture track must be Draft ("D")').toBe('D');
     expect(doc.editable, 'precondition: schedule must be editable').toBe(true);
+    // The seeded row must be the ONLY row: inline-edit reads the footer totals as that row's values and
+    // delete asserts the table goes empty afterwards, so a stray row breaks both.
+    expectNoRowsAtRest(doc, anchor);
 
     await addLocation(request, anchor.key, {
       location: marker,
@@ -187,6 +209,9 @@ Given(
 
     const doc = await getSchedule11(request, anchor.key);
     expect(doc.editable, 'precondition: schedule must be editable').toBe(true);
+    // Check Status reports one line PER offending row, so a stray row could add error lines this scenario
+    // never accounted for (or satisfy "requirements met" from data it did not seed).
+    expectNoRowsAtRest(doc, anchor);
 
     const lower = which.toLowerCase();
     expect(['actual', 'planned'], `unknown cost "${which}"`).toContain(lower);
@@ -233,7 +258,10 @@ Given('the Schedule 11 validate-only anchor is an editable Draft', async ({ requ
   const doc = await getSchedule11(request, VALIDATION_ANCHOR.key);
   expect(doc.trackStatus, 'precondition: silviculture track must be Draft ("D")').toBe('D');
   expect(doc.editable, 'precondition: schedule must be editable (Add panel rendered)').toBe(true);
-  world.sch11RowCountBefore = doc.locations.length;
+  // Deliberately does NOT seed `world.sch11RowCountBefore`. It used to, from `doc.locations.length` — an
+  // API count — while the only reader ("the listed Schedule 11 row count is unchanged") compares a UI
+  // count from `schedule11Page.rowCount()`. Nothing read it, so it was a landmine rather than a bug: the
+  // baseline is always taken through the UI by the explicit "I note the listed Schedule 11 row count" step.
 });
 
 Given('the Schedule 11 guard anchor {string}', async ({ request, world }, name) => {
@@ -299,6 +327,16 @@ Given(
       doc.editable,
       'precondition: Schedule 11 must remain EDITABLE despite the 1-10 track being past Draft',
     ).toBe(true);
+    // NOT expectNoRowsAtRest: this is the ONE anchor that legitimately arrives with seeded locations
+    // (23050/2016 carries "20173" and "20173-2" in the extract), because it is the only (mill, year) in
+    // the seed with a past-Draft 1-10 track and a Draft silviculture track — there was no empty
+    // alternative to pick. The scenario is written for that: it asserts the added row's stored record and
+    // the live editing surface, never a row count or a footer total. Only OUR row must be absent, or the
+    // add would hit the app's duplicate (location, biogeo) rule instead of succeeding.
+    expect(
+      doc.locations.filter((l) => l.location === MARKER.trackIndependence).length,
+      `precondition: anchor ${anchor.key.millId}/${anchor.key.year} already holds a "${MARKER.trackIndependence}" row — leftover from an interrupted run; delete it and re-run.`,
+    ).toBe(0);
   },
 );
 

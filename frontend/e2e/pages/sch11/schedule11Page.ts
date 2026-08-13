@@ -2,6 +2,7 @@ import { type Locator, type Page, expect } from '@playwright/test';
 import { navigateViaSideNav } from '../common/authNav';
 import {
   CONFIRM_DELETE,
+  EMPTY_TABLE_TEXT,
   MILL_YEAR_STORAGE_KEY,
   type BecOption,
 } from '../../fixtures/sch11/schedule11-test-data';
@@ -230,8 +231,10 @@ export class Schedule11Page {
   async listedLocations(): Promise<string[]> {
     const cells = this.table.locator('tbody tr:not(.schedule-11__totals) td:first-child');
     const texts = await cells.allInnerTexts();
-    // Drop the empty-state placeholder row, which occupies the same first-cell position.
-    return texts.map((t) => t.trim()).filter((t) => t !== '' && !t.startsWith('No silviculture'));
+    // Drop the empty-state placeholder row, which occupies the same first-cell position. Matched against
+    // the pinned EMPTY_TABLE_TEXT rather than a hand-typed prefix: with a local literal, a change to the
+    // placeholder copy would silently make rowCount() return 1 for an empty table.
+    return texts.map((t) => t.trim()).filter((t) => t !== '' && t !== EMPTY_TABLE_TEXT);
   }
 
   /** Count of real data rows (excludes the footer Totals row and the empty-state placeholder). */

@@ -15,8 +15,13 @@
 # editor, change the row through the API (bumping the stored token), then save from the browser — the PUT
 # carries the token captured earlier and is now stale. One context, one API call.
 #
+# NO MUTATION SPY HERE, deliberately. Every other rejection in this suite is client-side, so its proof is
+# that NO request was sent. This rejection is the opposite: the stale PUT *is* sent and the SERVER rejects
+# it with a 409. A spy would set up a zero-write claim that must not hold — the proof is the error message
+# plus the other session's value surviving the read-back below.
+#
 # SINGLE-OWNER SCENARIO — prove it non-flaky SERIALLY, not in parallel:
-#   npx playwright test --grep @concurrency --repeat-each=5 --workers=1     (33/33 on 2026-08-10)
+#   npm test -- --grep @concurrency --repeat-each=5 --workers=1     (33/33 on 2026-08-10)
 # `--repeat-each` WITHOUT `--workers=1` self-collides: every copy seeds the same (location, biogeo) pair on
 # the one anchor and the app's own uniqueness rule rejects the duplicates with
 # 409 "The Biogeo/Subzone/Variant has to be unique for a location." That is the harness colliding with
@@ -35,14 +40,12 @@ Feature: Report Basic Silviculture Costs (Schedule 11) — concurrent edits are 
   @p1
   Scenario: Saving a row that another session already changed is rejected, and their value survives
     Given the Schedule 11 anchor "stale-edit" has a seeded location "E2E stale edit"
-    And a spy is watching the Schedule 11 location requests
     And I have selected that mill and reporting year on the Home page
     When I open Schedule 11
     # Seeded at actual 5000. Opening the editor captures this row's revisionCount.
     And I start editing the Schedule 11 location "E2E stale edit"
     # Someone else saves first — this succeeds and moves the token on.
     And another session changes the Schedule 11 location "E2E stale edit" to actual cost 4242
-    And I note the Schedule 11 mutation count
     # Our save now carries the token captured before their change.
     And I change the inline "Actual Cost" to "7777"
     And I save the inline edit

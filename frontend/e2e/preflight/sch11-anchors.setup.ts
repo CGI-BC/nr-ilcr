@@ -1,3 +1,7 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { test, expect } from '@playwright/test';
 import {
   A11Y_ANCHOR,
@@ -12,14 +16,20 @@ import {
   CHECK_MISSING_PLANNED_ANCHOR,
   CORRECTION_ANCHOR,
   DELETE_ANCHOR,
+  ERR,
+  ERR_STALE_EDIT,
+  FLD,
   GUARD_ANCHORS,
   INLINE_EDIT_ANCHOR,
+  MARKER,
+  MSG,
   MULTI_ADD_ANCHOR,
   PERSIST_ANCHOR,
   STALE_EDIT_ANCHOR,
   type Sch11Anchor,
   TRACK_INDEPENDENCE_ANCHOR,
   VALIDATION_ANCHOR,
+  missingCostMessage,
   scheduleUrl,
 } from '../fixtures/sch11/schedule11-test-data';
 
@@ -68,6 +78,67 @@ for (const { name, anchor } of EDITABLE_DRAFT_ANCHORS) {
     ).toBe(true);
   });
 }
+
+/**
+ * Anchors that must hold NO locations at rest.
+ *
+ * The suite's footer-total, row-count and empty-table assertions are only true of an otherwise-empty
+ * anchor — happy-path's "the anchor starts pristine, so the single row IS the totals",
+ * multiple-locations' `lists 2 locations`, delete's `table is empty` plus blank footer. Checking that here
+ * turns one escaped row into a single actionable preflight message instead of several confusing mid-suite
+ * reds that point at the wrong thing.
+ *
+ * EXCLUDES the S10 track-independence anchor, which legitimately arrives with seeded rows ("20173",
+ * "20173-2"): it is the only (mill, year) in the extract with a past-Draft 1-10 track AND a Draft
+ * silviculture track, so there was no empty alternative to pick. That scenario is written for it — it
+ * asserts the added row's stored record and the live editing surface, never a count or a total.
+ * EXCLUDES the validate-only anchor too: nothing is ever written there and no scenario reads its row
+ * count, so a row appearing on it would break nothing and must not fail the gate.
+ */
+const PRISTINE_ANCHORS = EDITABLE_DRAFT_ANCHORS.filter(
+  ({ anchor }) =>
+    anchor !== TRACK_INDEPENDENCE_ANCHOR && anchor !== VALIDATION_ANCHOR,
+);
+
+test('preflight: Schedule 11 pristine anchors hold no locations at rest', async ({ request }) => {
+  const dirty: string[] = [];
+  for (const { name, anchor } of PRISTINE_ANCHORS) {
+    const res = await request.get(scheduleUrl(anchor.key.millId, anchor.key.year));
+    expect(res.ok(), `Schedule 11 anchor "${name}" GET -> HTTP ${res.status()}`).toBeTruthy();
+    const doc = (await res.json()) as { locations: { location: string }[] };
+    if (doc.locations.length > 0) {
+      dirty.push(
+        `${name} (${anchor.key.millId}/${anchor.key.year}) holds ${String(doc.locations.length)}: ${doc.locations
+          .map((l) => `"${l.location}"`)
+          .join(', ')}`,
+      );
+    }
+  }
+  expect(
+    dirty,
+    `Schedule 11 anchors must be EMPTY before the suite runs — the totals/row-count/empty-table assertions depend on it. Delete the rows listed here (leftover E2E markers from an interrupted run, or a hand-edit of the seeded DB) and re-run:\n  ${dirty.join('\n  ')}`,
+  ).toEqual([]);
+});
+
+test('preflight: no leftover E2E marker rows on any Schedule 11 anchor', async ({ request }) => {
+  // Residue check across EVERY anchor, including the two the emptiness check above excludes: a row
+  // carrying one of our own markers is always a failed teardown, never seeded data. Catches it on the
+  // anchors where it would otherwise be invisible.
+  const markers = new Set<string>(Object.values(MARKER));
+  const residue: string[] = [];
+  for (const { name, anchor } of EDITABLE_DRAFT_ANCHORS) {
+    const res = await request.get(scheduleUrl(anchor.key.millId, anchor.key.year));
+    if (!res.ok()) continue; // the per-anchor test above already reports a bad GET
+    const doc = (await res.json()) as { locations: { location: string }[] };
+    for (const row of doc.locations.filter((l) => markers.has(l.location))) {
+      residue.push(`${name} (${anchor.key.millId}/${anchor.key.year}): "${row.location}"`);
+    }
+  }
+  expect(
+    residue,
+    `leftover E2E rows found — a previous run's teardown did not complete. Delete them and re-run:\n  ${residue.join('\n  ')}`,
+  ).toEqual([]);
+});
 
 test('preflight: Schedule 11 mutating anchors are all distinct', async () => {
   // Parallel safety is a property of the DATA, so it is asserted here rather than trusted to review: two
@@ -145,6 +216,71 @@ test('preflight: pinned biogeoclimatic catalogue options still resolve', async (
       `BEC label "${option.label}" is no longer unique in the q="${option.query}" results — the suggestion picker would hit a strict-mode violation. Re-ground to a unique label.`,
     ).toBe(1);
   }
+});
+
+/**
+ * The `.feature` files, read as text — Gherkin must stay literal to be readable by a BA, so every verbatim
+ * contract string and row marker is typed into the specs rather than interpolated from the fixtures file.
+ * That leaves the fixtures file documenting strings nothing checks, which is what the next two tests fix.
+ */
+const FEATURE_DIR = fileURLToPath(
+  new URL('../features/sch11/uc-sch11-001-report-costs/', import.meta.url),
+);
+
+const featureText = (): string =>
+  readdirSync(FEATURE_DIR)
+    .filter((f) => f.endsWith('.feature'))
+    .map((f) => readFileSync(join(FEATURE_DIR, f), 'utf8'))
+    .join('\n');
+
+test('preflight: every pinned verbatim contract string is actually asserted by a feature', () => {
+  // WHY: these constants claim to be the single source of truth for the API-owned strings (AD-8), but the
+  // specs assert their own literals, so a drifted constant would sit there looking authoritative while
+  // every test stayed green — and the next person to reuse one would assert the wrong text. This makes the
+  // claim load-bearing in the only direction that matters: no constant may fall out of sync with the specs.
+  const text = featureText();
+  const pinned: Record<string, string> = {
+    'MSG.saved': MSG.saved,
+    'MSG.deleted': MSG.deleted,
+    'MSG.statusChecked': MSG.statusChecked,
+    'MSG.requirementsMet': MSG.requirementsMet,
+    'ERR.millYearNotSelected': ERR.millYearNotSelected,
+    'ERR.millNotActive': ERR.millNotActive,
+    'ERR.scheduleNotFound': ERR.scheduleNotFound,
+    ERR_STALE_EDIT,
+    'FLD.locationRequired': FLD.locationRequired,
+    'FLD.enhancedRequired': FLD.enhancedRequired,
+    'FLD.biogeoRequired': FLD.biogeoRequired,
+    'FLD.netAreaRequired': FLD.netAreaRequired,
+    'FLD.netAreaRange': FLD.netAreaRange,
+    'FLD.costRange': FLD.costRange,
+    'missingCostMessage()': missingCostMessage(MARKER.checkMissingActual, 'Actual'),
+    // NOT listed, deliberately: FLD.locationMaxLength and FLD.commentsMaxLength. Carbon's `maxLength`
+    // stops the keystroke, so neither cap is reachable from a browser at all — they belong as backend
+    // bean-validation cases (defects.md GAP-1/GAP-2, carried in deferred-work.md). They stay in the
+    // fixtures file as the pinned wording for whoever writes those tests.
+  };
+  const missing = Object.entries(pinned)
+    .filter(([, literal]) => !text.includes(literal))
+    .map(([name, literal]) => `${name} -> ${JSON.stringify(literal)}`);
+  expect(
+    missing,
+    `these pinned strings appear in NO .feature file, so nothing asserts them. Either the constant drifted from the spec (fix whichever is wrong) or the coverage was dropped:\n  ${missing.join('\n  ')}`,
+  ).toEqual([]);
+});
+
+test('preflight: every row marker is used by a feature', () => {
+  // The cleanup registry deletes by MARKER value while the specs type the marker text by hand. If the two
+  // drift, teardown deletes nothing, the row survives, and it then poisons the totals / Check-Status
+  // assertions on that anchor — a slow, confusing failure a long way from its cause.
+  const text = featureText();
+  const unused = Object.entries(MARKER)
+    .filter(([, marker]) => !text.includes(marker))
+    .map(([name, marker]) => `MARKER.${name} -> ${JSON.stringify(marker)}`);
+  expect(
+    unused,
+    `these markers are registered for cleanup but typed nowhere in the specs, so teardown would delete nothing and the row would survive:\n  ${unused.join('\n  ')}`,
+  ).toEqual([]);
 });
 
 test('preflight: the S16 populated-prefix returns real suggestions but is not itself a label', async ({

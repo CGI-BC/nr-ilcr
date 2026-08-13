@@ -1,7 +1,6 @@
 import { type APIRequestContext, expect } from '@playwright/test';
 import {
   type ScheduleKey,
-  checkStatusUrl,
   locationUrl,
   locationsUrl,
   scheduleUrl,
@@ -57,13 +56,12 @@ export interface Sch11Document {
   message?: { key: string; text: string } | null;
 }
 
-/** One check-status result (`Schedule11CheckStatusResponse`). `requirementsMetMessage` is OMITTED when unmet. */
-export interface Sch11CheckStatus {
-  requirementsMet: boolean;
-  errors: { key: string; text: string }[];
-  requirementsMetMessage?: { key: string; text: string };
-  message: { key: string; text: string };
-}
+/**
+ * NO check-status helper lives here on purpose. Check Status is asserted entirely through the UI — the
+ * rendered result region, including `checkResultRawText()` for FLD-004's verbatim double space — because
+ * what matters is what the user is shown, not what the endpoint returns (the endpoint is already covered
+ * by `Schedule11CheckStatusIT`). An API helper here would only ever have re-proved the backend.
+ */
 
 /** The fields a seeded precondition row carries. Costs are nullable so S05/S06 can omit one. */
 export interface SeedLocation {
@@ -178,16 +176,6 @@ export async function locationByMarker(
     `expected exactly one Schedule 11 location "${marker}" on ${key.millId}/${key.year}, found ${matches.length}`,
   ).toBe(1);
   return matches[0];
-}
-
-/** POST check-status (read-only validation — mutates nothing). */
-export async function checkStatus(
-  request: APIRequestContext,
-  { millId, year }: ScheduleKey,
-): Promise<Sch11CheckStatus> {
-  const res = await request.post(checkStatusUrl(millId, year));
-  expect(res.ok(), `POST check-status ${millId}/${year} returned HTTP ${res.status()}`).toBeTruthy();
-  return (await res.json()) as Sch11CheckStatus;
 }
 
 /**

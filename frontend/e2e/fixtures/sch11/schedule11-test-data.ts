@@ -44,7 +44,9 @@ export interface Sch11Anchor {
 
 // ---------------------------------------------------------------------------------------------------
 // Mutating anchors — one per scenario that writes. All confirmed ACT mill, trackStatus "D",
-// editable:true, ZERO locations at rest.
+// editable:true and ZERO locations at rest, WITH ONE EXCEPTION: the S10 track-independence anchor
+// carries two seeded rows (see its own comment below). `preflight/sch11-anchors.setup.ts` asserts the
+// emptiness of the others, because the footer-total / row-count / empty-table assertions depend on it.
 // ---------------------------------------------------------------------------------------------------
 
 const MILL_8888: MillRef = { millNumber: '8888', millName: 'CGI TEST MILL8' }; // millId 24051, ACT
@@ -118,6 +120,13 @@ export const CORRECTION_ANCHOR: Sch11Anchor = { key: { millId: 10050, year: 2021
  * `GET /api/v1/schedule11?millId=23050&year=2016` → {trackStatus:"D", editable:TRUE}, i.e. the 1–10
  * status provably does not gate Schedule 11 (legacy `disableUserInputSchedule11()` reads only
  * `millSilviculturStatusCode`). This scenario ADDS a location, so it owns the key outright.
+ *
+ * THE ONE NON-EMPTY MUTATING ANCHOR: it arrives carrying two seeded rows ("20173" netArea 1.2, "20173-2"
+ * netArea 1.1, both revisionCount 0 — confirmed 2026-08-12). Being the only (mill, year) in the extract
+ * with this status combination, there was no empty alternative, so the scenario is written for it: it
+ * asserts the added row's stored record and the live editing surface, and deliberately makes NO row-count
+ * or footer-total claim. Its precondition therefore checks only that its OWN marker is absent, and the
+ * preflight emptiness check skips this key by name.
  */
 export const TRACK_INDEPENDENCE_ANCHOR: Sch11Anchor = {
   key: { millId: 23050, year: 2016 },
@@ -236,8 +245,8 @@ export const locationsUrl = (millId: number, year: number): string =>
 export const locationUrl = (id: number, millId: number, year: number): string =>
   `${SCHEDULE11_API}/locations/${id}?millId=${millId}&year=${year}`;
 
-export const checkStatusUrl = (millId: number, year: number): string =>
-  `${SCHEDULE11_API}/check-status?millId=${millId}&year=${year}`;
+// No `checkStatusUrl` builder: Check Status is only ever exercised through the button and asserted on the
+// rendered result, so nothing needs the endpoint's URL (see the note in steps/sch11/schedule11Api.ts).
 
 /** Carbon Dropdown option text for a mill — mirrors Home's `millItemToString`. */
 export const millOptionText = (m: MillRef): string => `${m.millNumber} - ${m.millName}`;
@@ -252,6 +261,12 @@ export const MILL_YEAR_STORAGE_KEY = 'ilcr:mill-year-context';
 // ProblemDetail `detail` verbatim rather than re-typing it, so these are asserted exactly. All were
 // read from the backend bundle (backend/src/main/resources/messages.properties) AND confirmed live
 // against the running app on 2026-08-10.
+//
+// The specs type these literals out rather than importing them — Gherkin has to stay readable to a BA, and
+// a step argument cannot be a TypeScript reference. That would leave the constants below documenting
+// strings nothing checks, so `preflight/sch11-anchors.setup.ts` asserts that each one appears verbatim in
+// at least one `.feature` file. A constant that drifts from the specs (or a spec whose text drifts from
+// the bundle) fails there instead of sitting green and authoritative-looking.
 // ---------------------------------------------------------------------------------------------------
 
 export const MSG = {
@@ -302,12 +317,18 @@ export const ERR = {
  */
 export const FLD = {
   locationRequired: 'Location: Value is required.',
+  /**
+   * NOT asserted by any scenario, and the preflight literal guard skips it: Carbon's `maxLength` stops the
+   * keystroke, so the cap is unreachable from a browser. Kept as the pinned wording for the backend
+   * bean-validation test that should cover it — defects.md GAP-1, carried in `deferred-work.md`.
+   */
   locationMaxLength: 'Location must be 30 characters or fewer.',
   enhancedRequired: 'Enhanced: Value is required.',
   biogeoRequired: 'Biogeo/Subzone/Variant: Value is required.',
   netAreaRequired: 'NAR(ha): Value is required.',
   netAreaRange: 'Entered NAR (ha) must be between 0 and 999,999.9.',
   costRange: 'Entered cost must be between -99,999,999 and 99,999,999.',
+  /** Unreachable from a browser for the same reason as `locationMaxLength` — defects.md GAP-2. */
   commentsMaxLength: 'Comments must be 3500 characters or fewer.',
 } as const;
 
