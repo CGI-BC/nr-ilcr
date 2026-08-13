@@ -62,8 +62,8 @@ No CI wiring (the app + delivery Oracle are not containerized in this pipeline).
 1. Bring up the stack per `../../../README.md` (backend `:8080` `local` profile + datasource on; Vite `:3000`;
    seeded Docker Oracle `THE/…@localhost:1525/DBDOCK_01`, security off).
 2. `cd frontend/e2e && npm test` (the `pretest` hook runs `bddgen`).
-   Scope to this UC with `npx playwright test --grep "@UC-SEC-001"`; a11y is included (`@a11y`).
-3. Flake gate: `npx playwright test --grep "@UC-SEC-001" --repeat-each=5`.
+   Scope to this UC with `npm test -- --grep "@UC-SEC-001"`; a11y is included (`@a11y`).
+3. Flake gate: `npm test -- --grep "@UC-SEC-001" --repeat-each=5`.
 
 **Symmetry check:** happy save (S01) + its banner variants (S06 closed still-saves, S07 null-status
 mill-line-only) + change/replace (S03) cover the positive/alternative arms; the mirror negative

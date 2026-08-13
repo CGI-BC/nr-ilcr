@@ -27,7 +27,7 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   - **Action:** BA/QA to confirm the role-specific notice is intentionally dropped (or file it as missing
     parity). Kept as a documentation item; the S01 scenario is **GREEN** and simply does not assert a
     notice that the app does not render.
-  - **Priority / env:** p2. 
+  - **Priority / env:** p2.
   - **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll
     double-check with the BA whether the role notice is needed or not, when she gets a chance.
   - **Test:** `working-context.feature` `@S01` (asserts SUC-001 + banner only) — GREEN.
@@ -57,7 +57,7 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   - **Action:** BA/QA to confirm: is pre-selecting the default acceptable, or should Home land on empty
     dropdowns (restoring the S04/S05/S08 UI path)? Tracked as GAP-1. **Not** a `@discovered-*`
     red — the guarantee holds at the contract; there is no failing behaviour to track.
-  - **Priority / env:** p1. 
+  - **Priority / env:** p1.
   - **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
     this when she gets a chance. Reconciling it is what unblocks the S04/S05/S08 browser tests — see GAP-1.
   - **Test:** none at the UI (unreachable); contract proven via API above.
@@ -74,7 +74,7 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
     says a real runtime-config/auth-driven context is deferred). It will change when the auth story lands.
   - **Action:** BA/QA aware only; re-verify this landing scenario once real context injection replaces the
     dev default. Kept as a **GREEN** re-grounded test asserting the actual behaviour.
-  - **Priority / env:** p2. 
+  - **Priority / env:** p2.
   - **Status:** OPEN — with the dev. Found 2026-07-30. Triaged with the dev (2026-08-10): she'll work on
     this when she gets a chance. Same root cause as DIV-2 (the `millYearDefaults.ts` dev scaffold), so the
     two will likely move together.

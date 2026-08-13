@@ -57,8 +57,8 @@ Feature: Report Basic Silviculture Costs (Schedule 11) — accessibility
   # accessibility check when the Schedule 11 E2E is (re-)developed." This is that check.
   #
   # It is expected to FAIL until the app-wide fix lands (a visually-hidden role=alert region, or a Carbon
-  # change) — the defect is NOT Schedule 11's to fix, and the failure IS the tracking signal. Filter it
-  # out of a clean run with `--grep-invert @discovered-bug`. See defects.md BUG-1.
+  # change) — the defect is NOT Schedule 11's to fix, and the failure IS the tracking signal. `npm run
+  # test:gate` excludes it from a clean run. See defects.md BUG-1.
   # ==================================================================================================
   @discovered-bug @p1
   Scenario: The validation-error state announces its errors to assistive technology

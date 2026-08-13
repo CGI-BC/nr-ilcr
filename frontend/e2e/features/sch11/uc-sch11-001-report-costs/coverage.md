@@ -31,7 +31,8 @@ S14–S19 entry rejection (`validation.feature`); the correct-and-retry recovery
 `@discovered-bug` RED** tracking a pre-existing, app-wide accessibility defect (defects.md
 BUG-1 — Carbon's validation-error markup is never announced to assistive technology; it
 affects every schedule page and is already recorded in `deferred-work.md`, which asked for exactly this
-red check). A clean run is `npx playwright test --grep-invert @discovered-bug`.
+red check). A clean run is `npm run test:gate` (the script regenerates the features first and excludes
+every `@discovered-*` red).
 
 ## Re-grounding headline
 
@@ -81,7 +82,7 @@ work. **The comments in `validation.ts` should now be updated to drop the PROVIS
 (GAP-7, now CLOSED — the dev accepted the follow-up; the labels may still be in `validation.ts` until she lands it).
 
 Suite state: **28 green + 1 intentional red** (the `@discovered-bug` accessibility check above). The
-whole-suite clean run `npx playwright test --grep-invert @discovered-bug` is green; the two excluded reds
+whole-suite clean run `npm run test:gate` is green; the two excluded reds
 are this UC's accessibility bug and Schedule 1's pre-existing `clear-amounts` bug — both genuine,
 pre-existing app defects with `defects.md` entries, neither masked or weakened.
 

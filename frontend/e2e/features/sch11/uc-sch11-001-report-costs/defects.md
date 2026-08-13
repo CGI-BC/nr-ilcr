@@ -6,7 +6,7 @@ verified against the running app and the seeded local delivery DB on that date �
 from another UC on trust.
 
 **Headline: one pre-existing app-wide accessibility bug (re-covered as a deliberate RED), and no
-Schedule-11 bugs.** 27 of 28 scenarios pass; the single red is BUG-1 — a critical WCAG defect
+Schedule-11 bugs.** 28 of 29 scenarios pass; the single red is BUG-1 — a critical WCAG defect
 in Carbon's validation-error markup that affects every schedule page and is already tracked in
 `deferred-work.md`, which explicitly asked for it to be re-covered by a red check here. Schedule 11's own
 behaviour was correct on every path exercised, including the four legacy items the requirements could not
@@ -49,8 +49,7 @@ differences.
   - **Status:** **TRIAGED (deferred)** — owned by `deferred-work.md`, awaiting the app-wide accessibility
     decision. **Not ours to close.**
   - **Test:** `accessibility.feature` `@discovered-bug @p1` — a genuine RED that flips green on its own when
-    the app-wide fix lands. Excluded from the documented gate:
-    `npx playwright test --grep-invert @discovered-bug`.
+    the app-wide fix lands. Excluded from the documented gate: `npm run test:gate`.
   - **Why it is a Bug and not a Coverage gap / Divergence:** it is measured against NFR1 (correct
     behaviour), not against legacy — legacy was worse. Being *deferred* is a Status, not a register.
 
