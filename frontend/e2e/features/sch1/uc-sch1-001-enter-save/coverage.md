@@ -111,8 +111,8 @@ plus "no backup … snapshot was never taken" restore failures). A real run only
 | S22 Schedule not editable outside Draft | S22.feature (Exc) | GET 200 editable:false (track ≠ D) → read-only render; Save/Check/Delete disabled, no inputs | `render-states.feature` `@S22 @p1` (anchor 12050/2016, Submitted) | covered | Read-only proven by absent inputs + disabled actions |
 | S23 Save fails due to persistence error | S23.feature (Exc) | `handleSave` catch → error banner; entries retained; no PUT reaches the server | `persistence.feature` `@S23 @p1` (fault-injected 500) | covered | Fault via page.route; read-only anchor, no write lands |
 | S24 Retry save succeeds after transient failure | S24.feature (Alt) | retry after failure → success + persisted; persistent failure keeps failing | `persistence.feature` `@S24 @p1` (×2: recover; not-transient) | covered | Retry-succeeds writes to a dedicated target; snapshot/restore exact |
-| AC4/NFR1 accessibility — Schedule 1 page | issue #74 AC4; NFR1 | axe-core wcag2a/2aa/21a/21aa on the rendered page | `accessibility.feature` `@accessibility @p1` (24050/2017) | covered | Zero WCAG 2.1 AA violations |
-| AC4/NFR1 accessibility — Other Costs sub-page | issue #74 AC4; NFR1 | axe-core wcag2a/2aa/21a/21aa on the rendered page | `accessibility.feature` `@accessibility @p1` (17052/2016) | covered | Zero WCAG 2.1 AA violations |
+| AC4/NFR1 accessibility — Schedule 1 page | issue #74 AC4; NFR1 | axe-core wcag2a/2aa/21a/21aa on the rendered page | `accessibility.feature` `@a11y @p1` (24050/2017) | covered | Zero WCAG 2.1 AA violations |
+| AC4/NFR1 accessibility — Other Costs sub-page | issue #74 AC4; NFR1 | axe-core wcag2a/2aa/21a/21aa on the rendered page | `accessibility.feature` `@a11y @p1` (17052/2016) | covered | Zero WCAG 2.1 AA violations |
 
 **Symmetry check (re-run 2026-08-07).** S01 covers the entered-fields → save → read-back (write-succeeds)
 arm; S03–S07 cover the mirror validation-reject (write-blocked) arm. The reject cluster is itself
