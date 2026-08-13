@@ -38,6 +38,7 @@ two such branches merge:
    | Schedule 5                | **670–676**     | reserved by `V34`, seeded by `V20260807`      |
    | Schedule 7B               | **680–681**     | `V20260811`                                  |
    | Schedule 5 sub-pages      | **690–693**     | `V20260814`                                   |
+   | Schedule 9                | **700–706**     | `V20260815`                                  |
 
    **Schedule 5 sub-pages (`V20260814`, Story 7.4)** — a **timestamp version**, per convention 1 and
    the `V20260807` precedent. Seeds the first item-62 / item-68 rows the suite has ever held, on its
@@ -97,6 +98,13 @@ two such branches merge:
    predicate is falsifiable) and **`681`** (one culvert stored with a since-retired type code, for the
    unchanged-type exemption on save). Its culvert-type rows deliberately include a mid-year-effective
    and a mid-year-expiring code so the January-1 evaluation instant is falsifiable too.
+
+   **Schedule 9 (`V20260815`, Story 9.2)** — a **timestamp version** (`V20260815`, renamed from
+   `V20260814` to avoid collisions with PR #268). It seeds Schedule 9's write-side test fixtures. It
+   additionally owns mills **`690–696`** for the write playground, Check-Status edge cases, and
+   authorization tests. PK ranges: `CONTRACTUAL_WORK_REPORT_ID` **`9101–9199`** and
+   `ILCR_COST_REPORT_DETAIL_ID` **`8481–8499`** (both below the sequence starts and clear of other
+   schedules). Read fixtures reuse the shared `514`/`515`/`516`/`517` context from `V2`.
 
    Cost-item IDs (`ILCR_REPORT_COST_ITEM_ID`) are a **shared** master-data space across schedules.
    Define each item **once**; if another track already seeds it (identical row), reference it, don't
