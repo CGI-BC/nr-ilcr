@@ -161,7 +161,7 @@ recorded rather than silently dropped:
 | *(new)* | `Please correct the highlighted fields before checking status.` | client gate, `index.tsx:187` | `validation.feature` `@p2 @S16` | `covered` |
 | *(new)* | `Entered cost is invalid.` | `validation.ts` integer guard | `validation.feature` `@p2 @S13` | `covered` |
 | *(new)* | `Entered volume entry is invalid.` | `validation.ts` NaN guard | `validation.feature` `@p2 @S14` | `covered` |
-| *(new)* | `Unable to load Schedule 2.` / `Unable to delete Schedule 2.` | page fallbacks when the API returns no detail | — | `deferred` — GAP-3 |
+| *(new)* | `Unable to load Schedule 2.` / `Unable to delete Schedule 2.` | page fallbacks when the API returns no detail | — | `deferred` — GAP-3 (belongs in Vitest, not E2E; no unit coverage exists today) |
 
 ## Controls (8 in the legacy Field Reference)
 

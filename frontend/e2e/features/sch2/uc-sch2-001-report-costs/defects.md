@@ -20,8 +20,10 @@ Two findings looked like divergences at first and were **disproved** by checking
 null-propagation and the delete contract. Both now sit in *Verified — not a defect* (**VER-1** absent-vs-zero
 figures, **VER-2** idempotent delete) so the Divergence register lists only live differences.
 
-**BA/QA own triage.** Nothing below has been adjudicated or ticketed by the test author. No application
-source was changed while authoring this suite.
+**Triaged 2026-08-14.** BUG-1 → [#292](https://github.com/bcgov/nr-ilcr/issues/292), DIV-1 →
+[#291](https://github.com/bcgov/nr-ilcr/issues/291), GAP-3 → [#297](https://github.com/bcgov/nr-ilcr/issues/297);
+all three sit with the dev, and QA confirms and closes each status line once fixed. No application source
+was changed while authoring this suite.
 
 ---
 
@@ -55,7 +57,11 @@ source was changed while authoring this suite.
     server-side no-op (see VER-2). The harm is a misleading success message and a control that contradicts
     the documented rule: a reporter can be told data was deleted when nothing existed.
   - **Priority / env:** p1 · any never-saved Schedule 2 · local seeded delivery DB.
-  - **Status:** OPEN — awaiting BA/QA triage. No Jira raised; the test author does not adjudicate.
+  - **Ticket:** [bcgov/nr-ilcr#292](https://github.com/bcgov/nr-ilcr/issues/292) — *"[BUGFIX]: Schedule 2
+    Delete button should be hidden if now Schedule 2 exists."*
+  - **Status:** OPEN — **with the dev.** Triaged and confirmed 2026-08-14: the Schedule 2 dev will fix it
+    when he gets a chance. QA confirms the fix and closes this status line afterwards; the
+    `@discovered-bug` red goes green on its own when the gate is corrected.
   - **Test:** `render-states.feature` `@discovered-bug @p1 @S06` — "Delete is not offered for a never-saved
     schedule". A genuine RED that flips green on its own when the gate is fixed. Excluded from the
     documented gate: `npm run test:gate`.
@@ -98,7 +104,13 @@ at-rest state.
     acceptable to reporters. If it is, this entry moves to *Verified — not a defect* and the spec is
     annotated.
   - **Priority / env:** p2 (informational) · local seeded delivery DB.
-  - **Status:** OPEN — for BA/QA confirmation that this is the intended UX.
+  - **Ticket:** [bcgov/nr-ilcr#291](https://github.com/bcgov/nr-ilcr/issues/291) — *"[BUGFIX]: Automatic
+    Recalculation for Schedule 1, 2, 3 and 4."* Raised app-wide, not just for Schedule 2; the behaviour
+    difference is explained in a comment on that issue.
+  - **Status:** OPEN — **with the dev.** The Schedule 2 dev will fix it when he gets a chance; QA confirms
+    and closes this status line afterwards. **If recalculation-on-blur is restored, `happy-path.feature`
+    will fail** — it currently pins the existing behaviour, so update that scenario as part of the fix
+    rather than treating it as a regression (noted on the issue too).
   - **Test:** covered as the app behaves — `happy-path.feature` `@p0 @S01` asserts the at-rest figures are
     still shown *after* entry and *before* the Save, then the recomputed figures after it, so a change in
     either direction fails. No red, because this is traceable to a ratified architecture decision rather
@@ -118,6 +130,12 @@ at-rest state.
     `Schedule2AuthorizationIT`, `Schedule2WriteAuthorizationIT` and `Schedule2CheckStatusAuthorizationIT`.
   - **The legacy catalogue excluded the same item for a different reason** — it found no documented in-page
     behaviour for a direct-navigation bypass, so there was nothing to slice.
+  - **This is the cross-cutting deferral, not a Schedule 2 finding.** It is owned by `deferred-work.md`
+    → *"Deferred (cross-cutting): role-gated behaviour cannot be E2E-tested under single-role mock auth
+    (2026-08-12)"*, which lists this entry alongside `sch1` GAP-1, `sch11` GAP-6 and `sec` GAP-4. Do not
+    re-litigate it per page.
+  - **When it is done** (per that entry): QA authors E2E tests for these coverage gaps and runs them against
+    the running app, once the role-specific behaviours are actually implemented — then this `Status:` moves.
   - **Status:** OPEN — `blocked` in coverage.md. A gate should treat this as **waived**, not failing.
   - **Test:** none today, by environment limitation rather than by choice.
 
@@ -127,18 +145,35 @@ at-rest state.
     (no inline error) but not that figures update — because in this app they cannot until Save.
   - **Why:** this is DIV-1's consequence, not an independent hole. The recomputation itself is fully covered
     by `happy-path.feature`, which asserts every derived figure against real arithmetic.
-  - **Status:** OPEN — superseded by **DIV-1**; closing it depends on DIV-1's disposition.
+  - **Status:** OPEN — QA addresses this coverage gap once **DIV-1** ([#291](https://github.com/bcgov/nr-ilcr/issues/291))
+    is resolved and closed, since what the recovery arms should assert depends on that outcome.
   - **Test:** `validation.feature` bound outlines cover the acceptance half (`@p2 @S13/@S14/@S15`).
 
-- **GAP-3 — Two page-level fallback messages are untested.**
-  - **What's missing:** `Unable to load Schedule 2.` and `Unable to delete Schedule 2.` are fallbacks the
-    page shows only when the API fails *and* returns no `ProblemDetail.detail`.
-  - **Why it is low value:** every realistic failure the app produces carries a detail — proved by the 409
-    and 404 guard scenarios, which assert the server's own wording verbatim. Reaching these strings needs a
-    second route-interception fixture for little behavioural gain.
-  - **Status:** OPEN — `deferred` in coverage.md. Deferred rather than dropped.
-  - **Test:** none today. The equivalent *save* fallback (ERR-003) **is** covered, by
-    `save-error.feature` `@p1 @S12`.
+- **GAP-3 — Two page-level fallback messages are untested at any level.**
+  - **What's missing:** `Unable to load Schedule 2.` (`index.tsx:56`) and `Unable to delete Schedule 2.`
+    (`index.tsx:171`) are the strings the page falls back to when a request fails *and* the response
+    carries no `ProblemDetail.detail` — a gateway/proxy error, a dropped connection, an empty-bodied 500.
+  - **Checked for existing unit coverage 2026-08-14: there is NONE.**
+    `components/schedule2/__tests__/Schedule2.test.tsx` has 11 tests and not one exercises a failed load or
+    a failed delete (no match for `Unable to load` / `Unable to delete` / `mapLoadError` / `errorDetail`).
+    So these two user-facing strings are unverified at every level today.
+  - **Is a test warranted? Yes — one small Vitest case each, NOT an E2E scenario.** They are pure
+    client-side branches: no request shape, no persistence, no cross-schedule arithmetic. A Vitest test can
+    reject the mocked axios call with a detail-less error and assert the fallback renders, deterministically
+    and without the stack. E2E would need a second route-interception fixture, take ~10s per scenario, and
+    prove strictly less.
+  - **And unlike the backend ITs, Vitest DOES gate:** CI runs `npm run test:cov` (`analysis.yml`), so a
+    regression in these fallbacks would fail the build — which an E2E test could not claim, since the
+    data-backed suite is a manual gate (see GAP-5).
+  - **Where it belongs — NOT here.** A component test on `components/schedule2` is Schedule 2 story
+    territory (3.3), not this verification story (3.4); and this suite changes no files outside
+    `frontend/e2e/`. Two cases, ~10 lines, beside the existing 11.
+  - **Ticket:** [bcgov/nr-ilcr#297](https://github.com/bcgov/nr-ilcr/issues/297) — *"[BUGFIX]: Schedule 2:
+    add unit tests for the two load/delete error fallback messages."*
+  - **Status:** OPEN — with the dev. `deferred` in coverage.md; flips to CLOSED when the two Vitest cases
+    land.
+  - **Test:** none today. The sibling *save* fallback (ERR-003) **is** covered end-to-end by
+    `save-error.feature` `@p1 @S12`, which is why only these two remain.
 
 - **GAP-4 — The validation-error state is not swept by axe here, deliberately.**
   - **What's missing:** Schedule 2's accessibility sweep covers four renders (editable-and-populated,
@@ -148,47 +183,42 @@ at-rest state.
     `aria-valid-attr-value`, impact critical), so a field error never reaches assistive technology. It
     affects every schedule page, is recorded in `deferred-work.md`, and is already carried as the standing
     red in `features/sch11/uc-sch11-001-report-costs/accessibility.feature` (that UC's BUG-1).
-  - **One red per app-wide defect is the tracking signal;** a second copy per schedule would degrade it into
-    noise. This is a deliberate scoping decision, recorded so it is explicit and reversible rather than a
-    silent omission.
+  - **Why a Coverage gap here, when Schedule 11 files it as a Bug.** The defect is owned by
+    `deferred-work.md` → *"Deferred (cross-cutting): validation errors are never announced to assistive
+    technology (app-wide WCAG 4.1.2)"*. Its original 2026-07-30 note specifically asked for a
+    deliberately-RED check **on Schedule 11**, so sch11 carries one and it stays. That is specific to
+    Schedule 11 — not a claim that its red covers this page. Every other page, and every page from here on,
+    records the item as a Coverage gap pointing at that section instead.
+  - **What is genuinely NOT covered:** Schedule 2's validation-error state is **unswept**. A
+    Schedule-2-specific accessibility problem in that state would not be caught today. This entry is the
+    record of that, not a waiver.
   - **Does it block the AC?** No. Story 3.4 AC2 is "zero violations **or** triaged exceptions" — the
     `deferred-work.md` entry is that disposition, and Schedule 2's four swept renders are clean.
-  - **Status:** OPEN — reversible. When the app-wide fix lands, remove `aria-valid-attr-value` from
-    `KNOWN_A11Y_RULES` in `pages/common/axe.ts`; adding the sweep here is then trivial and both go green
-    together.
+  - **When it is done:** remove `aria-valid-attr-value` from `KNOWN_A11Y_RULES` in `pages/common/axe.ts`.
+    QA then authors and runs the `@a11y` sweep of the validation-error state on every page that skipped it,
+    Schedule 2 included, and closes this gap — the fix is not proven on this page until it is swept here.
+  - **Status:** DEFERRED 2026-08-14 — owned by the cross-cutting `deferred-work.md` entry; nothing owed by
+    this story.
   - **Test:** four clean sweeps in `accessibility.feature`; the fifth state intentionally not swept.
 
-- **GAP-5 — Follow-up for the app team: the CI workflow comment lists a stale domain set.**
-  - `.github/workflows/reusable-tests.yml` explains that only the data-independent `@smoke` project runs
-    in CI and that "the full data-backed suite (setup + chromium — **SCH1/SEC**) is a LOCAL/manual gate".
-    That parenthetical is now out of date: the data-backed suite also covers **sch11** (merged in
-    bcgov/nr-ilcr#276) and **sch2** (this work).
-  - **Why it matters (mildly):** the comment is the first thing a reader consults to learn what the manual
-    gate actually covers, so an understated list makes the gate look narrower than it is. Nothing
-    functional depends on it — the job itself greps `@smoke` and is unaffected.
-  - **Why we did not just fix it:** this suite changes no files outside `frontend/e2e/` — that is a hard
-    rule, and a CI workflow is the app team's to edit.
-  - **Priority / env:** p3 (comment only) · CI config.
-  - **Status:** OPEN — raised for the app team; a one-line comment edit whenever they are next in that file.
-  - **Test:** none owed — documentation drift, not behaviour.
+- **GAP-5 — CLOSED 2026-08-14, not pursued: a stale domain list in a CI workflow comment.**
+  - `.github/workflows/reusable-tests.yml` describes the manual gate by naming domains, so the list
+    goes stale each time a suite lands. Cosmetic only — the job greps `@smoke` and is unaffected.
+  - **Closed deliberately.** Editing a shared CI file pulls in reviewers for a comment that changes no
+    behaviour. Not worth the churn; whoever is next in that file can drop the enumeration if they care.
+  - **Status:** CLOSED — won't pursue. No action owed by anyone.
 
 ---
 
 ## Spec gap
 
-> The requirements/Gherkin do not describe behaviour the app genuinely has. These feed back to the BA, not
-> to the dev team.
+> The requirements/Gherkin do not describe behaviour the app genuinely has. These feed back to the BA,
+> not to the dev team.
 
-_None._ The `.feature` set under `tests/UC-SCH2-001/gherkin/` faithfully reflects its own source documents:
-all 16 slices in the catalogue have a feature file, and the 21 scenarios match the slice descriptions
-(including the recovery arms for S09, S10, S12, S13, S14 and S15). The reconciliation in `coverage.md`
-found no scenario the sources list but the Gherkin omits.
-
-Worth recording for the BA even though it is not a gap: the rewrite made **ERR-004 "Schedule not found."**
-reachable, which the legacy UC and technical sidecar had both flagged as an `[ASSUMPTION]`-level
-unreachable state and therefore modelled no slice for. It is now covered by
-`render-states.feature` `@p2 @S10`. A slice is not owed — the behaviour is covered by test — but a BA
-re-grounding this UC later should know the exclusion no longer holds.
+**None — nothing is owed here.** Every one of the 16 slices in the catalogue has a feature file, and the
+21 scenarios match the slice descriptions (including the recovery arms for S09, S10, S12, S13, S14 and
+S15). The reconciliation in `coverage.md` found no scenario the source documents list but the Gherkin
+omits.
 
 ---
 
