@@ -1,3 +1,4 @@
+import { settleBeforeReadingSpy } from '../../pages/common/settle';
 import { Given, When, Then, expect } from '../fixtures';
 import {
   A11Y_ANCHOR,
@@ -538,25 +539,38 @@ Then('no Schedule 2 record is stored', async ({ request, world }) => {
   ).toBeNull();
 });
 
-Then('the Schedule 2 save request should not have been sent', async ({ schedule2MutationSpy }) => {
-  // Client-side rejection must block the round-trip entirely — the strongest available proof that
-  // nothing was written, and stronger than observing that the page did not move.
-  expect(
-    schedule2MutationSpy.mutations,
-    'a client-rejected Save must not fire any mutating Schedule 2 request',
-  ).toBe(0);
-});
+Then(
+  'the Schedule 2 save request should not have been sent',
+  async ({ page, schedule2MutationSpy }) => {
+    // Cross the shared settle barrier BEFORE reading the tally: the negative has to hold over a window,
+    // not at one instant. Without it, a regression that renders the inline error and THEN fires the PUT a
+    // tick later would read 0 and pass green. See pages/common/settle.ts for why this is an event-driven
+    // barrier rather than a tuned `waitForTimeout`.
+    await settleBeforeReadingSpy(page);
+    // Client-side rejection must block the round-trip entirely — the strongest available proof that
+    // nothing was written, and stronger than observing that the page did not move.
+    expect(
+      schedule2MutationSpy.mutations,
+      'a client-rejected Save must not fire any mutating Schedule 2 request',
+    ).toBe(0);
+  },
+);
 
-Then('no further Schedule 2 mutation should have been sent', async ({ world, schedule2MutationSpy }) => {
-  expect(
-    world.sch2MutationsBefore,
-    'a scenario must call "I note the Schedule 2 mutation count" before asserting no FURTHER mutation',
-  ).not.toBeUndefined();
-  expect(
-    schedule2MutationSpy.mutations,
-    'no additional mutating Schedule 2 request should have been sent after the noted point',
-  ).toBe(world.sch2MutationsBefore);
-});
+Then(
+  'no further Schedule 2 mutation should have been sent',
+  async ({ page, world, schedule2MutationSpy }) => {
+    // Same barrier as the absolute form above — the negative must hold over a window.
+    await settleBeforeReadingSpy(page);
+    expect(
+      world.sch2MutationsBefore,
+      'a scenario must call "I note the Schedule 2 mutation count" before asserting no FURTHER mutation',
+    ).not.toBeUndefined();
+    expect(
+      schedule2MutationSpy.mutations,
+      'no additional mutating Schedule 2 request should have been sent after the noted point',
+    ).toBe(world.sch2MutationsBefore);
+  },
+);
 
 Then('the stored Schedule 2 revision is unchanged', async ({ request, world }) => {
   const key = claimedKey(world);
