@@ -65,7 +65,7 @@ export async function getSchedule2(
   { millId, year }: ScheduleKey,
 ): Promise<Sch2Document> {
   const res = await request.get(scheduleUrl(millId, year));
-  expect(res.ok(), `GET schedule2 ${millId}/${year} returned HTTP ${res.status()}`).toBeTruthy();
+  await expect(res, `GET schedule2 ${millId}/${year} returned HTTP ${res.status()}`).toBeOK();
   return (await res.json()) as Sch2Document;
 }
 
@@ -91,10 +91,7 @@ export async function saveSchedule2(
       lessLogSalesCost: seed.lessLogSalesCost ?? null,
     },
   });
-  expect(
-    res.ok(),
-    `seed PUT schedule2 ${key.millId}/${key.year} returned HTTP ${res.status()}: ${await res.text()}`,
-  ).toBeTruthy();
+  await expect(res, `seed PUT schedule2 ${key.millId}/${key.year} returned HTTP ${res.status()}: ${await res.text()}`).toBeOK();
   return (await res.json()) as Sch2Document;
 }
 
@@ -115,10 +112,7 @@ export async function restoreSchedule2(
   key: ScheduleKey,
 ): Promise<void> {
   const res = await request.delete(scheduleUrl(key.millId, key.year));
-  expect(
-    res.ok(),
-    `cleanup DELETE schedule2 ${key.millId}/${key.year} returned HTTP ${res.status()}`,
-  ).toBeTruthy();
+  await expect(res, `cleanup DELETE schedule2 ${key.millId}/${key.year} returned HTTP ${res.status()}`).toBeOK();
   const after = await getSchedule2(request, key);
   expect(
     after.revisionCount ?? null,

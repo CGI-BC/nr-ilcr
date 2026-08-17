@@ -161,10 +161,34 @@ export const A11Y_ANCHOR: Sch2Anchor = { key: { millId: 23052, year: 2018 }, mil
  */
 export const READ_ONLY_ANCHORS: Record<
   'submitted' | 'verified',
-  Sch2Anchor & { trackStatus: string }
+  Sch2Anchor & {
+    trackStatus: string;
+    /**
+     * The STORED item-25/26 numbers the `@S11` outline asserts verbatim on screen. Pinned so
+     * `preflight/sch2-anchors.setup.ts` can prove they have not drifted before a browser opens — these
+     * come from another schedule's data set and are not written by this suite, so a re-extract or a
+     * hand-edit would otherwise surface as a confusing mid-scenario table mismatch.
+     */
+    stored: {
+      item25Volume: number;
+      item25Cost: number;
+      item26Volume: number;
+      item26Cost: number;
+    };
+  }
 > = {
-  submitted: { key: { millId: 25053, year: 2016 }, mill: MILL_9174, trackStatus: 'S' },
-  verified: { key: { millId: 23051, year: 2015 }, mill: MILL_20174, trackStatus: 'V' },
+  submitted: {
+    key: { millId: 25053, year: 2016 },
+    mill: MILL_9174,
+    trackStatus: 'S',
+    stored: { item25Volume: 10, item25Cost: 500, item26Volume: 9, item26Cost: 450 },
+  },
+  verified: {
+    key: { millId: 23051, year: 2015 },
+    mill: MILL_20174,
+    trackStatus: 'V',
+    stored: { item25Volume: 3000, item25Cost: 300, item26Volume: 300, item26Cost: 300 },
+  },
 };
 
 /**

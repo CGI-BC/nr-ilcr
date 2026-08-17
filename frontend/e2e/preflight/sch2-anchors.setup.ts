@@ -57,10 +57,7 @@ for (const { name, anchor } of EDITABLE_DRAFT_ANCHORS) {
   test(`preflight: Schedule 2 anchor ${name} resolves (editable Draft)`, async ({ request }) => {
     const url = scheduleUrl(anchor.key.millId, anchor.key.year);
     const res = await request.get(url);
-    expect(
-      res.ok(),
-      `Schedule 2 anchor "${name}" (${anchor.key.millId}/${anchor.key.year}) GET -> HTTP ${res.status()}. ${HINT}`,
-    ).toBeTruthy();
+    await expect(res, `Schedule 2 anchor "${name}" (${anchor.key.millId}/${anchor.key.year}) GET -> HTTP ${res.status()}. ${HINT}`).toBeOK();
     const doc = (await res.json()) as { trackStatus: string | null; editable: boolean };
     expect(
       doc.trackStatus,
@@ -86,7 +83,7 @@ test('preflight: Schedule 2 editable anchors hold no saved schedule at rest', as
   const dirty: string[] = [];
   for (const { name, anchor } of EDITABLE_DRAFT_ANCHORS) {
     const res = await request.get(scheduleUrl(anchor.key.millId, anchor.key.year));
-    expect(res.ok(), `Schedule 2 anchor "${name}" GET -> HTTP ${res.status()}`).toBeTruthy();
+    await expect(res, `Schedule 2 anchor "${name}" GET -> HTTP ${res.status()}`).toBeOK();
     const doc = (await res.json()) as { revisionCount?: number | null };
     if ((doc.revisionCount ?? null) !== null) {
       dirty.push(
@@ -123,7 +120,7 @@ test('preflight: Schedule 2 happy-path anchor still carries its pinned Schedule 
   const res = await request.get(
     scheduleUrl(HAPPY_PATH_ANCHOR.key.millId, HAPPY_PATH_ANCHOR.key.year),
   );
-  expect(res.ok(), `happy-path anchor GET -> HTTP ${res.status()}. ${HINT}`).toBeTruthy();
+  await expect(res, `happy-path anchor GET -> HTTP ${res.status()}. ${HINT}`).toBeOK();
   const doc = (await res.json()) as {
     purchasedLogCost: { volume?: number | null };
     purchasedWoodOverhead: { volume?: number | null; cost?: number | null };
@@ -154,14 +151,13 @@ for (const [name, anchor] of Object.entries(READ_ONLY_ANCHORS)) {
     request,
   }) => {
     const res = await request.get(scheduleUrl(anchor.key.millId, anchor.key.year));
-    expect(
-      res.ok(),
-      `read-only anchor "${name}" (${anchor.key.millId}/${anchor.key.year}) GET -> HTTP ${res.status()}. ${HINT}`,
-    ).toBeTruthy();
+    await expect(res, `read-only anchor "${name}" (${anchor.key.millId}/${anchor.key.year}) GET -> HTTP ${res.status()}. ${HINT}`).toBeOK();
     const doc = (await res.json()) as {
       trackStatus: string | null;
       editable: boolean;
       revisionCount?: number | null;
+      purchasedLogCost: { volume?: number | null; cost?: number | null };
+      lessLogSales: { volume?: number | null; cost?: number | null };
     };
     expect(
       doc.trackStatus,
@@ -176,6 +172,19 @@ for (const [name, anchor] of Object.entries(READ_ONLY_ANCHORS)) {
       doc.revisionCount ?? null,
       `read-only anchor "${name}" must hold a saved schedule to render read-only values. ${HINT}`,
     ).not.toBeNull();
+    // …and they must be the SAME values the `@S11` outline asserts verbatim on screen. These belong to
+    // another schedule's data set and are never written by this suite, so a re-extract or a hand-edit
+    // would otherwise surface as an opaque table mismatch deep inside a browser test. Same reasoning as
+    // the happy-path anchor's carried-figure check above.
+    expect(
+      {
+        item25Volume: doc.purchasedLogCost.volume ?? null,
+        item25Cost: doc.purchasedLogCost.cost ?? null,
+        item26Volume: doc.lessLogSales.volume ?? null,
+        item26Cost: doc.lessLogSales.cost ?? null,
+      },
+      `read-only anchor "${name}" stored figures moved — the @S11 outline's Examples row no longer describes it. ${HINT}`,
+    ).toEqual(anchor.stored);
   });
 }
 

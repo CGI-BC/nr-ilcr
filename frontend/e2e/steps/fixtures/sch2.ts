@@ -5,6 +5,13 @@ import { type ScheduleKey } from '../../fixtures/sch2/schedule2-test-data';
 import { restoreSchedule2 } from '../sch2/schedule2Api';
 
 /**
+ * Pages on which the Schedule 2 mutation spy has installed its route, so `schedule2FailNextSave` can
+ * refuse to stack on top of it (see the ordering hazard documented at its `install()`). A WeakSet keyed by
+ * `page` — per-scenario by construction, and it cannot leak between parallel workers.
+ */
+const spyInstalled = new WeakSet<import('@playwright/test').Page>();
+
+/**
  * Schedule 2 (sch2) fixtures — page object, cleanup registry and the mutation spy owned by
  * UC-SCH2-001. Nothing here is referenced by another domain, so this file can be edited without
  * touching anyone else's coverage. Cross-domain things (`world`, `homePage`, `appShell`) live in
@@ -83,6 +90,7 @@ export const sch2Test = base.extend<Sch2Fixtures>({
     // through untouched — it only tallies. `route.fallback()` (not `continue()`) so overlapping
     // schedule2 handlers stay composable.
     const spy = { mutations: 0 };
+    spyInstalled.add(page);
     await page.route('**/api/v1/schedule2**', async (route) => {
       const method = route.request().method();
       const url = route.request().url();
@@ -102,6 +110,25 @@ export const sch2Test = base.extend<Sch2Fixtures>({
     let armed = true;
     await use({
       install: async () => {
+        // ORDERING HAZARD — do not combine this fixture with `schedule2MutationSpy` in one scenario.
+        // Playwright runs route handlers LAST-REGISTERED-FIRST, and this one ends the chain with
+        // `route.fulfill()` rather than `route.fallback()`. If the spy's handler were registered first,
+        // it would never run for the failed PUT, so `mutations` would under-count and a
+        // "should not have been sent" assertion could pass while a mutation HAD been attempted.
+        //
+        // No scenario combines them today (the save-error and retry arms prove the negative by API
+        // read-back instead, which is immune to route ordering), so this is a trap for the future rather
+        // than a live defect — raised in review on CGI-BC/nr-ilcr#8. The check below makes it impossible
+        // to hit silently: combining them fails the scenario with this explanation instead of quietly
+        // mis-tallying.
+        if (spyInstalled.has(page)) {
+          throw new Error(
+            'Schedule 2: "the next Schedule 2 save will fail on the server" cannot be combined with the ' +
+              'mutation spy in one scenario — this fixture fulfills the PUT, so it would shadow the spy\'s ' +
+              'route and leave `mutations` under-counted. Prove the negative by API read-back instead ' +
+              '("no Schedule 2 record is stored").',
+          );
+        }
         await page.route('**/api/v1/schedule2?**', async (route) => {
           if (route.request().method() !== 'PUT' || !armed) {
             await route.fallback();
