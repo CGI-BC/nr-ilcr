@@ -346,6 +346,19 @@ Then(
   },
 );
 
+/**
+ * BR-03/BR-04's render half: the ONLY enterable cells are item 25's cost and item 26's volume + cost.
+ * Everything else in the table — the carried Purchased/Private volume, every derived block, every $/m³ —
+ * is read-only. Asserted as an exact ordered list so a new input appearing anywhere fails too.
+ */
+Then('only the purchased-log cost and both log-sales fields are editable', async ({ schedule2Page }) => {
+  expect(await schedule2Page.editableFieldIds()).toEqual([
+    'purchasedLogCostCost',
+    'lessLogSalesVolume',
+    'lessLogSalesCost',
+  ]);
+});
+
 Then('the Schedule 2 rows are in legacy order', async ({ schedule2Page }) => {
   expect(await schedule2Page.rowLabels()).toEqual([
     'Purchased/Private Log Costs:',

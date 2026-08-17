@@ -167,7 +167,7 @@ recorded rather than silently dropped:
 
 | Control | Legacy id | New app | Scenario | Status |
 |---|---|---|---|---|
-| Purchased/Private Log Costs **Volume** (read-only, carried from Sch 3, BR-03) | `purchasedLogCostVol` | read-only cell | `happy-path` (at-rest asserts volume 10 with no input) | `covered` |
+| Purchased/Private Log Costs **Volume** (read-only, carried from Sch 3, BR-03) | `purchasedLogCostVol` | read-only cell | `happy-path` `@p0 @S01` — asserts the carried value **and** that the cell is not an input (`only the purchased-log cost and both log-sales fields are editable`) | `covered` |
 | Purchased/Private Log Costs **Cost** (editable) | `purchasedLogCostCos` | `#purchasedLogCostCost` | `happy-path`, `validation`, `check-status` | `covered` |
 | (less) Log Sales **Volume** (editable) | `lessLogSalesVol` | `#lessLogSalesVolume` | `happy-path`, `validation` | `covered` |
 | (less) Log Sales **Cost** (editable, `costSize="9"`) | `lessLogSalesCos` | `#lessLogSalesCost` | `happy-path`, `validation` | `covered` |
@@ -183,8 +183,8 @@ recorded rather than silently dropped:
 |---|---|---|
 | BR-01 editable only in Draft (+ Licensee role) | `render-states.feature` `@p1 @S11` outline | `covered` |
 | BR-02 two line items persisted as cost-report detail records | `happy-path` (API read-back of both), `blank-fields` | `covered` |
-| BR-03 purchased-log volume carried from Schedule 3, not entered | `happy-path` at-rest table (volume 10 renders read-only) | `covered` |
-| BR-04 item 25 records only a cost; item 26 a volume **and** a cost | `happy-path` stored-record read-back | `covered` |
+| BR-03 purchased-log volume carried from Schedule 3, not entered | `happy-path` — at-rest table pins the carried 10, and the editable-surface assertion proves the cell is not enterable | `covered` |
+| BR-04 item 25 records only a cost; item 26 a volume **and** a cost | `happy-path` — read-back proves item 26 stores **both**, and the editable-surface assertion proves item 25 has no volume input. The stored-side half (item 25 persists a NULL volume) is **not** E2E-observable: the API serves the *carried* Schedule 3 volume in that block, so it is covered by `Schedule2RepositoryMapperTest` / `Schedule2WriteServiceTest` instead | `covered (+ backend)` |
 | BR-05 amounts within their allowed ranges | `validation.feature` (all outlines) | `covered` |
 | BR-06 net/subtotal/total-average computed read-only | `happy-path` (full derived arithmetic, UI **and** stored) | `covered` |
 | BR-07 Check Status requires the purchased-log cost | `check-status.feature` both sides | `covered` |
@@ -250,6 +250,7 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-13. *
 | Prove the negative | **pass** — client rejections assert **spy-count 0** *and* record-absent; the server rejection asserts the 500 path *and* reads back that nothing was stored |
 | Poll UI-triggered read-backs | **pass** — `the stored Schedule 2 record is:` / `derived figures are:` / `schedule is stored` all use bounded `expect.poll`; never a single-shot GET after a click |
 | Resilient selectors | **pass** — `getByRole` for the table, buttons, cells and notifications (`role="status"`, verified live); stable app-exposed `#id`s for the four form fields; one commented CSS scope (`.schedule-2__actions`) used only to stop the page's Delete resolving the modal's own Delete button |
+| Reuse over duplication | **pass, with one logged cross-module constant.** Steps reuse the promoted `home-context` Given and the four common assertion steps rather than re-declaring them; no DOM selectors leaked into steps; repeated behaviour is a `Scenario Outline` (6 of them). The hand-off DRY sweep found exactly **one** repeated literal across modules: `'ilcr:mill-year-context'` (the localStorage key) is declared in `fixtures/sch1`, `fixtures/sch11` **and** `fixtures/sch2`. It was already duplicated twice before Schedule 2 existed; promoting it to a shared `fixtures/common/` constant edits two other UCs' files (one of them merged upstream), so it belongs in the repo-wide consistency PR alongside the other shared-extraction items in `deferred-work.md` — logged rather than silently accepted. |
 | Focused (~<300 lines/file) | **LOW deviation, logged not fixed** — `steps/sch2/schedule2.steps.ts` is 567 lines. This matches the established house shape for a domain's step file (`steps/sch1/schedule1.steps.ts` 599, `steps/sch11/schedule11.steps.ts` 744) and the file is already sectioned by concern with DOM detail extracted to the page object and data to fixtures. Splitting it purely to hit the number would diverge from the two sibling domains for no readability gain. |
 
 ## Coverage gate (TR)

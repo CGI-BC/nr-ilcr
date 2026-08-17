@@ -267,6 +267,18 @@ export class Schedule2Page {
     return [values[0], values[1], values[2]];
   }
 
+  /**
+   * The `id` of every editable input inside the cost table, in DOM order.
+   *
+   * This is what makes BR-03 assertable: the Purchased/Private volume is CARRIED from Schedule 3 and must
+   * not be enterable here. `rowValues()` deliberately reads an input's value *or* a cell's text, so it
+   * cannot tell the two apart — asserting the displayed "10" proves the value, not that the cell is
+   * read-only. This does.
+   */
+  async editableFieldIds(): Promise<string[]> {
+    return this.table.locator('input').evaluateAll((els) => els.map((e) => e.id));
+  }
+
   /** Every row label currently rendered, in order — proves the legacy row order survives. */
   async rowLabels(): Promise<string[]> {
     const cells = this.table.locator('tbody tr td:first-child');

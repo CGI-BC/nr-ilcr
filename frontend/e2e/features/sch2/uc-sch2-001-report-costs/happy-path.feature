@@ -33,6 +33,9 @@ Feature: Schedule 2 — enter and save purchased log costs and log sales
       | Net Purchased/Private Log Cost:     | 10     | 0    | 0.00    |
       | Total Company Logging Costs(Sch 1): | 10     | 10   | 1.00    |
       | Total Average Logging Costs:        | 20     | 10   | 0.50    |
+    # BR-03 proper: the carried Purchased/Private volume is not enterable. Asserting the displayed "10"
+    # above is not enough — that value could equally have come from an input — so pin the editable surface.
+    And only the purchased-log cost and both log-sales fields are editable
     When I enter the following Schedule 2 values:
       | field                    | value                        |
       | Purchased Log Cost cost  | 50000                        |
