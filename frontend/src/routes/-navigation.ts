@@ -117,3 +117,21 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
  */
 export const visibleNavigationItems = (isAdmin: boolean): NavigationItem[] =>
   NAVIGATION_ITEMS.filter((item) => !item.adminOnly || isAdmin)
+
+/**
+ * The paths only an ILCR_ADMIN may open, derived from the same `adminOnly` flag the nav filter uses —
+ * so the route guard and the hidden-menu affordance can never drift apart. The backend independently
+ * 403s these; the guard is the matching UX so a bookmarked admin link doesn't render for a submitter.
+ */
+export const ADMIN_ONLY_PATHS: readonly RoutePath[] = NAVIGATION_ITEMS.flatMap((item) =>
+  item.adminOnly ? (isNavigationMenu(item) ? item.items.map((sub) => sub.path) : [item.path]) : [],
+)
+
+export const isAdminOnlyPath = (path: string): boolean => {
+  // Match the admin path itself and anything nested under it, ignoring a trailing slash — so a
+  // sub-route (e.g. /code-tables/edit) or /code-tables/ can't slip past the guard on an exact miss.
+  const normalized = path.replace(/\/+$/, '')
+  return (ADMIN_ONLY_PATHS as readonly string[]).some(
+    (adminPath) => normalized === adminPath || normalized.startsWith(`${adminPath}/`),
+  )
+}
