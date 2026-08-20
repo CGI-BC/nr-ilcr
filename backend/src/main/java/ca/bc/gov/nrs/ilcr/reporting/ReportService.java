@@ -6,7 +6,7 @@ import ca.bc.gov.nrs.ilcr.schedule5.Schedule5Service;
 import ca.bc.gov.nrs.ilcr.schedule6.Schedule6Service;
 import ca.bc.gov.nrs.ilcr.schedule7a.Schedule7aService;
 import ca.bc.gov.nrs.ilcr.schedule7b.Schedule7bService;
-import ca.bc.gov.nrs.ilcr.schedule9.Schedule9Repository;
+import ca.bc.gov.nrs.ilcr.schedule9.Schedule9Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,23 +17,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.sql.DataSource;
-import net.sf.jasperreports.engine.DefaultJasperReportsContext;
 import net.sf.jasperreports.engine.JRException;
-import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
 import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
-import net.sf.jasperreports.engine.design.JasperDesign;
+import net.sf.jasperreports.engine.util.JRLoader;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
-import net.sf.jasperreports.jackson.util.JacksonUtil;
 import net.sf.jasperreports.pdf.JRPdfExporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -67,35 +64,39 @@ public class ReportService {
   private final Schedule6Service schedule6Service;
   private final Schedule7aService schedule7aService;
   private final Schedule7bService schedule7bService;
-  private final Schedule9Repository schedule9Repository;
+  private final Schedule9Service schedule9Service;
   private final Schedule11Service schedule11Service;
 
   /** Compiled templates, built on first use and cached (boot-safe); keyed by {@link ScheduleKey}. */
   private final Map<ScheduleKey, JasperReport> compiledTemplates = new ConcurrentHashMap<>();
 
   /**
-   * @param dataSource the single {@code @Primary} application datasource Schedule 9 fills from
+   * @param dataSource the dedicated reporting datasource (Story 29.1) the Schedule 9 fill borrows from
+   *     — its own small pool, isolated from the {@code @Primary} transactional pool so a burst of report
+   *     renders cannot starve ordinary schedule requests (its connections are read-only as a hint, not
+   *     an enforced privilege)
    * @param schedule5Service the Schedule 5 read (bean-datasource feed)
    * @param schedule6Service the Schedule 6 read (bean-datasource feed)
    * @param schedule7aService the Schedule 7A read (bean-datasource feed)
    * @param schedule7bService the Schedule 7B read (bean-datasource feed)
-   * @param schedule9Repository the Story 9.1 read, reused for the empty-schedule pre-check
+   * @param schedule9Service the Schedule 9 read seam, used for the empty-schedule pre-check (29.10 —
+   *     through the service, not the repository)
    * @param schedule11Service the Schedule 11 read (bean-datasource feed)
    */
   public ReportService(
-      DataSource dataSource,
+      @Qualifier("reportingDataSource") DataSource dataSource,
       Schedule5Service schedule5Service,
       Schedule6Service schedule6Service,
       Schedule7aService schedule7aService,
       Schedule7bService schedule7bService,
-      Schedule9Repository schedule9Repository,
+      Schedule9Service schedule9Service,
       Schedule11Service schedule11Service) {
     this.dataSource = dataSource;
     this.schedule5Service = schedule5Service;
     this.schedule6Service = schedule6Service;
     this.schedule7aService = schedule7aService;
     this.schedule7bService = schedule7bService;
-    this.schedule9Repository = schedule9Repository;
+    this.schedule9Service = schedule9Service;
     this.schedule11Service = schedule11Service;
   }
 
@@ -176,7 +177,7 @@ public class ReportService {
   private JasperPrint fillSchedule9(long millId, int year, PrintOptions options, String bookmarkTitle) {
     // Count-only pre-check: the template's embedded SQL re-runs the full record query at fill time, so
     // a findRecords().size() here would materialize (and throw away) that whole list just to test empty.
-    int recordCount = schedule9Repository.countRecords(millId, year);
+    int recordCount = schedule9Service.countRecords(millId, year);
     if (recordCount == 0) {
       return null;
     }
@@ -230,24 +231,23 @@ public class ReportService {
     }
   }
 
-  /** The compiled template for a schedule, built on first use and cached (boot-safe). */
+  /** The compiled template for a schedule, loaded on first use and cached (boot-safe). */
   private JasperReport template(ScheduleKey key) {
-    return compiledTemplates.computeIfAbsent(key, k -> compile(new ClassPathResource(k.templatePath())));
+    return compiledTemplates.computeIfAbsent(key, ReportService::load);
   }
 
   /**
-   * Compile a classpath {@code .jrxml} to a {@link JasperReport}. The v7 template is parsed with the
-   * Jackson-based loader into a {@link JasperDesign}, then compiled with the bundled expression
-   * evaluator (no runtime JDT dependency needed) — the same load path Story 20.1 established.
+   * Load the pre-compiled {@code .jasper} for a schedule from the classpath. Templates are compiled
+   * from {@code .jrxml} to {@code .jasper} at BUILD time ({@code ReportPrecompiler}, run by
+   * exec-maven-plugin with the build JDK), so the runtime — a JRE container without {@code javac} —
+   * never compiles a report. The {@code .jrxml} stays the source of truth; only the extension swaps.
    */
-  private static JasperReport compile(Resource template) {
-    try (InputStream in = template.getInputStream()) {
-      JasperDesign design =
-          JacksonUtil.getInstance(DefaultJasperReportsContext.getInstance())
-              .loadXml(in, JasperDesign.class);
-      return JasperCompileManager.compileReport(design);
+  private static JasperReport load(ScheduleKey key) {
+    String path = key.templatePath().replaceAll("\\.jrxml$", ".jasper");
+    try (InputStream in = new ClassPathResource(path).getInputStream()) {
+      return (JasperReport) JRLoader.loadObject(in);
     } catch (IOException | JRException e) {
-      throw new ReportGenerationException("Failed to compile the report template " + template, e);
+      throw new ReportGenerationException("Failed to load the compiled report template " + path, e);
     }
   }
 }

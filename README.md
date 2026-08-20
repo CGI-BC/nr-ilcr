@@ -90,7 +90,7 @@ Do not commit real database passwords. Put local values in `.env`; the file is g
 
 *Note: This is a specific workaround for developers behind a corporate SSL-decryption/packet-inspection gateway (such as Zscaler) and is **not** required for all developers (e.g., if you are on a direct internet connection).*
 
-If your corporate network performs SSL decryption/packet-inspection, Maven inside the isolated Docker container may fail to connect to third-party Maven repositories (like Jaspersoft's JFrog instance) with a `PKIX path building failed` error.
+If your corporate network performs SSL decryption/packet-inspection, Maven inside the isolated Docker container may fail to connect to Maven Central (all dependencies, including JasperReports 7, resolve from Central — the build declares no custom `<repositories>`) with a `PKIX path building failed` error.
 
 The recommended, zero-import workaround is to leverage your Windows host's trusted certificate store by caching the dependencies on Windows once, and mounting your host's `.m2` repository into the container:
 
@@ -190,7 +190,7 @@ FAM authentication is tracked separately. The dashboard currently displays the s
 
 ## OpenShift Status
 
-OpenShift Gold is the destination environment, but the Gold project is not required for this local-dev scaffold. Pull requests always deploy a sandbox environment (zone = PR number mod 50). Merges to `main` deploy to TEST and then, if tests pass, to PROD in the same workflow run — but only while the `ENABLE_OPENSHIFT_DEPLOY` repository variable is `true`; it is left unset until the code is ready for those environments.
+OpenShift Gold is the destination environment, but the Gold project is not required for this local-dev scaffold. Pull requests always deploy a sandbox environment (zone = PR number mod 50). Merges to `main` deploy to TEST on every merge. The PROD pipeline (deploy, Sysdig monitor, image promotion) is commented out in `.github/workflows/merge.yml` until the `prod` GitHub environment has its own `ORACLEDB_*` secrets; restore those jobs to open PROD.
 
 Deployed pods fail closed on authentication: JWT enforcement (`ILCR_SECURITY_ENABLED`) and the Oracle datasource (`ILCR_DATASOURCE_ENABLED`) both default to `true` and can be overridden per scope with GitHub variables (environment-first, then repository). The backend refuses to start a deployed pod with security off while the datasource is on (`DeployedSecurityGuard`), so mock auth can never serve real data from a public route; setting both variables to `false` yields a data-less mock-auth smoke deployment.
 
