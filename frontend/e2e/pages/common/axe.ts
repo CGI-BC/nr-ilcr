@@ -39,6 +39,13 @@ export const KNOWN_A11Y_RULES: readonly string[] = ['aria-valid-attr-value'];
 
 export interface A11yOptions {
   /**
+   * Skip the pointer-parking below and scan with the pointer EXACTLY where the scenario left it.
+   *
+   * Only for a scan that is deliberately testing a pointer state (a hovered table row). Every other
+   * caller wants the resting state, which is reproducible.
+   */
+  keepPointer?: boolean;
+  /**
    * True when the caller's scenario is a documented `@discovered-bug` red (see the UC's defects.md).
    * Only violations whose rule id is in `KNOWN_A11Y_RULES` are then logged quietly; a violation outside
    * that list is treated as a fresh finding and printed in full regardless.
@@ -51,6 +58,51 @@ export async function assertNoA11yViolations(
   label: string,
   opts: A11yOptions = {},
 ): Promise<void> {
+  // PARK THE POINTER FIRST — determinism, not cosmetics.
+  //
+  // axe's `color-contrast` rule measures the COMPOSITED background, so a row the mouse happens to be
+  // resting on is measured in its :hover state. Playwright leaves the pointer wherever the last click
+  // left it, so without this the scan result depends on which control the scenario clicked last — the
+  // same page could pass or fail run to run, and across domains (Carbon's table hover layer #e0e0e0
+  // under a `ghost`/`danger--ghost` label measures 3.78:1, below 4.5:1). Found while authoring the
+  // Schedule 4 sweeps 2026-08-17: the sub-page scan failed only because the pointer had come to rest
+  // over a row after a modal closed.
+  //
+  // Scanning the RESTING state is what these sweeps are for, and it is reproducible. A hover-state rule
+  // is worth testing too, but it must hover DELIBERATELY — see the Schedule 4 accessibility feature's
+  // explicit row-hover scenario.
+  //
+  // WHY OFF-PAGE AND NOT (0, 0): this parked at (0, 0) until 2026-08-21, which is NOT a resting position
+  // — it is inside the fixed app header, directly over `button.cds--header__menu-toggle`, so every scan
+  // in every domain measured the header in its HOVERED state (verified: 6 elements in `:hover`, deepest
+  // `BUTTON.cds--header__action`). It happened not to change any verdict, but a future hover token on a
+  // header control would have been swept in its hovered form and read as the resting one — the exact
+  // failure this parking exists to prevent. Raised in review of the Schedule 4 suite.
+  //
+  // A negative coordinate is OUTSIDE the viewport, so the hit test finds nothing and the browser clears
+  // the whole hover chain — `:hover` matches ZERO elements, not even `html`/`body`. That is inert by
+  // construction rather than by luck of layout, which is why it beats hunting for a quiet in-page pixel:
+  // no in-page point stays quiet across Home, every schedule, every sub-page and every panel state (a
+  // long table puts a `td` under the bottom of the viewport). Viewport-independent too, so it does not
+  // silently rot if `playwright.config.ts` changes its 1280x900.
+  if (!opts.keepPointer) {
+    await page.mouse.move(-1, -1);
+    // PROVE the park rather than trusting the coordinate. If a future Chrome/Playwright clamps an
+    // out-of-viewport move back INTO the viewport, the pointer would land on the header again and
+    // quietly reintroduce the hovered-header measurement above. This turns that regression into one
+    // clear failure instead of a scan result that is wrong by 70ms of fade.
+    const hovered = await page.evaluate(() => {
+      const chain = Array.from(document.querySelectorAll(':hover'));
+      const deepest = chain[chain.length - 1];
+      return { count: chain.length, deepest: deepest ? deepest.tagName.toLowerCase() : null };
+    });
+    expect(
+      hovered.count,
+      `a11y scan "${label}": the pointer did not park off-page — ${hovered.count} element(s) still ` +
+        `match :hover (deepest <${hovered.deepest}>), so this scan would measure a HOVERED state as ` +
+        `if it were the resting one. See the parking rationale in pages/common/axe.ts.`,
+    ).toBe(0);
+  }
   const results = await new AxeBuilder({ page }).withTags(WCAG_2_1_AA_TAGS).analyze();
   const { violations } = results;
   // Split by rule id, not by the caller's tag: an expected red must never hide an unexpected one.
