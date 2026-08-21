@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
 
 /**
  * Barrier a "no write was sent" assertion crosses before reading a route spy — deterministic, NOT a
@@ -42,5 +42,32 @@ export async function settleBeforeReadingSpy(page: Page): Promise<void> {
   );
   await page.evaluate(async () => {
     await fetch(`${window.location.origin}/?e2e-no-write-barrier`, { cache: 'no-store' });
+  });
+}
+
+/**
+ * Barrier a COLOUR-SENSITIVE assertion crosses before reading a hovered/focused element — deterministic,
+ * NOT a fixed sleep.
+ *
+ * WHY IT IS NEEDED: Carbon animates background-color on hover (`$duration-fast-02`, 70ms). axe and any
+ * pixel sampling read the COMPOSITED background, so a scan fired immediately after the pointer moves
+ * samples a mid-fade colour — lighter than the settled one, which UNDERSTATES a contrast failure and can
+ * turn a real defect green by luck of timing.
+ *
+ * WHY NOT `waitForTimeout`: same reason as the spy barrier above — a wall-clock constant is tuned rather
+ * than derived, so it flakes on a loaded runner and taxes every scenario on a fast one. This awaits the
+ * page's own animation objects instead, so it is exactly as fast as the app's transition.
+ *
+ * WHY NOT `transitionend`: that event never fires when no transition runs (reduced-motion, or a property
+ * that does not animate), so waiting on it risks a hang. `getAnimations()` returns an empty list in that
+ * case and this resolves immediately.
+ *
+ * `subtree: true` because the paint that matters may be on a descendant (Carbon paints the row's hover on
+ * the `tr` while the label lives in a `td` several levels down).
+ */
+export async function settleTransitions(target: Locator): Promise<void> {
+  await target.evaluate(async (el: Element) => {
+    const running = el.getAnimations({ subtree: true });
+    await Promise.all(running.map((animation) => animation.finished.catch(() => undefined)));
   });
 }

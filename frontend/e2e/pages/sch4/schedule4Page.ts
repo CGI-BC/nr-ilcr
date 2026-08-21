@@ -1,5 +1,6 @@
 import { type Locator, type Page, expect } from '@playwright/test';
 import { navigateViaSideNav } from '../common/authNav';
+import { settleTransitions } from '../common/settle';
 import { byId, fieldError } from '../common/carbonHelpers';
 import { escapeRegExp } from '../common/urlMatch';
 import {
@@ -45,14 +46,6 @@ import {
  * ("1,200") while holding a raw one ("1200"), so `inputValue()` reads the grouped form the user
  * actually sees; `TextInput` keeps its `labelText` as the accessible name even under `hideLabel`.
  */
-/**
- * How long to let a hover's background transition finish before a colour-sensitive assertion reads it.
- * Carbon's is 70ms (`$duration-fast-02`); this is deliberately several times that so the settled colour is
- * measured, not a frame part-way through the fade. Only the DELIBERATE hover-state a11y scan needs it —
- * every other scan parks the pointer, which has no transition to wait for.
- */
-const HOVER_SETTLE_MS = 400;
-
 export class Schedule4Page {
   constructor(private readonly page: Page) {}
 
@@ -153,13 +146,14 @@ export class Schedule4Page {
    * #0043ce, `danger--ghost` inverts to white on red). Aiming at the name cell measures the row-hover state
    * unambiguously, instead of depending on how wide the buttons happen to render.
    *
-   * The wait is for Carbon's 70ms background transition: axe reads the COMPOSITED background, so a scan
-   * fired immediately after the pointer moves samples a mid-fade colour that is lighter than the settled
-   * one — i.e. it understates the contrast failure and can go green by luck of timing.
+   * Then it waits out Carbon's background transition via `settleTransitions` — axe reads the COMPOSITED
+   * background, so a scan fired mid-fade samples a lighter colour, understating the contrast failure. That
+   * barrier awaits the page's own animation objects rather than a wall-clock sleep (see settle.ts).
    */
   async hoverLocationRow(name: string): Promise<void> {
-    await this.locationRow(name).locator('td').first().hover();
-    await this.page.waitForTimeout(HOVER_SETTLE_MS);
+    const row = this.locationRow(name);
+    await row.locator('td').first().hover();
+    await settleTransitions(row);
   }
 
   /** Open a location's panel: Edit in Draft, View outside it (the same control, renamed). */
@@ -240,11 +234,6 @@ export class Schedule4Page {
 
   async setComments(value: string): Promise<void> {
     await this.commentsInput.fill(value);
-  }
-
-  /** True when the panel is editable (the name input only exists outside View mode). */
-  async isPanelEditable(): Promise<boolean> {
-    return (await this.nameInput.count()) > 0;
   }
 
   // ---- the category grid ---------------------------------------------------------------------------
