@@ -77,7 +77,7 @@ See GAP-1.
 |---|---|---|---|---|---|
 | ERR-001 blank Location Name | S13, ERR-001, BR-02 | client `validateLocationForm` gate + server `@NotBlank{locationEmptyOrNull}` | validation `@S13 @p1`; whitespace-only `@S13 @p2` | covered | — |
 | ERR-002 duplicate name, case-insensitive | S14, ERR-002, BR-02 | `Schedule4Service` `nameExists` → 409 verbatim | duplicate-name `@S14 @p1` | covered | — |
-| …the name field is RESET to its prior value afterwards | ERR-002 trigger note | app KEEPS the entered value (Story 10.5 AC "entered values retained") | duplicate-name `@S14 @p1` (asserts as-built) | covered (re-grounded) | DIV-5 (log-only) |
+| …the typed name is WIPED afterwards (legacy reset it to `""` on a new location) | ERR-002 trigger note; legacy `Schedule4MB.java:619` | app deliberately KEEPS the entered value (Story 10.5 AC "entered values retained") | duplicate-name `@S14 @p1` (asserts as-built) | covered (re-grounded) | DIV-5 (CLOSED — deliberate choice) |
 | BR-02 excludes the location's own family (no-op / case-only self-rename allowed) | BR-02, `oldName` exclusion | `saveLocation` `oldName` | duplicate-name `@S14 @S02 @p1` | covered | — |
 | FLD-001 category Volume range [0, 9,999,999] | S19, FLD-001 | `validation.ts` VOLUME + `CategoryInput` `@DecimalMin/Max` | validation `@S19 @p1` outline (both ends) | covered | — |
 | FLD-002 category Cost range [-99,999,999, 99,999,999] | S20, FLD-002 | same | validation `@S20 @p1` outline (both ends) | covered | — |

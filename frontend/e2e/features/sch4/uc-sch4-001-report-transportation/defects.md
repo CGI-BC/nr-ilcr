@@ -375,12 +375,37 @@ seeded delivery Oracle) on **2026-08-17**, branch `test/schedule-4-e2e`, app com
     "E2E LAKESIDE". Nothing was stored (the anchor still held exactly one location).
   - **Why (technical):** `putLocation`'s catch keeps the panel and its entered values, per Story 10.5's
     "entered values retained on failure" acceptance criterion.
-  - **Is it a defect?** Very likely intentional — it is an explicit story AC and an improvement for the user.
-    BA/QA to confirm parity is acceptable.
-  - **Action:** **BA/QA to raise a Jira ticket** only if they disagree with the change. This is an ACCEPTED
-    re-grounding: the test is GREEN and asserts the as-built behaviour, not `@discovered-divergence`.
-  - **Priority / env:** p2 · branch `test/schedule-4-e2e` · local seeded DB · commit `9632f7f`.
-  - **Status:** OPEN (awaiting BA/QA acknowledgement). Found 2026-08-17.
+  - **Is it a defect?** No — CONFIRMED DELIBERATE by QA 2026-08-21. Keeping the entered name is the wanted
+    behaviour and a genuine improvement: the reporter corrects the case or the wording in place instead of
+    retyping a 30-character name from scratch. It is also an explicit Story 10.5 AC ("entered values retained
+    on failure"), so the app is doing what it was asked to do.
+  - **What legacy actually did, for the record (verified 2026-08-20).** Legacy reset the field to
+    `getLocationDescriptionOriginalVal()` on the save path (`Schedule4MB.java:619`), which is `""` for a new
+    location — so the typed name was wiped, not "put back". Its live on-change variant
+    (`Schedule4MB.java:249`) would have wiped the field as soon as focus left it, but that listener is
+    **commented out in the view** (`schedule4ExistingLocation.xhtml:19`), so it never ran in shipped code.
+    Legacy therefore had exactly one behaviour here — wipe on Save — and the app deliberately does not
+    reproduce it.
+  - **A SEPARATE, still-open gap in the same interaction — presentation, not persistence.** The rejection is
+    correct but does not point at the offending field: the 409 detail renders in the page banner
+    (`saveError`), while the Location Name input shows no invalid state, because `validation.ts:68`'s
+    `nameError` is a blank-check only. The field looks healthy while being the sole cause of the failure.
+    What is wanted is Carbon's `invalid` + `invalidText` on that field with a short description under it.
+      - **Schedule 5 is the reference implementation:** `schedule5/validation.ts:347-354` runs a client-side
+        duplicate pre-check against the sibling camp names and feeds `errors.campName` into the field's
+        `invalid`/`invalidText` (`schedule5/index.tsx:394-395`), keeping the server 409 as the race backstop.
+      - **NOTE for whoever verifies Schedule 5 later:** that field-level treatment is itself an UNRECORDED
+        IMPROVEMENT over legacy, not parity. Legacy Schedule 5 checked the duplicate on Save only
+        (`Schedule5MB.java:290-291`) and raised `campAlreadyExists` as a GLOBAL banner, and there are **zero
+        `p:message` components** on any Schedule 4 or Schedule 5 legacy page — legacy had no field-level error
+        rendering on either screen. Do not "restore" the banner-only behaviour thinking it is parity.
+      - Schedules 8 and 11 have not yet been checked for the same gap. Tracked as a prospective enhancement,
+        not as part of this entry.
+  - **Action:** none for DIV-5 — closed as a deliberate, confirmed choice. The presentation gap above is a
+    separate enhancement to be raised on its own.
+  - **Priority / env:** p2 · local seeded DB · Chrome.
+  - **Status:** **CLOSED (deliberate choice, confirmed by QA 2026-08-21).** Found 2026-08-17. The test stays
+    GREEN and asserts the as-built behaviour, so a future change in either direction is caught.
   - **Test:** `features/sch4/uc-sch4-001-report-transportation/duplicate-name.feature` (S14, green).
 
 - **DIV-6 — The delete confirmation's punctuation differs by one character.**
