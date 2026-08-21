@@ -64,10 +64,25 @@ export async function settleBeforeReadingSpy(page: Page): Promise<void> {
  *
  * `subtree: true` because the paint that matters may be on a descendant (Carbon paints the row's hover on
  * the `tr` while the label lives in a `td` several levels down).
+ *
+ * WHY INFINITE ANIMATIONS ARE FILTERED OUT (added 2026-08-21, raised in review): an animation that loops
+ * forever never resolves `finished`, so awaiting one would hang until the 60 s test timeout and report as
+ * an opaque timeout rather than as anything diagnosable. The app has such an animation — Carbon's
+ * `<Loading>` spinner, via `LoadingScreen` — and although it CANNOT collide with today's only call site
+ * (that spinner is a whole-page early return, so when it is on screen there is no table and no row to
+ * hover), this helper lives in `common/` precisely to be reused. A future caller passing a panel- or
+ * page-level locator while a spinner is mounted would hit exactly that hang. Filtering costs nothing and
+ * changes no current behaviour: a finite transition still gets awaited, an endless one is simply never
+ * something that CAN settle, so waiting on it is meaningless as well as unsafe.
+ *
+ * `getComputedTiming()` rather than `getTiming()`: it resolves the `auto`/keyword forms to real numbers,
+ * so the finite check reads what the animation will actually do.
  */
 export async function settleTransitions(target: Locator): Promise<void> {
   await target.evaluate(async (el: Element) => {
-    const running = el.getAnimations({ subtree: true });
+    const running = el
+      .getAnimations({ subtree: true })
+      .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().iterations));
     await Promise.all(running.map((animation) => animation.finished.catch(() => undefined)));
   });
 }

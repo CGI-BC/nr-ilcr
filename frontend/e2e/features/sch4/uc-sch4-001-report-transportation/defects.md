@@ -770,3 +770,68 @@ entries are kept only because their ids are cited elsewhere:**
   **Recommendation for stress runs on a developer box:** pass `--workers=4`. A full-worker `--repeat-each=5`
   run puts ~24 concurrent browsers through one on-demand-compiling Vite dev server and one backend for 20+
   minutes; the resulting entry-point failures say nothing about the app or the tests. (Verified 2026-08-18.)
+
+- **VER-6 — The a11y sweeps parked the pointer at (0, 0), which is NOT a resting position: it is inside the
+  app header. Found in review, fixed 2026-08-21.** `pages/common/axe.ts` parks the pointer before every scan
+  so `color-contrast` measures the resting state rather than whatever the last click left hovered (see the
+  note under DIV-7/BUG-1 — that parking is what exposed both). The park point itself was wrong: (0, 0) sits
+  under the fixed `header.cds--header`, directly on `button.cds--header__menu-toggle`, so **every scan in
+  every domain measured the header in its HOVERED state.** Measured with `document.querySelectorAll(':hover')`
+  at that point: **6 elements hovered, deepest `BUTTON.cds--header__action`.**
+    - **No verdict was affected** — the whole `@a11y` set (140 scenarios across every domain) was run before
+      and after the fix and the failing set is byte-identical: the same 4 tracked reds plus the 2 Home-content
+      `color-contrast` reds. So this was latent, not a wrong result on the record.
+    - **Why it still mattered:** the point of the parking is that the measured state be the reproducible
+      resting one. A hover token added to any header control would have been swept in its hovered form and
+      read as the resting one — precisely the failure mode the parking exists to prevent.
+    - **Fix:** park OFF-PAGE at `(-1, -1)`. Outside the viewport the hit test finds nothing and the browser
+      clears the whole chain — `:hover` matches **zero** elements, not even `html`/`body`. Inert by
+      construction rather than by luck of layout, which matters because no in-page pixel stays quiet across
+      Home, every schedule and every sub-page (a long table puts a `td` under the bottom of the viewport).
+      It is also viewport-independent, so it does not rot if the config's 1280x900 changes.
+    - **Guarded, not assumed:** the helper now asserts the hover chain is empty after the move, so if a future
+      Chrome/Playwright clamps an out-of-viewport move back inside, this fails with one clear message instead
+      of quietly resuming the hovered-header measurement.
+
+- **VER-7 — Two shared-helper hazards hardened, and four review claims checked and NOT actioned. 2026-08-21.**
+  A second review pass raised eleven items. Five were app defects already logged here and ticketed (BUG-4/#335,
+  DIV-3/#324, DIV-4/#291, DIV-2/#326, DIV-7+BUG-1/#319+#314) — out of scope for a test-only branch, and noted
+  only because a reader may recognise them. Of the six aimed at the suite itself:
+    - **HARDENED — `settleTransitions` could hang on an endless animation.** `animation.finished` never
+      resolves for an infinitely-looping animation, so awaiting one would stall until the 60 s test timeout and
+      surface as an opaque timeout. The app does own such an animation (Carbon `<Loading>` via
+      `LoadingScreen`), and although it cannot reach today's only call site — that spinner is a whole-page
+      early return, so when it is on screen there is no table and no row to hover — the helper lives in
+      `common/` to be reused, and a future caller passing a panel- or page-level locator would hit it.
+      `pages/common/settle.ts` now awaits only animations with a finite iteration count. No behaviour change:
+      the BUG-1 hover red still fails on exactly the same three ghost-button nodes, in 6.5 s.
+    - **HARDENED — `schedule4SubPage.row()` had no retry.** The description read is a one-shot snapshot, so a
+      lookup issued while React was still committing a row would fail immediately rather than auto-waiting.
+      Never observed (the sub-page awaits its table first, rows arrive in the same commit, and 1,542 stress
+      executions produced zero failures here) but reachable in principle by a step reading straight after a
+      mutation. Now retries on the MISS path only, so the happy path still does one pass. The reviewer's
+      suggested `.filter()` was NOT used: in edit mode the Description is an `<input>`, which `hasText` cannot
+      see, and `has: input[value="…"]` is the ATTRIBUTE dependency `rowDescriptions()` documents as rejected.
+    - **ALREADY FIXED — pointer parked at (0, 0).** Same finding as VER-6 above, raised independently.
+    - **NOT A DEFECT — "the teardown may match zero rows if a trigger rewrites `ENTRY_USERID`".** Checked
+      against the live DB: the seeded rows carry `ENTRY_USERID = 'E2E_SEED'` and the teardown's exact predicate
+      matches **6 of 6**. Three audit triggers ARE enabled on the two tables (`TR_AUD_B_I_U`, `ICRD_CHK_B_I_U`,
+      `ILCR_CRDA_B_I_U`) and demonstrably do not touch that column. The recommendation to also key on the
+      location name and category is already implemented — the delete is triple-keyed.
+    - **DECLINED, and it would BREAK the scripts — replace `MSYS2_ARG_CONV_EXCL='*'` with `//nolog`.** Two
+      measurements. First, what a NATIVE exe receives on Git Bash: bare `/nolog` arrives mangled as
+      `C:/…/Git/nolog` (confirming the existing rationale), while BOTH the current guard and `//nolog` arrive
+      as `/nolog` — so the trick does work, on Git Bash. But it is MSYS conversion that collapses that doubled
+      slash, and Linux/macOS/CI have no such layer, so there `//nolog` reaches sqlplus verbatim. Second, what
+      real sqlplus does with it verbatim (SQL*Plus 23.26, invoked from PowerShell, which does not rewrite
+      arguments): **`sqlplus -S //nolog` prints its usage banner and exits 1.** It never enters no-logon mode
+      — the same failure the current comment describes for the mangled form. `//host:port/service` is
+      EZCONNECT syntax, not the no-logon token. The current form delivers an identical, documented `/nolog` on
+      every platform.
+    - **NOT A DEFECT — add `WHENEVER OSERROR EXIT 1`.** The premise was that a listener-down connect raises an
+      OSERROR and the script exits 0, hiding the failure. Tested with real sqlplus (23.26) against a dead port,
+      using the scripts' exact preamble: **ORA-12541 and exit code 12541**, with the following `SELECT` never
+      executed. So a failed CONNECT *is* covered by the already-armed `WHENEVER SQLERROR EXIT SQL.SQLCODE`
+      (which validates the existing script comment's claim), and `set -euo pipefail` propagates it. The same
+      preamble against the real DSN exits 0. Nothing to fix; an OSERROR line would add an abort condition that
+      is close to unreachable anyway, since content is piped on stdin rather than read with `@file`.

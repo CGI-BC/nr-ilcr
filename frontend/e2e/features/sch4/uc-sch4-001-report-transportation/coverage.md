@@ -166,8 +166,8 @@ The three counted gaps (each filed in `defects.md`, none of them an app fault). 
 | GAP-4 | `deferred` | the validation-error axe sweep is skipped by the project's cross-cutting convention (`deferred-work.md`, app-wide WCAG 4.1.2), so Schedule 4's error state is genuinely unswept. |
 
 `@discovered-divergence` / `@discovered-bug` reds COUNT as covered — they map to their requirement and are
-deliberately red (never forced green; the red is the signal). **Gate result: PASS**, with the four gaps named
-rather than absorbed.
+deliberately red (never forced green; the red is the signal). **Gate result: PASS**, with all four gap ids
+named rather than absorbed — three of them counting against coverage, GAP-3 closed.
 
 ## Run summary (authored 2026-08-17, stress + final gate 2026-08-18; local delivery DB, app commit `9632f7f`)
 
@@ -179,7 +179,10 @@ rather than absorbed.
 | Cleanup blind spot | the full run INCLUDES the `@discovered-*` reds | their teardown was exercised too (the residue sweep above followed that run) |
 | Parallel stress ×3 | `--repeat-each=5` (twice at default workers, once at `--workers=4`) | **512 / 514 each run — 1,542 executions, 6 failures, ALL at the entry point (app-shell paint, Home's first fetch, one Chrome launch >60 s), never the same test twice, and ZERO data-contention failures.** Two genuine readiness waits were stabilised as a result (see `defects.md`); the rest is this box's dev-mode Vite server saturating under ~24 concurrent browsers for 20+ min. Reported as measured rather than retried away or timeout-inflated — see the note below. |
 
-The eight deliberate reds, each named in `defects.md` with an `ACTION: BA/QA → Jira`:
+The 11 deliberate reds (8 `@discovered-divergence` + 3 `@discovered-bug`, matching the run summary above),
+grouped below by the `defects.md` entry each is named in with an `ACTION: BA/QA → Jira`. Seven rows, because
+some entries are red in more than one scenario — the inline `×n` is a scenario count (absent means ×1), and
+those counts sum to 11. All 11 are plain `Scenario`s; none expands through `Examples`:
 
 | Red | Entry | What it tracks |
 |---|---|---|
