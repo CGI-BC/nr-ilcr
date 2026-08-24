@@ -13,6 +13,38 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
 
 **Divergences:**
 
+- **BUG-1 — Home fails WCAG 1.4.3 on the admin-authored welcome message. Found 2026-08-21, split into its
+  own scenarios 2026-08-24.** The two Home axe sweeps report `color-contrast` on the SAME two nodes,
+  `p:nth-child(1) > .headerUnderline` and `p:nth-child(2) > span`, measured against white:
+
+    | Text | Colour | Ratio | WCAG 1.4.3 (4.5:1) |
+    |---|---|---|---|
+    | "Administrator Welcome Message" | `rgb(51, 204, 0)` | **2.15:1** | FAIL |
+    | "Administrator Role" | `rgb(204, 51, 204)` | **4.27:1** | FAIL |
+
+  - **This is CONTENT, not app CSS — the distinction that governs everything else here.** Those colours are
+    inline `style` attributes inside the welcome message an administrator authors, stored raw in
+    `THE.ILCR_ROLE.MESSAGE_TEXT` and rendered by `home/index.tsx:233` through `dangerouslySetInnerHTML` +
+    `sanitizeHtml`. DOMPurify's defaults strip scripts and handlers but KEEP `style`, so authored colours
+    reach the page and axe measures them. The values above are legacy-migrated seed data.
+  - **A GREEN HERE WILL NOT PROVE THE FIX.** Unlike every other `@discovered-bug` in this suite, the red
+    depends on DB content rather than on app code: editing the welcome message also turns it green. That is
+    not hypothetical — it happened on 2026-08-21, when the message was edited through the app's TipTap
+    editor, whose StarterKit carries no colour mark and therefore silently discarded every colour on save;
+    the reds vanished until the database container was rebuilt and the seed restored. Anyone reading a green
+    here must confirm WHICH of the two causes produced it.
+  - **The app-level defect is the absence of a constraint,** not these two particular colours. Nothing stops
+    an administrator authoring any colour, so NFR1 cannot be guaranteed for this page as built. Agreed
+    direction (2026-08-24): add a contrast constraint on authored content. Until that lands, these two
+    scenarios stay red and excluded from `test:gate`.
+  - **Why the scans are their own scenarios.** Until 2026-08-24 each sweep was the last step of a journey
+    scenario, so this colour failed `@p0` "select a mill and an opened reporting year and save
+    successfully" — and, carrying no `@discovered-*` tag, made `npm run test:gate` red. Splitting them
+    keeps both journeys in the gate and green while the contrast stays tracked rather than skipped or
+    ignored. Skipping was rejected outright: it would have dropped the `@p0` save journey to hide a colour.
+  - **Test:** `working-context.feature` `@a11y @discovered-bug` ×2 (landing, and banner-populated).
+  - **Status:** OPEN — confirmed, and the fix is scheduled as a contrast constraint on authored content.
+
 - **DIV-1 — The Home page no longer shows a role-specific notice.**
   - **What's wrong:** Legacy `home.xhtml` rendered a "User Role Specific Message Section" — a per-role
     notice looked up by the user's role (BR-07), and UC-SEC-001 S01 asserts it appears. The new Home
