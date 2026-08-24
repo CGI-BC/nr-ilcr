@@ -152,7 +152,10 @@ export class Schedule4SubPage {
   /**
    * The row whose Description is `description`, resolved by INDEX from the live descriptions above.
    * Fails loudly when it is absent, so a mistyped description in a `.feature` says which rows DO exist
-   * instead of matching nothing.
+   * instead of matching nothing. That listing now comes from `expect.poll`'s own `Received:` dump of the
+   * descriptions array rather than from a hand-built `listed: …` message — same information, but worth
+   * knowing it is the assertion's output and not this method's, so a future refactor away from `poll`
+   * has to restore it deliberately.
    *
    * WHY IT RETRIES (added 2026-08-21, raised in review): reading the descriptions is a one-shot snapshot,
    * so a lookup issued while React is still committing a row would resolve to "absent" and fail
