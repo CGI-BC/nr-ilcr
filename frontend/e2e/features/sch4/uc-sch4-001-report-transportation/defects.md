@@ -375,12 +375,37 @@ seeded delivery Oracle) on **2026-08-17**, branch `test/schedule-4-e2e`, app com
     "E2E LAKESIDE". Nothing was stored (the anchor still held exactly one location).
   - **Why (technical):** `putLocation`'s catch keeps the panel and its entered values, per Story 10.5's
     "entered values retained on failure" acceptance criterion.
-  - **Is it a defect?** Very likely intentional — it is an explicit story AC and an improvement for the user.
-    BA/QA to confirm parity is acceptable.
-  - **Action:** **BA/QA to raise a Jira ticket** only if they disagree with the change. This is an ACCEPTED
-    re-grounding: the test is GREEN and asserts the as-built behaviour, not `@discovered-divergence`.
-  - **Priority / env:** p2 · branch `test/schedule-4-e2e` · local seeded DB · commit `9632f7f`.
-  - **Status:** OPEN (awaiting BA/QA acknowledgement). Found 2026-08-17.
+  - **Is it a defect?** No — CONFIRMED DELIBERATE by QA 2026-08-21. Keeping the entered name is the wanted
+    behaviour and a genuine improvement: the reporter corrects the case or the wording in place instead of
+    retyping a 30-character name from scratch. It is also an explicit Story 10.5 AC ("entered values retained
+    on failure"), so the app is doing what it was asked to do.
+  - **What legacy actually did, for the record (verified 2026-08-20).** Legacy reset the field to
+    `getLocationDescriptionOriginalVal()` on the save path (`Schedule4MB.java:619`), which is `""` for a new
+    location — so the typed name was wiped, not "put back". Its live on-change variant
+    (`Schedule4MB.java:249`) would have wiped the field as soon as focus left it, but that listener is
+    **commented out in the view** (`schedule4ExistingLocation.xhtml:19`), so it never ran in shipped code.
+    Legacy therefore had exactly one behaviour here — wipe on Save — and the app deliberately does not
+    reproduce it.
+  - **A SEPARATE, still-open gap in the same interaction — presentation, not persistence.** The rejection is
+    correct but does not point at the offending field: the 409 detail renders in the page banner
+    (`saveError`), while the Location Name input shows no invalid state, because `validation.ts:68`'s
+    `nameError` is a blank-check only. The field looks healthy while being the sole cause of the failure.
+    What is wanted is Carbon's `invalid` + `invalidText` on that field with a short description under it.
+      - **Schedule 5 is the reference implementation:** `schedule5/validation.ts:347-354` runs a client-side
+        duplicate pre-check against the sibling camp names and feeds `errors.campName` into the field's
+        `invalid`/`invalidText` (`schedule5/index.tsx:394-395`), keeping the server 409 as the race backstop.
+      - **NOTE for whoever verifies Schedule 5 later:** that field-level treatment is itself an UNRECORDED
+        IMPROVEMENT over legacy, not parity. Legacy Schedule 5 checked the duplicate on Save only
+        (`Schedule5MB.java:290-291`) and raised `campAlreadyExists` as a GLOBAL banner, and there are **zero
+        `p:message` components** on any Schedule 4 or Schedule 5 legacy page — legacy had no field-level error
+        rendering on either screen. Do not "restore" the banner-only behaviour thinking it is parity.
+      - Schedules 8 and 11 have not yet been checked for the same gap. Tracked as a prospective enhancement,
+        not as part of this entry.
+  - **Action:** none for DIV-5 — closed as a deliberate, confirmed choice. The presentation gap above is a
+    separate enhancement to be raised on its own.
+  - **Priority / env:** p2 · local seeded DB · Chrome.
+  - **Status:** **CLOSED (deliberate choice, confirmed by QA 2026-08-21).** Found 2026-08-17. The test stays
+    GREEN and asserts the as-built behaviour, so a future change in either direction is caught.
   - **Test:** `features/sch4/uc-sch4-001-report-transportation/duplicate-name.feature` (S14, green).
 
 - **DIV-6 — The delete confirmation's punctuation differs by one character.**
@@ -745,3 +770,129 @@ entries are kept only because their ids are cited elsewhere:**
   **Recommendation for stress runs on a developer box:** pass `--workers=4`. A full-worker `--repeat-each=5`
   run puts ~24 concurrent browsers through one on-demand-compiling Vite dev server and one backend for 20+
   minutes; the resulting entry-point failures say nothing about the app or the tests. (Verified 2026-08-18.)
+
+- **VER-6 — The a11y sweeps parked the pointer at (0, 0), which is NOT a resting position: it is inside the
+  app header. Found in review, resolved before merge.** `pages/common/axe.ts` parks the pointer before every
+  scan so `color-contrast` measures the resting state rather than whatever the last click left hovered (that
+  parking is what exposed DIV-7 and BUG-1 in the first place). The park POINT was wrong: (0, 0) sits under
+  the fixed `header.cds--header`, directly on `button.cds--header__menu-toggle`, so **every scan in every
+  domain measured the header in its HOVERED state.** Measured with `document.querySelectorAll(':hover')` at
+  that point: **6 elements hovered, deepest `BUTTON.cds--header__action`.**
+    - **No verdict was affected.** Every `@a11y`-tagged test across every domain was run before and after the
+      change (140 on the tree measured at the time; 142 after this suite merged upstream) and the failing set
+      was identical: the tracked reds plus the Home-content `color-contrast` reds. This was latent, not a
+      wrong result on the record.
+    - **Why it still mattered:** the point of parking is that the measured state be the reproducible resting
+      one. A hover token added to any header control would have been swept in its hovered form and read as
+      the resting one — precisely the failure the parking exists to prevent.
+    - **As merged:** the park moved to `(0, 300)` — below the 48px fixed header, so the header is no longer
+      hovered during a scan.
+    - **Residual limitation, recorded not actioned:** `(0, 300)` is a viewport-relative point inside the
+      content area, so it is layout-dependent — on a page whose table extends to that height it can come to
+      rest on a `td`, which is the same class of problem in a different place. A park OUTSIDE the viewport
+      (a negative coordinate) is inert by construction: the hit test finds nothing and `:hover` matches zero
+      elements, not even `html`/`body`, independent of layout and of the configured viewport. Noted here so
+      the trade-off is on the record if these scans ever disagree with a manual measurement again.
+
+- **VER-7 — Six review claims against the suite: two actioned, four checked and rejected with evidence.
+  2026-08-21/24.** A review pass raised eleven items. Five were app defects already logged above and
+  ticketed (BUG-4/#335, DIV-3/#324, DIV-4/#291, DIV-2/#326, DIV-7+BUG-1/#319+#314) — out of scope for a
+  test-only change. Of the six aimed at the suite itself:
+    - **ACTIONED — `schedule4SubPage.row()` had no retry.** The description read is a one-shot snapshot, so
+      a lookup issued while React was still committing a row would fail immediately rather than auto-waiting
+      like a plain locator. Never observed (the sub-page awaits its table first, the rows arrive in the same
+      commit, and 1,542 parallel stress executions produced zero failures here) but reachable in principle
+      by a step reading straight after a mutation. It now retries on the MISS path only, so the happy path
+      still does exactly one pass over the rows — polling unconditionally would re-read every row's
+      `inputValue()` on every lookup, a real cost on a 15-row table for a case that has already succeeded.
+      The reviewer's suggested `dataRows().filter(...)` was NOT used: in edit mode the Description lives in
+      an `<input>`, which `filter({ hasText })` cannot see, and `filter({ has: input[value="…"] })` matches
+      the ATTRIBUTE — the dependency `rowDescriptions()` documents as deliberately rejected, because it
+      makes the negative assertions pass silently the day React stops mirroring the value.
+    - **ACTIONED — the pointer park.** See VER-6.
+    - **NOT APPLICABLE to the merged implementation — "`settleTransitions` can hang on an endless
+      animation."** The claim is sound in the abstract: `animation.finished` never resolves for an
+      infinitely-looping animation, so awaiting one would stall to the test timeout, and the app does own
+      such an animation (Carbon `<Loading>` via `LoadingScreen`). It does not apply here, because the merged
+      hover barrier does not await animations at all — `schedule4Page.hoverLocationRow` polls the computed
+      `background-color` until two consecutive reads agree. Recorded so the hazard is known if a future
+      barrier is ever written with `getAnimations()`.
+    - **NOT A DEFECT — "the seed teardown may match zero rows if a trigger rewrites `ENTRY_USERID`".**
+      Checked against the live DB: the seeded rows carry `ENTRY_USERID = 'E2E_SEED'` and the teardown's exact
+      predicate matches **6 of 6**. Three audit triggers ARE enabled on the two tables (`TR_AUD_B_I_U`,
+      `ICRD_CHK_B_I_U`, `ILCR_CRDA_B_I_U`) and demonstrably do not touch that column. The recommendation to
+      also key on the location name and category is already implemented — the delete is triple-keyed on
+      `ILCR_CATEGORY_ID` + `LOCATION_DESCRIPTION` + `ENTRY_USERID`.
+    - **NOT A DEFECT — "add `WHENEVER OSERROR EXIT 1` or a failed connect exits 0 and hides the failure".**
+      Tested with real sqlplus (23.26) using the scripts' exact preamble against a dead port: **ORA-12541 and
+      exit code 12541**, with the following `SELECT` never executed; the same preamble against the real DSN
+      exits 0. So a failed CONNECT *is* covered by the already-armed `WHENEVER SQLERROR EXIT SQL.SQLCODE`
+      (which validates the existing script comment rather than assuming it), and `set -euo pipefail`
+      propagates it. The premise is inverted — there is no exit-0 hiding.
+    - **DECLINED, and it would BREAK the scripts — "replace `MSYS2_ARG_CONV_EXCL='*'` with `//nolog`".**
+      Two measurements. What a NATIVE exe receives on Git Bash: bare `/nolog` arrives mangled as
+      `C:/…/Git/nolog` (confirming the existing rationale), while BOTH the current guard and `//nolog` arrive
+      as `/nolog` — so the trick does work, on Git Bash. But it is MSYS conversion that collapses the doubled
+      slash, and Linux/macOS/CI have no such layer, so there `//nolog` reaches sqlplus verbatim. What real
+      sqlplus does with it verbatim (23.26, invoked so that arguments are not rewritten): **`sqlplus -S
+      //nolog` prints its usage banner and exits 1** — it never enters no-logon mode. `//host:port/service`
+      is EZCONNECT syntax, not the no-logon token. The current form delivers an identical, documented
+      `/nolog` on every platform.
+
+- **VER-8 — Two static anchor guards had never actually run: `__dirname` is not defined under ESM.
+  Found 2026-08-24 while re-verifying the merged suite; fixed.** `preflight/sch4-anchors.setup.ts` built two
+  filesystem paths from `__dirname`, a CommonJS-only global. Both `frontend/e2e/package.json` and
+  `frontend/package.json` declare `"type": "module"`, so these files load as ES modules where it does not
+  exist: each reference threw `ReferenceError: __dirname is not defined` on the first line of the test body,
+  before any assertion ran.
+    - **What was inert:** `preflight: Schedule 4 mutating anchors are used in at most one feature file` and
+      `preflight: Cross-domain anchors are globally distinct`. Those are the two guards the suite's
+      parallel-safety design leans on hardest — the whole one-dedicated-(mill, year)-per-mutating-scenario
+      rule is only as good as the check that no anchor is reused across feature files or across domains. An
+      anchor collision would have passed unnoticed.
+    - **Why it read as noise rather than a hole:** they DID report red on every run, but with a
+      `ReferenceError`, which looks like an environment problem, not like "your anchors collide".
+    - **Why it was easy to introduce:** the pattern is idiomatic Node and would be correct under CommonJS;
+      these are the ONLY filesystem reads in the whole e2e suite (every other preflight check imports the
+      fixtures module and probes the live API), so there was no in-repo precedent to copy and none to reveal
+      the constraint; `@types/node` declares `__dirname` as an ambient global regardless of module format, so
+      it typechecks clean — and the e2e tree is not in any typecheck gate anyway (`frontend/tsconfig.json`
+      has `include: ["src"]`).
+    - **Fix, part 1:** `const HERE = path.dirname(fileURLToPath(import.meta.url))`. Preflight went from
+      117 passed + 2 crashed to **119 passed**, which is the whole of the +2 in the re-measured run summary
+      in `coverage.md`.
+    - **Fix, part 2 — and a correction to this entry's first version, which claimed "nothing was hiding
+      behind the crash; they were simply never checking". That was true of the first guard and FALSE of the
+      second.** Raised in review. Stopping the crash was not the same as restoring the check: `Cross-domain
+      anchors are globally distinct` then passed VACUOUSLY. It derived each domain's fixture filename from
+      the directory name through a ternary chain, then dropped whatever was missing with
+      `.filter(fs.existsSync)`. The chain mapped seven domains that have no fixtures directory at all
+      (`sch5`…`sch10`) and **none of the four that do** — it looked for `sch1-test-data.ts` where the file is
+      `schedule1-test-data.ts`, and likewise for `sch2`, `sch4`, `sch11`. Only `sec` resolved, so the scan
+      narrowed to one domain, `allKeys` held that domain alone, and `domains.length > 1` was unreachable: one
+      domain cannot collide with itself. The assertion could not fail regardless of what the fixtures held.
+      Now the fixture file is discovered BY EXTENSION per domain directory and a domain with no
+      `*-test-data.ts` **throws** instead of being skipped — a guard that quietly scans fewer inputs than it
+      believes is the same dead-check class as the crash. The guard also asserts its own inputs first
+      (one file per domain directory; at least one key found), so silent under-scanning fails loudly.
+      Verified by instrumenting the guard: **5 fixture files, 5 domains, 55 (mill, year) keys**.
+      Also handles `year:` preceding `millId:`, which the single-order regex could not see.
+    - **What part 2 surfaced: five pre-existing cross-domain shares, all adjudicated SAFE and now
+      allow-listed WITH reasons** (`SHARED_ACROSS_DOMAINS`), so any NEW share fails. The anchor key is a
+      (mill, year) *report*, and a report holds every schedule — two domains sharing a key only contend if
+      they write the same schedule's rows or one flips a track status the other depends on:
+        - `13/2017` closed-mill (sch1, sch2, sch11), `16050/2016` no-schedule (sch1, sch11), `12050/2016`
+          submitted (sch1, sch11) — guard anchors that exist to make a GET fail a specific way, read-only by
+          construction. A closed mill and a missing schedule cannot be written at all.
+        - `24051/2016` — sch1 `missing-line-item-volume` (read-only S15 Check Status fixture) + sch11
+          `MULTI_ADD_ANCHOR` (mutating). Schedule 11 is the independent silviculture track; its writes cannot
+          alter the Schedule 1 line items the fixture asserts on.
+        - `22050/2016` — sch1 `other-costs-volume-without-cost` (read-only S15/S16 Check Status fixture) +
+          sch2 `HAPPY_PATH_ANCHOR` (mutating). Schedule 2 writes its own cost items while the fixture reads
+          Schedule 1 line items and Other Costs. **The narrowest margin of the five** — both are on the 1-10
+          track — so the exemption is written to say that if any Schedule 1 scenario ever starts WRITING this
+          anchor, it must be removed.
+    - **The durable problem, recorded not fixed:** CI cannot catch this class at all. `reusable-tests.yml`
+      runs only `--project=smoke`, and its own comment states the data-backed `setup + chromium` projects are
+      "a LOCAL/manual gate". The `setup` project that hosts every preflight guard therefore never executes in
+      CI, so a preflight regression is invisible until someone runs the full suite locally.

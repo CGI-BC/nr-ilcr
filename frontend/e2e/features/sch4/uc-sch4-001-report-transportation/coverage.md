@@ -77,7 +77,7 @@ See GAP-1.
 |---|---|---|---|---|---|
 | ERR-001 blank Location Name | S13, ERR-001, BR-02 | client `validateLocationForm` gate + server `@NotBlank{locationEmptyOrNull}` | validation `@S13 @p1`; whitespace-only `@S13 @p2` | covered | — |
 | ERR-002 duplicate name, case-insensitive | S14, ERR-002, BR-02 | `Schedule4Service` `nameExists` → 409 verbatim | duplicate-name `@S14 @p1` | covered | — |
-| …the name field is RESET to its prior value afterwards | ERR-002 trigger note | app KEEPS the entered value (Story 10.5 AC "entered values retained") | duplicate-name `@S14 @p1` (asserts as-built) | covered (re-grounded) | DIV-5 (log-only) |
+| …the typed name is WIPED afterwards (legacy reset it to `""` on a new location) | ERR-002 trigger note; legacy `Schedule4MB.java:619` | app deliberately KEEPS the entered value (Story 10.5 AC "entered values retained") | duplicate-name `@S14 @p1` (asserts as-built) | covered (re-grounded) | DIV-5 (CLOSED — deliberate choice) |
 | BR-02 excludes the location's own family (no-op / case-only self-rename allowed) | BR-02, `oldName` exclusion | `saveLocation` `oldName` | duplicate-name `@S14 @S02 @p1` | covered | — |
 | FLD-001 category Volume range [0, 9,999,999] | S19, FLD-001 | `validation.ts` VOLUME + `CategoryInput` `@DecimalMin/Max` | validation `@S19 @p1` outline (both ends) | covered | — |
 | FLD-002 category Cost range [-99,999,999, 99,999,999] | S20, FLD-002 | same | validation `@S20 @p1` outline (both ends) | covered | — |
@@ -166,8 +166,8 @@ The three counted gaps (each filed in `defects.md`, none of them an app fault). 
 | GAP-4 | `deferred` | the validation-error axe sweep is skipped by the project's cross-cutting convention (`deferred-work.md`, app-wide WCAG 4.1.2), so Schedule 4's error state is genuinely unswept. |
 
 `@discovered-divergence` / `@discovered-bug` reds COUNT as covered — they map to their requirement and are
-deliberately red (never forced green; the red is the signal). **Gate result: PASS**, with the four gaps named
-rather than absorbed.
+deliberately red (never forced green; the red is the signal). **Gate result: PASS**, with all four gap ids
+named rather than absorbed — three of them counting against coverage, GAP-3 closed.
 
 ## Run summary (authored 2026-08-17, stress + final gate 2026-08-18; local delivery DB, app commit `9632f7f`)
 
@@ -179,7 +179,20 @@ rather than absorbed.
 | Cleanup blind spot | the full run INCLUDES the `@discovered-*` reds | their teardown was exercised too (the residue sweep above followed that run) |
 | Parallel stress ×3 | `--repeat-each=5` (twice at default workers, once at `--workers=4`) | **512 / 514 each run — 1,542 executions, 6 failures, ALL at the entry point (app-shell paint, Home's first fetch, one Chrome launch >60 s), never the same test twice, and ZERO data-contention failures.** Two genuine readiness waits were stabilised as a result (see `defects.md`); the rest is this box's dev-mode Vite server saturating under ~24 concurrent browsers for 20+ min. Reported as measured rather than retried away or timeout-inflated — see the note below. |
 
-The eight deliberate reds, each named in `defects.md` with an `ACTION: BA/QA → Jira`:
+**RE-MEASURED 2026-08-24, after this suite merged upstream** (the row above is the authoring-time record and
+is left as written). The numbers moved by exactly +2, and only because two preflight guards that had been
+crashing now execute — see VER-8 in `defects.md`:
+
+| Run | Command | Result |
+|---|---|---|
+| Schedule 4 scope | `npm test -- --grep @sch4` | **210 tests** = 119 preflight + 91 Schedule 4; 11 deliberately-red, 199 green, no unexplained red |
+| The gate | `npm run test:gate -- --grep @sch4` | **199 tests** — the 11 known reds excluded |
+| Whole suite, every domain | `npm test` | **313 passed / 15 failed** — the 13 tracked `@discovered-*` reds across all domains (5 bug + 8 divergence) plus 2 Home-content `color-contrast` reds that are admin-authored content, not app CSS (the seeded welcome message's `rgb(51,204,0)` at 2.15:1 and `rgb(204,51,204)` at 4.27:1) |
+
+The 11 deliberate reds (8 `@discovered-divergence` + 3 `@discovered-bug`, matching the run summary above),
+grouped below by the `defects.md` entry each is named in with an `ACTION: BA/QA → Jira`. Seven rows, because
+some entries are red in more than one scenario — the inline `×n` is a scenario count (absent means ×1), and
+those counts sum to 11. All 11 are plain `Scenario`s; none expands through `Examples`:
 
 | Red | Entry | What it tracks |
 |---|---|---|

@@ -1,6 +1,14 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+/**
+ * ESM-safe replacement for `__dirname`. These files are loaded as ES modules, where `__dirname` is not
+ * defined — referencing it threw `ReferenceError` and both static checks below aborted before asserting
+ * anything, so the guarantees they advertise were not actually enforced.
+ */
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 import {
   ANCHORS,
   GUARD_ANCHORS,
@@ -203,7 +211,7 @@ function getFeatureFiles(dir: string): string[] {
 }
 
 test('preflight: Schedule 4 mutating anchors are used in at most one feature file', async () => {
-  const dir = path.join(__dirname, '../features/sch4');
+  const dir = path.join(HERE, '../features/sch4');
   const files = getFeatureFiles(dir);
   const anchorUsage = new Map<string, string[]>();
 
@@ -239,19 +247,81 @@ test('preflight: Schedule 4 mutating anchors are used in at most one feature fil
   ).toEqual([]);
 });
 
+/**
+ * (mill, year) keys that ARE shared across domains on purpose, with the reason. Anything shared and NOT
+ * listed here fails the guard below.
+ *
+ * WHY AN ALLOW-LIST AND NOT A BARE "no key twice" RULE: the anchor key is a (mill, year) REPORT, but a
+ * report holds every schedule. Two domains sharing a key only actually contend when they write the same
+ * schedule's rows, or when one changes the track status the other depends on. A flat rule would forbid
+ * cases that cannot collide, and the fixtures carry no uniform mutating/read-only flag to derive it from —
+ * so the exemptions are enumerated with their justification, the same shape as the designated-shared
+ * `validation` anchor in the guard above.
+ *
+ * Each entry was adjudicated 2026-08-24 when this guard was first made to run (see VER-8):
+ */
+const SHARED_ACROSS_DOMAINS = new Map<string, string>([
+  // The three guard anchors. Each exists to make a GET fail in a specific way and is held read-only by
+  // construction — a closed mill and a missing schedule cannot be written to at all.
+  ['13/2017', 'closed-mill guard (HTTP 409) — read-only in sch1, sch2 and sch11'],
+  ['16050/2016', 'no-schedule guard (HTTP 404) — read-only in sch1 and sch11'],
+  ['12050/2016', 'submitted/non-Draft guard — read-only in sch1 and sch11'],
+  // The two mixed pairs: a read-only Check Status fixture in sch1 alongside a mutating anchor in another
+  // domain. Safe because the writer writes a DIFFERENT schedule's rows than the reader reads.
+  [
+    '24051/2016',
+    "sch1 'missing-line-item-volume' (read-only S15 Check Status fixture) + sch11 MULTI_ADD_ANCHOR "
+      + '(mutating). Schedule 11 is the independent silviculture track: its writes cannot alter the '
+      + 'Schedule 1 line items the fixture asserts on.',
+  ],
+  [
+    '22050/2016',
+    "sch1 'other-costs-volume-without-cost' (read-only S15/S16 Check Status fixture) + sch2 "
+      + 'HAPPY_PATH_ANCHOR (mutating). Schedule 2 writes its own cost items; the fixture reads Schedule 1 '
+      + 'line items and Other Costs. This is the narrowest margin of the five — both sit on the 1-10 '
+      + 'track — so if a Schedule 1 scenario ever starts WRITING this anchor, this exemption must go.',
+  ],
+]);
+
 test('preflight: Cross-domain anchors are globally distinct', async () => {
-  const fixturesDir = path.join(__dirname, '../fixtures');
-  const fixtureFiles = fs.readdirSync(fixturesDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && e.name !== 'common')
-    .map((e) => path.join(fixturesDir, e.name, `${e.name === 'sec' ? 'working-context' : e.name === 'sch7a' ? 'schedule7a' : e.name === 'sch7b' ? 'schedule7b' : e.name === 'sch9' ? 'schedule9' : e.name === 'sch6' ? 'schedule6' : e.name === 'sch5' ? 'schedule5' : e.name === 'sch10' ? 'schedule10' : e.name === 'sch8' ? 'schedule8' : e.name}-test-data.ts`))
-    .filter((f) => fs.existsSync(f));
+  const fixturesDir = path.join(HERE, '../fixtures');
+  const domains = fs
+    .readdirSync(fixturesDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && e.name !== 'common');
+
+  // Discover each domain's fixture file by EXTENSION, and THROW when one has none.
+  //
+  // This used to derive the filename from the directory name through a ternary chain and then drop
+  // anything missing with `.filter(fs.existsSync)`. That mapped seven domains which have no fixtures
+  // directory at all and none of the four that do (`sch1` resolved to `sch1-test-data.ts`, on disk it is
+  // `schedule1-test-data.ts`), so the scan silently narrowed to a single domain and the assertion below
+  // became unreachable — one domain cannot collide with itself. Raised in review; recorded as VER-8.
+  // A guard that quietly inspects fewer inputs than it believes is the same dead-check class VER-8 is
+  // about, so a missing fixture is now a hard failure rather than a skipped file.
+  const fixtureFiles = domains.map((d) => {
+    const dir = path.join(fixturesDir, d.name);
+    const [file] = fs.readdirSync(dir).filter((n) => n.endsWith('-test-data.ts'));
+    if (!file) {
+      throw new Error(
+        `fixtures/${d.name} contains no *-test-data.ts — the cross-domain anchor guard cannot scan it, `
+          + 'so it would pass without checking that domain. Add the fixture or remove the directory.',
+      );
+    }
+    return path.join(dir, file);
+  });
 
   const allKeys = new Map<string, string[]>();
 
   for (const file of fixtureFiles) {
     const domainName = path.basename(path.dirname(file));
     const content = fs.readFileSync(file, 'utf8');
-    const matches = content.matchAll(/millId:\s*(\d+),\s*year:\s*(\d+)/g);
+    // Both property orders: a fixture written `year: … , millId: …` is otherwise invisible here.
+    const matches = [
+      ...content.matchAll(/millId:\s*(\d+),\s*year:\s*(\d+)/g),
+      ...[...content.matchAll(/year:\s*(\d+),\s*millId:\s*(\d+)/g)].map(
+        (m) => [m[0], m[2], m[1]] as unknown as RegExpMatchArray,
+      ),
+    ];
     for (const match of matches) {
       const key = `${match[1]}/${match[2]}`;
       if (!allKeys.has(key)) {
@@ -264,15 +334,27 @@ test('preflight: Cross-domain anchors are globally distinct', async () => {
     }
   }
 
-  const duplicates: string[] = [];
-  for (const [key, domains] of allKeys.entries()) {
-    if (domains.length > 1) {
-      duplicates.push(`anchor "${key}" shared across: ${domains.join(', ')}`);
+  // Prove the scan actually saw every domain — the failure this guard had was silent under-scanning, so
+  // assert the inputs before asserting the property.
+  expect(
+    fixtureFiles.length,
+    `the cross-domain guard scanned ${fixtureFiles.length} fixture file(s); expected one per domain `
+      + `directory (${domains.map((d) => d.name).join(', ')})`,
+  ).toBe(domains.length);
+  expect(allKeys.size, 'the cross-domain guard found no (mill, year) keys at all — it is not scanning')
+    .toBeGreaterThan(0);
+
+  const unexpected: string[] = [];
+  for (const [key, keyDomains] of allKeys.entries()) {
+    if (keyDomains.length > 1 && !SHARED_ACROSS_DOMAINS.has(key)) {
+      unexpected.push(`anchor "${key}" shared across: ${keyDomains.join(', ')}`);
     }
   }
 
   expect(
-    duplicates,
-    `Cross-domain anchors must be globally distinct to prevent test runner parallel collision — duplicated: ${duplicates.join('; ')}`,
+    unexpected,
+    'Cross-domain anchors must be globally distinct to prevent test-runner parallel collision. A key that '
+      + 'is genuinely safe to share belongs in SHARED_ACROSS_DOMAINS above WITH its reason — '
+      + `unexpected: ${unexpected.join('; ')}`,
   ).toEqual([]);
 });
