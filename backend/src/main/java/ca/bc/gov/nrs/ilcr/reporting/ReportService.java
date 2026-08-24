@@ -1,6 +1,7 @@
 package ca.bc.gov.nrs.ilcr.reporting;
 
 import ca.bc.gov.nrs.ilcr.millcontext.ScheduleNotFoundException;
+import ca.bc.gov.nrs.ilcr.schedule1.Schedule1Service;
 import ca.bc.gov.nrs.ilcr.schedule10.Schedule10Service;
 import ca.bc.gov.nrs.ilcr.schedule11.Schedule11Service;
 import ca.bc.gov.nrs.ilcr.schedule2.Schedule2Service;
@@ -61,6 +62,7 @@ public class ReportService {
   private static final Logger log = LoggerFactory.getLogger(ReportService.class);
 
   private final DataSource dataSource;
+  private final Schedule1Service schedule1Service;
   private final Schedule2Service schedule2Service;
   private final Schedule5Service schedule5Service;
   private final Schedule6Service schedule6Service;
@@ -83,6 +85,8 @@ public class ReportService {
    *     from — its own small pool, isolated from the {@code @Primary} transactional pool so a burst
    *     of report renders cannot starve ordinary schedule requests (its connections are read-only
    *     as a hint, not an enforced privilege)
+   * @param schedule1Service the Schedule 1 read (bean-datasource feed, Story 20.5 — the statement +
+   *     the itemized Other-Cost-List sub-document)
    * @param schedule2Service the Schedule 2 read (bean-datasource feed, Story 20.6)
    * @param schedule5Service the Schedule 5 read (bean-datasource feed)
    * @param schedule6Service the Schedule 6 read (bean-datasource feed)
@@ -97,6 +101,7 @@ public class ReportService {
    */
   public ReportService(
       @Qualifier("reportingDataSource") DataSource dataSource,
+      Schedule1Service schedule1Service,
       Schedule2Service schedule2Service,
       Schedule5Service schedule5Service,
       Schedule6Service schedule6Service,
@@ -107,6 +112,7 @@ public class ReportService {
       Schedule11Service schedule11Service,
       ReportVirtualizerFactory virtualizerFactory) {
     this.dataSource = dataSource;
+    this.schedule1Service = schedule1Service;
     this.schedule2Service = schedule2Service;
     this.schedule5Service = schedule5Service;
     this.schedule6Service = schedule6Service;
@@ -188,6 +194,16 @@ public class ReportService {
       String bookmarkTitle,
       JRSwapFileVirtualizer virtualizer) {
     return switch (key) {
+      case SCHEDULE_1 ->
+          fillBean(
+              key,
+              millId,
+              year,
+              options,
+              millTitleBlock,
+              bookmarkTitle,
+              schedule1Section(millId, year),
+              virtualizer);
       case SCHEDULE_2 ->
           fillBean(
               key,
@@ -260,6 +276,38 @@ public class ReportService {
               virtualizer);
       case SCHEDULE_9 -> fillSchedule9(millId, year, options, bookmarkTitle, virtualizer);
     };
+  }
+
+  /**
+   * Build the Schedule 1 section (the statement plus the itemized Other-Cost-List sub-document), or
+   * {@code null} when the mill/year has no Schedule 1 summary. Unlike the other bean reads, {@code
+   * getSchedule1} / {@code getOtherCostsDocument} throw {@link ScheduleNotFoundException} on an
+   * absent summary, so translate that into the BR-09 skip-empty null rather than letting it abort
+   * the combined render. Read-only: both reads pass {@code callerMayEdit = false}.
+   */
+  private SectionData schedule1Section(long millId, int year) {
+    ca.bc.gov.nrs.ilcr.schedule1.dto.Schedule1Response summary;
+    try {
+      summary = schedule1Service.getSchedule1(millId, year, false);
+    } catch (ScheduleNotFoundException e) {
+      log.debug(
+          "Schedule 1 summary not found for mill {} year {} -> skipping section (BR-09)",
+          millId,
+          year);
+      return null;
+    }
+
+    ca.bc.gov.nrs.ilcr.schedule1.dto.OtherCostsDocument otherCosts = null;
+    try {
+      otherCosts = schedule1Service.getOtherCostsDocument(millId, year, false);
+    } catch (ScheduleNotFoundException e) {
+      log.debug(
+          "Schedule 1 other costs document not found for mill {} year {} -> mapping with empty list",
+          millId,
+          year);
+    }
+
+    return Schedule1SectionMapper.map(summary, otherCosts);
   }
 
   /** Bean-datasource fill: no rows → no section (null); else fill from the mapped section rows. */
