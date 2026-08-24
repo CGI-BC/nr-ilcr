@@ -179,6 +179,16 @@ named rather than absorbed — three of them counting against coverage, GAP-3 cl
 | Cleanup blind spot | the full run INCLUDES the `@discovered-*` reds | their teardown was exercised too (the residue sweep above followed that run) |
 | Parallel stress ×3 | `--repeat-each=5` (twice at default workers, once at `--workers=4`) | **512 / 514 each run — 1,542 executions, 6 failures, ALL at the entry point (app-shell paint, Home's first fetch, one Chrome launch >60 s), never the same test twice, and ZERO data-contention failures.** Two genuine readiness waits were stabilised as a result (see `defects.md`); the rest is this box's dev-mode Vite server saturating under ~24 concurrent browsers for 20+ min. Reported as measured rather than retried away or timeout-inflated — see the note below. |
 
+**RE-MEASURED 2026-08-24, after this suite merged upstream** (the row above is the authoring-time record and
+is left as written). The numbers moved by exactly +2, and only because two preflight guards that had been
+crashing now execute — see VER-8 in `defects.md`:
+
+| Run | Command | Result |
+|---|---|---|
+| Schedule 4 scope | `npm test -- --grep @sch4` | **210 tests** = 119 preflight + 91 Schedule 4; 11 deliberately-red, 199 green, no unexplained red |
+| The gate | `npm run test:gate -- --grep @sch4` | **199 tests** — the 11 known reds excluded |
+| Whole suite, every domain | `npm test` | **313 passed / 15 failed** — the 13 tracked `@discovered-*` reds across all domains (5 bug + 8 divergence) plus 2 Home-content `color-contrast` reds that are admin-authored content, not app CSS (the seeded welcome message's `rgb(51,204,0)` at 2.15:1 and `rgb(204,51,204)` at 4.27:1) |
+
 The 11 deliberate reds (8 `@discovered-divergence` + 3 `@discovered-bug`, matching the run summary above),
 grouped below by the `defects.md` entry each is named in with an `ACTION: BA/QA → Jira`. Seven rows, because
 some entries are red in more than one scenario — the inline `×n` is a scenario count (absent means ×1), and

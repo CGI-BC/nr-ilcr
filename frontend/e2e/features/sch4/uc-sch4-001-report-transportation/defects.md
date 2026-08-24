@@ -778,9 +778,10 @@ entries are kept only because their ids are cited elsewhere:**
   the fixed `header.cds--header`, directly on `button.cds--header__menu-toggle`, so **every scan in every
   domain measured the header in its HOVERED state.** Measured with `document.querySelectorAll(':hover')` at
   that point: **6 elements hovered, deepest `BUTTON.cds--header__action`.**
-    - **No verdict was affected.** The whole `@a11y` set (140 scenarios across every domain) was run before
-      and after the change and the failing set was identical: the tracked reds plus the Home-content
-      `color-contrast` reds. This was latent, not a wrong result on the record.
+    - **No verdict was affected.** Every `@a11y`-tagged test across every domain was run before and after the
+      change (140 on the tree measured at the time; 142 after this suite merged upstream) and the failing set
+      was identical: the tracked reds plus the Home-content `color-contrast` reds. This was latent, not a
+      wrong result on the record.
     - **Why it still mattered:** the point of parking is that the measured state be the reproducible resting
       one. A hover token added to any header control would have been swept in its hovered form and read as
       the resting one — precisely the failure the parking exists to prevent.
@@ -837,3 +838,31 @@ entries are kept only because their ids are cited elsewhere:**
       //nolog` prints its usage banner and exits 1** — it never enters no-logon mode. `//host:port/service`
       is EZCONNECT syntax, not the no-logon token. The current form delivers an identical, documented
       `/nolog` on every platform.
+
+- **VER-8 — Two static anchor guards had never actually run: `__dirname` is not defined under ESM.
+  Found 2026-08-24 while re-verifying the merged suite; fixed.** `preflight/sch4-anchors.setup.ts` built two
+  filesystem paths from `__dirname`, a CommonJS-only global. Both `frontend/e2e/package.json` and
+  `frontend/package.json` declare `"type": "module"`, so these files load as ES modules where it does not
+  exist: each reference threw `ReferenceError: __dirname is not defined` on the first line of the test body,
+  before any assertion ran.
+    - **What was inert:** `preflight: Schedule 4 mutating anchors are used in at most one feature file` and
+      `preflight: Cross-domain anchors are globally distinct`. Those are the two guards the suite's
+      parallel-safety design leans on hardest — the whole one-dedicated-(mill, year)-per-mutating-scenario
+      rule is only as good as the check that no anchor is reused across feature files or across domains. An
+      anchor collision would have passed unnoticed.
+    - **Why it read as noise rather than a hole:** they DID report red on every run, but with a
+      `ReferenceError`, which looks like an environment problem, not like "your anchors collide".
+    - **Why it was easy to introduce:** the pattern is idiomatic Node and would be correct under CommonJS;
+      these are the ONLY filesystem reads in the whole e2e suite (every other preflight check imports the
+      fixtures module and probes the live API), so there was no in-repo precedent to copy and none to reveal
+      the constraint; `@types/node` declares `__dirname` as an ambient global regardless of module format, so
+      it typechecks clean — and the e2e tree is not in any typecheck gate anyway (`frontend/tsconfig.json`
+      has `include: ["src"]`).
+    - **Fix:** `const HERE = path.dirname(fileURLToPath(import.meta.url))`. Both guards now execute and PASS,
+      so nothing was hiding behind the crash — they were simply never checking. Preflight went from
+      117 passed + 2 crashed to **119 passed**, which is the whole of the +2 in the re-measured run summary
+      in `coverage.md`.
+    - **The durable problem, recorded not fixed:** CI cannot catch this class at all. `reusable-tests.yml`
+      runs only `--project=smoke`, and its own comment states the data-backed `setup + chromium` projects are
+      "a LOCAL/manual gate". The `setup` project that hosts every preflight guard therefore never executes in
+      CI, so a preflight regression is invisible until someone runs the full suite locally.
