@@ -175,8 +175,16 @@ export class Schedule4SubPage {
   async row(label: string, description: string): Promise<Locator> {
     let descriptions = await this.rowDescriptions(label);
     if (!descriptions.includes(description)) {
+      // EXPLICIT SHORT BUDGET, not the config default. `playwright.config.ts` sets
+      // `expect: { timeout: 10_000 }`, and two of this method's three call sites are already INSIDE an
+      // outer `expect.poll` carrying that same 10s — `steps/sch4/subPage.steps.ts` wraps `rowValues()`,
+      // which calls this. Inheriting the default would let this inner poll consume the outer poll's whole
+      // deadline on a genuine miss: the outer never gets a second iteration, and its message (the
+      // `[description, distance, volume, cost, $/m³]` legend written for exactly that failure) is replaced
+      // by this one. 2s is ample for a React commit while leaving the outer poll most of its budget.
       await expect
         .poll(async () => (descriptions = await this.rowDescriptions(label)), {
+          timeout: 2_000,
           message: `Schedule 4 ${label} has no row described "${description}"`,
         })
         .toContain(description);

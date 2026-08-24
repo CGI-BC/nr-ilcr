@@ -858,10 +858,40 @@ entries are kept only because their ids are cited elsewhere:**
       the constraint; `@types/node` declares `__dirname` as an ambient global regardless of module format, so
       it typechecks clean — and the e2e tree is not in any typecheck gate anyway (`frontend/tsconfig.json`
       has `include: ["src"]`).
-    - **Fix:** `const HERE = path.dirname(fileURLToPath(import.meta.url))`. Both guards now execute and PASS,
-      so nothing was hiding behind the crash — they were simply never checking. Preflight went from
+    - **Fix, part 1:** `const HERE = path.dirname(fileURLToPath(import.meta.url))`. Preflight went from
       117 passed + 2 crashed to **119 passed**, which is the whole of the +2 in the re-measured run summary
       in `coverage.md`.
+    - **Fix, part 2 — and a correction to this entry's first version, which claimed "nothing was hiding
+      behind the crash; they were simply never checking". That was true of the first guard and FALSE of the
+      second.** Raised in review. Stopping the crash was not the same as restoring the check: `Cross-domain
+      anchors are globally distinct` then passed VACUOUSLY. It derived each domain's fixture filename from
+      the directory name through a ternary chain, then dropped whatever was missing with
+      `.filter(fs.existsSync)`. The chain mapped seven domains that have no fixtures directory at all
+      (`sch5`…`sch10`) and **none of the four that do** — it looked for `sch1-test-data.ts` where the file is
+      `schedule1-test-data.ts`, and likewise for `sch2`, `sch4`, `sch11`. Only `sec` resolved, so the scan
+      narrowed to one domain, `allKeys` held that domain alone, and `domains.length > 1` was unreachable: one
+      domain cannot collide with itself. The assertion could not fail regardless of what the fixtures held.
+      Now the fixture file is discovered BY EXTENSION per domain directory and a domain with no
+      `*-test-data.ts` **throws** instead of being skipped — a guard that quietly scans fewer inputs than it
+      believes is the same dead-check class as the crash. The guard also asserts its own inputs first
+      (one file per domain directory; at least one key found), so silent under-scanning fails loudly.
+      Verified by instrumenting the guard: **5 fixture files, 5 domains, 55 (mill, year) keys**.
+      Also handles `year:` preceding `millId:`, which the single-order regex could not see.
+    - **What part 2 surfaced: five pre-existing cross-domain shares, all adjudicated SAFE and now
+      allow-listed WITH reasons** (`SHARED_ACROSS_DOMAINS`), so any NEW share fails. The anchor key is a
+      (mill, year) *report*, and a report holds every schedule — two domains sharing a key only contend if
+      they write the same schedule's rows or one flips a track status the other depends on:
+        - `13/2017` closed-mill (sch1, sch2, sch11), `16050/2016` no-schedule (sch1, sch11), `12050/2016`
+          submitted (sch1, sch11) — guard anchors that exist to make a GET fail a specific way, read-only by
+          construction. A closed mill and a missing schedule cannot be written at all.
+        - `24051/2016` — sch1 `missing-line-item-volume` (read-only S15 Check Status fixture) + sch11
+          `MULTI_ADD_ANCHOR` (mutating). Schedule 11 is the independent silviculture track; its writes cannot
+          alter the Schedule 1 line items the fixture asserts on.
+        - `22050/2016` — sch1 `other-costs-volume-without-cost` (read-only S15/S16 Check Status fixture) +
+          sch2 `HAPPY_PATH_ANCHOR` (mutating). Schedule 2 writes its own cost items while the fixture reads
+          Schedule 1 line items and Other Costs. **The narrowest margin of the five** — both are on the 1-10
+          track — so the exemption is written to say that if any Schedule 1 scenario ever starts WRITING this
+          anchor, it must be removed.
     - **The durable problem, recorded not fixed:** CI cannot catch this class at all. `reusable-tests.yml`
       runs only `--project=smoke`, and its own comment states the data-backed `setup + chromium` projects are
       "a LOCAL/manual gate". The `setup` project that hosts every preflight guard therefore never executes in
