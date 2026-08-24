@@ -130,8 +130,8 @@ Feature: Schedule 4 — unsaved-change warnings and the post-save recompute
   #
   # So the figure is right in the database and stale on screen until the location is reopened.
   # ---------------------------------------------------------------------------------------------------
-  @p1 @S01 @S02 @discovered-divergence
-  Scenario: The recomputed $/m³ appears on the panel that saved it [DISCOVERED DIVERGENCE — stale until reopened; defects.md DIV-4 / issue #291]
+  @p1 @S01 @S02
+  Scenario: The recomputed $/m³ appears on the panel that saved it
     Given the Schedule 4 anchor "per-unit-after-save" is an editable Draft with no locations
     And I have selected that mill and reporting year on the Home page
     When I open Schedule 4
