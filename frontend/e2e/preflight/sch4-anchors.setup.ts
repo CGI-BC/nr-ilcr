@@ -260,6 +260,44 @@ test('preflight: Schedule 4 mutating anchors are used in at most one feature fil
  *
  * Each entry was adjudicated 2026-08-24 when this guard was first made to run (see VER-8):
  */
+/**
+ * Why every sch3 anchor sits on a report sch4 also pins, and why that is safe. Adjudicated 2026-08-24
+ * when UC-SCH3-001 was authored.
+ *
+ * Schedule 3 has NO create path in the rewrite — it can only be opened where a category-3
+ * `ILCR_REPORT_SUMMARY` already exists — and all 15 mill-years that DO open it in the extract are
+ * already pinned by sch1/sch2 (see `fixtures/sch3/schedule3-test-data.ts`). Those two domains genuinely
+ * contend with Schedule 3 (Schedule 1 pulls items 143/139 FROM Schedule 3, Schedule 2 carries figures
+ * FROM it, and the BR-09 crown push WRITES Schedule 1's volume rows), so sch3 seeds its own anchors on
+ * mill-years pinned by sch4 instead.
+ *
+ * That share cannot collide, structurally rather than by convention: no backend path links Schedule 3 to
+ * Schedule 4 (`grep -rl Schedule3Service backend/src/main/java` → schedule1, schedule2, schedule5,
+ * reporting only). Schedule 4 writes category-"4" `TRANSPORTATION_REPORT` rows; Schedule 3 writes
+ * category-"3" summary/detail rows. Neither can move a figure the other asserts on, and neither changes
+ * the Draft track status they both require.
+ */
+const SCH3_SCH4_SHARED =
+  'sch3 anchor + sch4 anchor on the same report, different schedules — see the note above this map.';
+
+const SCH3_SCH4_KEYS = [
+  '16050/2017',
+  '16050/2019',
+  '16050/2020',
+  '16050/2021',
+  '17052/2018',
+  '17052/2019',
+  '17052/2020',
+  '17052/2021',
+  '22050/2018',
+  '22050/2019',
+  '22050/2020',
+  '22050/2021',
+  '23050/2017',
+  '23050/2018',
+  '23050/2019',
+];
+
 const SHARED_ACROSS_DOMAINS = new Map<string, string>([
   // The three guard anchors. Each exists to make a GET fail in a specific way and is held read-only by
   // construction — a closed mill and a missing schedule cannot be written to at all.
@@ -280,6 +318,16 @@ const SHARED_ACROSS_DOMAINS = new Map<string, string>([
       + 'HAPPY_PATH_ANCHOR (mutating). Schedule 2 writes its own cost items; the fixture reads Schedule 1 '
       + 'line items and Other Costs. This is the narrowest margin of the five — both sit on the 1-10 '
       + 'track — so if a Schedule 1 scenario ever starts WRITING this anchor, this exemption must go.',
+  ],
+  // The sch3 <-> sch4 shares (14 keys, one reason — see the note above).
+  ...SCH3_SCH4_KEYS.map((key) => [key, SCH3_SCH4_SHARED] as [string, string]),
+  // The one sch3 <-> sch11 share.
+  [
+    '24051/2015',
+    "sch3 'never-started' (the DIV-1 divergence anchor — read-only, and deliberately NOT seeded: its "
+      + 'whole point is that Schedule 3 does not exist there) + sch11 ADD_ANCHOR (mutating). Nothing '
+      + 'sch11 does can create a category-3 summary, so the 404 the sch3 scenario asserts is invariant '
+      + "under Schedule 11's writes.",
   ],
 ]);
 
@@ -316,11 +364,19 @@ test('preflight: Cross-domain anchors are globally distinct', async () => {
     const domainName = path.basename(path.dirname(file));
     const content = fs.readFileSync(file, 'utf8');
     // Both property orders: a fixture written `year: … , millId: …` is otherwise invisible here.
+    //
+    // AND the positional `at(MILL_x, millId, year, …)` builder both this domain and sch3 use for their
+    // anchor TABLES. Until 2026-08-24 the scan matched only the object-literal forms, so it saw sch4's
+    // four guard anchors and NONE of its 48 table anchors — and none of sch3's 14 either. That is the
+    // same silent-under-scanning failure VER-8 records, one level down: the guard ran, passed, and was
+    // blind to the majority of the keys it exists to compare. Caught when UC-SCH3-001 landed (its only
+    // object-literal anchor collided and was reported, while its 14 table anchors were not).
     const matches = [
       ...content.matchAll(/millId:\s*(\d+),\s*year:\s*(\d+)/g),
       ...[...content.matchAll(/year:\s*(\d+),\s*millId:\s*(\d+)/g)].map(
         (m) => [m[0], m[2], m[1]] as unknown as RegExpMatchArray,
       ),
+      ...content.matchAll(/at\(\s*MILL_\w+\s*,\s*(\d+)\s*,\s*(\d{4})/g),
     ];
     for (const match of matches) {
       const key = `${match[1]}/${match[2]}`;
