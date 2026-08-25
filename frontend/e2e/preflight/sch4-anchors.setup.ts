@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from 'node:url';
 
-/**
- * ESM-safe replacement for `__dirname`. These files are loaded as ES modules, where `__dirname` is not
- * defined — referencing it threw `ReferenceError` and both static checks below aborted before asserting
- * anything, so the guarantees they advertise were not actually enforced.
- */
+// This package is `"type": "module"`, so the CommonJS directory global is not defined here.
+// Referencing it threw a ReferenceError in the two static checks below, and because the `chromium`
+// project declares `dependencies: ['setup']`, a failing setup test SKIPS every dependent scenario —
+// so this one-file bug took 39 scenarios out of the run on any branch, not just Schedule 4's.
+// Same ESM-safe idiom already used by `sch11-anchors.setup.ts`.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 import {
   ANCHORS,
