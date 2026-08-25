@@ -11,8 +11,9 @@
 #    proof is "zero editable inputs" plus "all three actions disabled". The outline runs BOTH non-Draft
 #    codes — Submitted and Verified — so one arm of the mirror cannot pass for the other.
 #  * S15 also drops the legacy assertion about the `subtotalOtherCostsEditsEnabled` links not rendering:
-#    the rewrite always renders the count links and simply opens the sub-pages read-only. Asserted as the
-#    app behaves; recorded as DIV-3.
+#    the rewrite always renders the count links and simply opens the sub-pages read-only (no discard
+#    prompt is needed there — a read-only schedule has no unsaved edits). Asserted as the app behaves;
+#    recorded as DIV-3, which is CLOSED as an accepted re-grounding.
 #  * S16 ("Schedule not found.") is reached the way the REWRITE reaches it — a mill/year carrying no
 #    report-status row. The legacy trigger (no reporting-year context) has no equivalent, and the app has
 #    a second, much broader path to the same message that legacy did not have at all: see DIV-1.

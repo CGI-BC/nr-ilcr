@@ -32,7 +32,7 @@ the first Save. The extract marks Schedule 3 *required* on 118 mill-years and *s
 Draft mill-years cannot be entered at all — that is **defects.md DIV-1**, tracked by a deliberately-RED
 scenario. It also means a Schedule 3 anchor cannot be created through the API, so
 `real-test-data-patches/sch3/draft-anchors.sql` seeds the one row legacy's first Save would have written
-on 15 mill-years (and, on four of them, stored amounts the read-only Check Status scenarios need). **If
+on 16 mill-years (and, on four of them, stored amounts the read-only Check Status scenarios need). **If
 DIV-1 is fixed, most of that patch can be retired.**
 
 **Cross-schedule note (why the anchor choice matters here more than elsewhere):** Schedule 1 pulls its
@@ -54,12 +54,12 @@ rejection on the main page and both sub-pages (`validation.feature`); WCAG 2.1 A
 structurally distinct renders (`accessibility.feature`); and the DIV-1 divergence (`no-create.feature`).
 
 **22 of the 24 slices are dispositioned `covered`; S18 and S19 are `not-applicable`** (the state they
-describe cannot exist in the rewrite — DIV-3). **32 scenarios / 41 tests after Scenario-Outline
-expansion: 40 green + 1 deliberate `@discovered-divergence` RED** (DIV-1). A clean run is
+describe cannot exist in the rewrite — DIV-3). **34 scenarios / 43 tests after Scenario-Outline
+expansion: 40 green + 3 deliberate `@discovered-divergence` REDs** (DIV-1, DIV-5 and DIV-6). A clean run is
 `npm run test:gate` (regenerates the features first and excludes every `@discovered-*` red); verified
 green twice consecutively, and the suite ran identically across two back-to-back full runs.
 
-Priorities: **5 × p0, 25 × p1, 11 × p2.**
+Priorities: **5 × p0, 27 × p1, 11 × p2.**
 
 ## Story AC traceability — bcgov/nr-ilcr#83 (Story 28.3, epic #226)
 
@@ -72,10 +72,10 @@ checked without reading the matrix below.
 | "itemize other-acceptable and included-unacceptable cost rows with the Schedule 3 counts updating on return (S04, S05)" | `other-costs.feature` `@p1 @S04` (add → count 1 → in-place edit → remove → count 0); `unacceptable-costs.feature` `@p1 @S05` (count 1 → 2, Totals, Annual Rents S111 figure) | `covered` |
 | "change the Crown Timber volume and see the propagation visible on Schedule 1 in both the applied (WRN-001) and Schedule-1-not-yet-opened (WRN-002) outcomes (S06, S07)" | `crown-push.feature` `@p0 @S06` (all 13 pushed items read back on Schedule 1) and `@p1 @S07` (Schedule 1 asserted still absent) | `covered` |
 | "delete the whole schedule (S08)" | `delete.feature` `@p1 @S08` + `@p2 @S08` cancel (proves the no-op with the mutation spy) | `covered` |
-| "run Check Status through its all-met, missing-required, Harvest<PO&P, and Override-suppression outcomes (S09–S12)" | `check-status.feature` — 6 scenarios: `@p0 @S09`, `@p0 @S10` (whole field inventory), `@p1 @S10` (sub-page fields), `@p1 @S11`, `@p1 @S12` and its mirror | `covered` (S12 also raised **DIV-2**) |
+| "run Check Status through its all-met, missing-required, Harvest<PO&P, and Override-suppression outcomes (S09–S12)" | `check-status.feature` — 6 scenarios: `@p0 @S09`, `@p0 @S10` (whole field inventory), `@p1 @S10` (sub-page fields), `@p1 @S11`, `@p1 @S12` and its mirror | `covered` — but see **DIV-6**: every one of these checks AFTER a save, which is why the suite did not catch that Check Status ignores unsaved edits |
 | "render each context guard and the read-only non-Draft state (S13–S16)" | `render-states.feature` — `@p1 @S13`, `@p1 @S14`, `@p2 @S16`, `@p1 @S15` outline (**both** Submitted and Verified) + `@p2 @S15` read-only sub-page | `covered` |
 | "retry a failed save (S17)" | `save-error.feature` `@p1 @S17` — both arms, with the record read back to prove nothing was written | `covered` |
-| "hit the save-before-sub-page gates (S18, S19)" | — | **`not-applicable`** — the gate cannot exist in the rewrite; see **DIV-3**, and DIV-1 for why |
+| "hit the save-before-sub-page gates (S18, S19)" | — | **`not-applicable`** — the gate cannot exist in the rewrite; see **DIV-3** (closed), and DIV-1 for why |
 | "reject out-of-range costs/volumes and blank descriptions on the main page and both sub-pages (S20–S24)" | `validation.feature` — 7 scenarios / 15 tests, every rejection proving zero writes **and** an unchanged record | `covered` |
 | "axe accessibility checks … against the Schedule 3 page and both sub-pages … WCAG violations are zero or triaged" | `accessibility.feature` — 4 renders (editable, both populated sub-pages, read-only) | `covered` — **zero violations, nothing to triage** |
 | "written after implementation — verification, not the red phase" | Stories 4.1/4.2/4.4 were `done` before this suite was authored | satisfied |
@@ -83,7 +83,7 @@ checked without reading the matrix below.
 > **The one clause this suite cannot satisfy as written** is the S18/S19 gate. It is not an oversight and
 > not a shortcut: the warning existed to stop a reporter opening a sub-page *before the schedule had ever
 > been saved*, and in the rewrite a Schedule 3 that can be opened at all already exists. Reproducing the
-> gate would mean reproducing a state the app cannot reach. DIV-3 records the replacement behaviour (a
+> gate would mean reproducing a state the app cannot reach. DIV-3 records the replacement behaviour, which IS present and asserted verbatim (a
 > discard-unsaved-edits modal, asserted verbatim on every sub-page entry) and DIV-1 records the reason.
 
 ## Re-grounding headline
@@ -142,8 +142,9 @@ recorded rather than silently dropped:
 | Reopening pre-fills the saved amounts | `S03` | `seedForm` / `useScheduleDocument` | `happy-path.feature` `@p0 @S03` (after a full reload) | `covered` | — |
 | Itemize grouped other-acceptable costs; count + subtotal follow on return | `S04`, BR-06, CNT-001 | `Schedule3Service.addOtherAcceptable` / `saveOtherAcceptable` | `other-costs.feature` `@p1 @S04` | `covered` | — |
 | …and an in-place row edit persisted by the sub-page Save | `S04` (grid inputs) | `useEditableCostRows.persist` | `other-costs.feature` `@p1 @S04` | `covered` | — |
-| …and a row removed again | `S04` (row Delete) | `removeRow` → batch PUT `intent=delete` | `other-costs.feature` `@p1 @S04` | `covered` | **DIV-3** (no confirm) |
-| Itemize included-unacceptable costs; count + total follow | `S05`, BR-07 | `Schedule3Service.addUnacceptable` | `unacceptable-costs.feature` `@p1 @S05` | `covered` | **DIV-4** (count) |
+| …and a row removed again | `S04` (row Delete) | `removeRow` → batch PUT `intent=delete` | `other-costs.feature` `@p1 @S04` | `covered` | — |
+| …and the removal asks for confirmation FIRST | `S04` (legacy `p:confirm` on the row Delete) | **not implemented** — `removeRow` persists at once | `row-delete-confirm.feature` `@discovered-divergence @p1 @S04` | `divergence` | **DIV-5** |
+| Itemize included-unacceptable costs; count + total follow | `S05`, BR-07 | `Schedule3Service.addUnacceptable` | `unacceptable-costs.feature` `@p1 @S05` | `covered` | — (DIV-4 retracted: legacy counts it the same way) |
 | The read-only Annual Rents (Forest Act, S111) figure on the sub-page | `S05`, BR-04 | `#annualRentsS111`, `buildUnacceptableDocument` | `unacceptable-costs.feature` `@p1 @S05` | `covered` | — |
 | Crown Timber volume change pushed to an open Schedule 1 | `S06`, WRN-001, BR-09 | `Schedule1Service.applyCrownTimberVolume` | `crown-push.feature` `@p0 @S06` | `covered` | — |
 | …and the not-applied outcome when Schedule 1 was never opened | `S07`, WRN-002 | same, `return false` | `crown-push.feature` `@p1 @S07` | `covered` | — |
@@ -154,11 +155,12 @@ recorded rather than silently dropped:
 | Check Status — missing description / PO&P / Total on itemized rows | `S10`, BR-11 | `appendOtherAcceptableCheckErrors`, `appendUnacceptableCheckErrors` | `check-status.feature` `@p1 @S10` | `covered` | — |
 | Check Status — a fixed line's Harvest below its PO&P | `S11`, BR-03 | `appendFixedLineCheckErrors` | `check-status.feature` `@p1 @S11` | `covered` | — |
 | Check Status — an other-acceptable row's Total below its PO&P | `S12` (mirror), BR-03 | `evaluateOtherAcceptableGroups` | `check-status.feature` `@p1 @S12` | `covered` | — |
-| Override "Y" suppresses the Harvest≥PO&P check on other-acceptable rows | `S12`, BR-10 | `if (!override …)` | `check-status.feature` `@p1 @S12` | `covered` | **DIV-2** (also suppresses the fixed lines) |
+| Check Status describes the SCREEN, including unsaved edits | `S12` / AF5 (legacy `ajax="false"` postback) | **not implemented** — the endpoint takes no body, so it evaluates stored data | `check-status-unsaved.feature` `@discovered-divergence @p1 @S12` | `divergence` | **DIV-6** |
+| Override "Y" suppresses the Harvest≥PO&P check on other-acceptable rows | `S12`, BR-10 | `if (!override …)` | `check-status.feature` `@p1 @S12` | `covered` | **SPEC-1** (it suppresses the fixed lines too — as legacy did; the sidecar omits that) |
 | Mill and reporting year not selected → form suppressed | `S13`, ERR-002 | `index.tsx:275` `contextMissing` | `render-states.feature` `@p1 @S13` | `covered` | — |
 | Mill not active for the reporting year | `S14`, ERR-003 | `MillContextService.validateMillYearActive` → 409 | `render-states.feature` `@p1 @S14` | `covered` | — |
 | Schedule not editable outside Draft (Submitted **and** Verified) | `S15`, STA-001, BR-01 | `Schedule3Response.editable` (server-derived) | `render-states.feature` `@p1 @S15` outline ×2 | `covered` | — |
-| …and the cost sub-pages are read-only too | `S15` (sub-page bindings) | `EditableSubPageLayout` `editable` | `render-states.feature` `@p2 @S15` | `covered` | **DIV-3** (links still render) |
+| …and the cost sub-pages are read-only too | `S15` (sub-page bindings) | `EditableSubPageLayout` `editable` | `render-states.feature` `@p2 @S15` | `covered` | **DIV-3** (links still render — closed) |
 | …and the read-only case for the *role* half of BR-01 | `S15`, BR-01 | `callerMayEdit` (EDIT_SCHEDULE) | — | `blocked` | **GAP-1** |
 | Schedule not found → form suppressed | `S16`, ERR-004 | `MillContextService` guard 1 → 404 | `render-states.feature` `@p2 @S16` | `covered` | — |
 | …and the rewrite's SECOND, much broader path to the same message | *(no legacy slice — the app 404s wherever a summary was never created)* | `Schedule3Service.java:170` | `no-create.feature` `@discovered-divergence @p0 @S16` | `divergence` | **DIV-1** |
@@ -241,9 +243,9 @@ recorded rather than silently dropped:
 | BR-05 Crown / subtotals / totals / overhead are computed read-only | `happy-path` — the full arithmetic, UI **and** stored | `covered` |
 | BR-06 grouped other-acceptable rows (Description, Total, PO&P, derived Crown) | `other-costs.feature` `@p1 @S04` | `covered` |
 | BR-07 included-unacceptable rows (Description + Total only) | `unacceptable-costs.feature` `@p1 @S05` | `covered` |
-| BR-08 a sub-page cannot be opened until the schedule is saved | — | `not-applicable` — **DIV-3** |
+| BR-08 a sub-page cannot be opened until the schedule is saved | — | `not-applicable` — **DIV-3** (closed); the navigate-away confirm that legacy paired with it IS preserved and asserted |
 | BR-09 a changed Crown Timber volume propagates into Schedule 1 | `crown-push.feature` both scenarios, read back on Schedule 1 | `covered` |
-| BR-10 Override "Y" suppresses the Harvest≥PO&P check | `check-status.feature` `@p1 @S12` + its mirror | `covered` — **DIV-2** (wider than described) |
+| BR-10 Override "Y" suppresses the Harvest≥PO&P check | `check-status.feature` `@p1 @S12` + its mirror | `covered` — wider than the sidecar describes, and legacy-faithful (**SPEC-1**; raised as DIV-2, retracted) |
 | BR-11 Check Status requires the amounts, both volumes and each row's description + cost | `check-status.feature` `@p0 @S10` (main page, whole inventory) + `@p1 @S10` (sub-page rows) | `covered` |
 
 ## Deliberately excluded by the slice catalogue — re-checked against the new app
@@ -287,8 +289,8 @@ The mirror-matrix smell test — one arm covered but not the other:
 | Out of range / not a number | yes — both are Examples rows of the same outlines |
 | Rejection on the main page / on a sub-page | yes — `@S20`/`@S22` ∥ `@S21`/`@S23`/`@S24` |
 | Blank description refused — Other Acceptable / Included Unacceptable | yes — `@S23` ∥ `@S24` |
-| Sub-page row added / edited / removed | yes — all three in `other-costs` `@S04`, each read back |
-| Count on the link / rows on the sub-page | yes — asserted on both sides of every navigation (and the mismatch is DIV-4) |
+| Sub-page row added / edited / removed | yes — all three in `other-costs` `@S04`, each read back; the missing removal confirm is the DIV-5 red |
+| Count on the link / rows on the sub-page | yes — asserted on both sides of every navigation (the +1 for Annual Rents is legacy-faithful) |
 | Client-rejected write / server-rejected write | yes — `validation` (spy proves 0 requests) ∥ `save-error` (500, read-back proves nothing stored) |
 | Guard 409 (closed mill) / 404 (no report-status row) | yes — `render-states` `@S14` ∥ `@S16` |
 | Schedule exists / schedule was never started | yes — every scenario ∥ `no-create` (the RED that found DIV-1) |
@@ -316,8 +318,8 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-25. *
 - **P0: 100%** — all 5 P0 items exercised: the happy path (entry, save, full derived arithmetic, reload),
   the BR-09 crown push, both Check Status headline outcomes, and the DIV-1 divergence (RED on purpose,
   which **counts as covered** — it maps to S16 and is the tracking signal).
-- **P1: 100%** of P1 items covered — 25 tests, all green.
-- **Overall: 22/24 slices `covered`, 2 `not-applicable`** (S18/S19, DIV-3 — the state cannot exist in the
+- **P1: 100%** of P1 items covered — 27 tests: 25 green plus the DIV-5 and DIV-6 reds, which **count as covered** (they map to S04's confirm-before-delete and S12's evaluate-the-screen, and are red on purpose).
+- **Overall: 22/24 slices `covered`, 2 `not-applicable`** (S18/S19, DIV-3 closed — the state cannot exist in the
   rewrite). Every message-catalog row is dispositioned: covered, `not-applicable` with a reason, or
   `deferred` (the page-fallback strings, which belong in Vitest). The three `deferred`/`blocked` items
   (GAP-1 role-only read-only, GAP-2 optimistic-lock conflict, GAP-3 sub-page Back prompt) are none of

@@ -8,9 +8,10 @@
 #    sidecar — is now `#annualRentsS111`, so BR-04's "Annual Rent is carried here as an unacceptable
 #    cost" is directly assertable: it shows the main page's Annual Rents Harvest amount and is disabled.
 #  * The Included Unacceptable count on Schedule 3 is NOT simply the row count: the backend adds 1 when
-#    Annual Rents carries a Harvest amount, so a schedule with one itemized row and an Annual Rents
-#    amount shows (2). Asserted as the app computes it — the legacy count expression was the in-memory
-#    row list only, which is recorded as DIV-4.
+#    Annual Rents carries a non-zero Harvest amount, so a schedule with one itemized row and an Annual
+#    Rents amount shows (2). That is legacy-faithful, confirmed at the source —
+#    `Schedule3DO.getNumberOfUnacceptableCosts()` carries the comment "add 1 to unacceptable costs total
+#    if there is a value for annual rent" and the same non-zero test. (Raised as DIV-4, then RETRACTED.)
 #  * As on the other sub-page, Add persists immediately and the Totals footer refreshes from the save
 #    echo (this page has no live footer mirror — faithful to its legacy handlers).
 

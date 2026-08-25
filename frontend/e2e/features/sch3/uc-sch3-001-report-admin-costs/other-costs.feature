@@ -11,7 +11,8 @@
 #  * The per-row Crown $ is derived live from the row's own Total and PO&P (`Total - PO&P`, PO&P treated
 #    as 0 when blank), which is the legacy `DescriptionCostType.getCrownCost` rule.
 #  * Legacy's per-row delete asked for confirmation; the rewrite's icon-only "Remove" persists at once.
-#    Asserted as the app behaves; the divergence is recorded as DIV-3.
+#    This scenario asserts the app as it behaves (so the removal itself stays covered); the missing
+#    confirmation is DIV-5, tracked by its own deliberately-RED `row-delete-confirm.feature`.
 
 @sch3 @UC-SCH3-001 @other-costs
 Feature: Report Forest Management Administration Costs (Schedule 3) — itemize other-acceptable costs

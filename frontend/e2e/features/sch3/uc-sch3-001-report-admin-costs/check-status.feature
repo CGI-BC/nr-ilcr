@@ -10,10 +10,12 @@
 #  * Check Status mutates nothing by contract (AD-5), so all four scenarios run on shared READ-ONLY
 #    anchors whose stored amounts are seeded by the patch. That is what makes the outcomes a property of
 #    the data rather than of the scenario order.
-#  * BR-10 (S12): the app suppresses the Harvest>=PO&P check on the other-acceptable rows when Override
-#    is "Y", which is what S12 asserts and what passes. It ALSO suppresses it on the fixed lines, which
-#    the legacy sidecar does not describe — recorded as DIV-2 rather than adjudicated here. The third
-#    scenario below is S12's mirror, so the suppression is proven to discriminate.
+#  * BR-10 (S12): Override "Y" suppresses the Harvest>=PO&P check on the other-acceptable rows — what
+#    S12 asserts — AND on the eleven fixed lines. The sidecar describes only the first half, so the
+#    wider suppression was raised as DIV-2 and then RETRACTED: legacy does exactly the same, via
+#    `Schedule3CheckStatus.isHarvestCostGreaterThanPopCost`, which returns true unconditionally when the
+#    override is on. The sidecar's narrower wording is tracked as SPEC-1. The mirror scenario below
+#    proves the suppression discriminates rather than always passing.
 
 @sch3 @UC-SCH3-001 @check-status
 Feature: Report Forest Management Administration Costs (Schedule 3) — Check Status
@@ -80,6 +82,6 @@ Feature: Report Forest Management Administration Costs (Schedule 3) — Check St
     And I run Check Status on Schedule 3
     # S12's own claim: the other-acceptable row's violation is not reported.
     Then the other-acceptable subtotal is not flagged as Harvest below PO&P
-    # DIV-2: the app suppresses the fixed-line violation too, so the same schedule passes outright.
+    # The fixed-line violation is suppressed too — legacy-faithful (see SPEC-1), so the schedule passes.
     And the "Wages/Salaries, incl Benefits" line is not flagged as Harvest below PO&P
     And I should see the message "All requirements for this schedule have been met"
