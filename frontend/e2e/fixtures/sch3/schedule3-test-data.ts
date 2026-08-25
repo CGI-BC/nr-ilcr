@@ -21,7 +21,7 @@
  * STARTED), so 87 Draft mill-years are un-enterable — that gap is itself a finding, tracked as
  * `defects.md` **DIV-1** with a deliberately-failing scenario. It also means a Schedule 3 anchor cannot
  * be created through the API, so `real-test-data-patches/sch3/draft-anchors.sql` adds the summary
- * legacy's first Save would have written (and nothing else) on 15 such mill-years. That file documents
+ * legacy's first Save would have written (and nothing else) on 16 such mill-years. That file documents
  * every row it inserts.
  *
  * PARALLEL SAFETY. The suite runs `fullyParallel`, so every MUTATING scenario owns a DEDICATED
@@ -75,6 +75,7 @@ const MILL_8888: MillRef = { millNumber: '8888', millName: 'CGI TEST MILL8' }; /
 const MILL_20171: MillRef = { millNumber: '20171', millName: 'MILES MILLING' }; // millId 22050
 const MILL_20172: MillRef = { millNumber: '20172', millName: 'COVEY CUSTOM CUT' }; // millId 22051
 const MILL_20173: MillRef = { millNumber: '20173', millName: 'TOMTESTMILL042017' }; // millId 23050
+const MILL_9175: MillRef = { millNumber: '9175', millName: 'TCASEY-TEST' }; // millId 25054
 const MILL_11: MillRef = { millNumber: '11', millName: 'EVANS FOR. PROD. (DIV. OF LOUISIANA PACIFIC)' }; // millId 1, CLS
 
 const at = (mill: MillRef, millId: number, year: number, purpose: string): Sch3Anchor => ({
@@ -90,7 +91,7 @@ const at = (mill: MillRef, millId: number, year: number, purpose: string): Sch3A
  * A `.feature` names an anchor by its KEY here (`Given the Schedule 3 anchor "happy-path" …`), so this
  * table is the single place a (mill, year) is chosen, documented and re-grounded.
  *
- * All 15 entries below carry a patched (empty or seeded) category-3 summary; `preflight` re-asserts
+ * All 16 entries below carry a patched (empty or seeded) category-3 summary; `preflight` re-asserts
  * each one's Draft track, `editable: true` and at-rest contents before a browser opens.
  */
 export const ANCHORS: Record<string, Sch3Anchor> = {
@@ -103,6 +104,12 @@ export const ANCHORS: Record<string, Sch3Anchor> = {
   'other-acceptable': at(MILL_727, 17052, 2019, 'S04 — itemize other-acceptable costs on the sub-page'),
   unacceptable: at(MILL_727, 17052, 2020, 'S05 — itemize included-unacceptable costs on the sub-page'),
   retry: at(MILL_727, 17052, 2021, 'S17 — a failed save, then a successful retry'),
+  'row-delete-confirm': at(
+    MILL_9175,
+    25054,
+    2017,
+    'DIV-5 — removing a sub-page row must ask for confirmation first (deliberately RED)',
+  ),
 
   // --- READ-ONLY: never written to, so scenarios may share them -------------------------------------
   validate: at(MILL_20171, 22050, 2018, 'S02/S20-S24 — client-rejected entry and the S111 alert; never written'),
@@ -133,6 +140,7 @@ export const MUTATING_ANCHOR_KEYS = [
   'other-acceptable',
   'unacceptable',
   'retry',
+  'row-delete-confirm',
 ] as const;
 
 /** The `crown-applied` anchor is the only one carrying a (patched) Schedule 1 to push into. */

@@ -1,11 +1,11 @@
-import { When, Then, expect } from '../fixtures';
+import { Given, When, Then, expect } from '../fixtures';
 import { settleBeforeReadingSpy } from '../../pages/common/settle';
 import {
   OA_ROW,
   OA_ROW_EDITED_TOTAL,
   UNACCEPTABLE_ROW,
 } from '../../fixtures/sch3/schedule3-test-data';
-import { getOtherAcceptable, getUnacceptable } from './schedule3Api';
+import { getOtherAcceptable, getUnacceptable, putOtherAcceptable } from './schedule3Api';
 
 /**
  * UC-SCH3-001 — the two Schedule 3 cost sub-pages (AF1 / AF2 and their exception paths).
@@ -89,8 +89,47 @@ When('I note the sub-page write count', async ({ schedule3MutationSpy, world }) 
 });
 
 // ---------------------------------------------------------------------------------------------------
+// Preconditions
+// ---------------------------------------------------------------------------------------------------
+
+Given(
+  'an other-acceptable cost row has already been saved',
+  async ({ request, world }) => {
+    // Seeded through the app's own batch endpoint, not typed: the behaviour under test is what happens
+    // when the row is REMOVED, not how it was created (S04 covers that).
+    await putOtherAcceptable(request, world.scheduleKey!, [
+      { description: OA_ROW.description, total: OA_ROW.total, pop: OA_ROW.pop },
+    ]);
+    world.sch3RowDescription = OA_ROW.description;
+  },
+);
+
+// ---------------------------------------------------------------------------------------------------
 // Assertions — the rendered sub-page
 // ---------------------------------------------------------------------------------------------------
+
+/**
+ * DIV-5's assertion: removing a row must ASK first. Deliberately RED today — the trash button goes
+ * straight to `useEditableCostRows.removeRow` -> `persist(next, 'delete')` with no dialog, so a
+ * mis-click destroys a recorded cost with no undo. Legacy prompted with `confirmDeleteMsg`
+ * (`schedule3SubtotalOtherCosts.xhtml:94-96`).
+ */
+Then('the sub-page asks me to confirm the removal', async ({ schedule3SubPage }) => {
+  await expect(
+    schedule3SubPage.anyDialog,
+    'removing a sub-page row destroyed it immediately with no confirmation and no undo — legacy asked ' +
+      '"This will delete the current record. Do you want to continue?" first (defects.md DIV-5)',
+  ).toBeVisible();
+});
+
+/** The other half of DIV-5: until the prompt is confirmed, the row must still exist. */
+Then('the removed row is still stored', async ({ request, world }) => {
+  const doc = await getOtherAcceptable(request, world.scheduleKey!);
+  expect(
+    (doc.rows ?? []).map((r) => r.description),
+    'the row was deleted before any confirmation was given (defects.md DIV-5)',
+  ).toContain(world.sch3RowDescription!);
+});
 
 Then('the sub-page lists the added row', async ({ schedule3SubPage, world }) => {
   await expect

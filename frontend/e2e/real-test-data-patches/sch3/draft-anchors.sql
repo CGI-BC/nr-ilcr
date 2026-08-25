@@ -112,7 +112,8 @@ BEGIN
     SELECT 22050,      2021,     'Y',     'N'      FROM DUAL UNION ALL  -- check-override    (read-only)
     SELECT 23050,      2017,     'N',     'N'      FROM DUAL UNION ALL  -- check-oa-pop      (read-only)
     SELECT 23050,      2018,     'N',     'N'      FROM DUAL UNION ALL  -- a11y              (read-only)
-    SELECT 23050,      2019,     'N',     'N'      FROM DUAL            -- check-subpage-missing (read-only)
+    SELECT 23050,      2019,     'N',     'N'      FROM DUAL UNION ALL  -- check-subpage-missing (read-only)
+    SELECT 25054,      2017,     'N',     'N'      FROM DUAL            -- row-delete-confirm (DIV-5)
   ) LOOP
     SELECT COUNT(*) INTO l_n
       FROM THE.ILCR_REPORT_SUMMARY

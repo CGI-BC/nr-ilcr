@@ -209,6 +209,16 @@ export class Schedule3SubPage {
     await expect(this.page).toHaveURL(new RegExp(`${ROUTE_SCHEDULE_3}$`));
   }
 
+  /**
+   * ANY open dialog on the sub-page. Used by the DIV-5 red, which asserts that removing a row asks for
+   * confirmation first — deliberately NOT pinned to a particular heading or body text, because the
+   * chrome a fix would use is the developer's choice (the repo already has `ConfirmDeleteModal`). What
+   * the legacy guarantee requires is that SOMETHING asks before the row is destroyed.
+   */
+  get anyDialog(): Locator {
+    return this.page.getByRole('dialog');
+  }
+
   /** The inline validation message under an Add-panel field (Carbon `invalidText`). */
   addFieldError(message: string): Locator {
     return this.page.getByText(message, { exact: true });

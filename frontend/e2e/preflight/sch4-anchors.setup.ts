@@ -296,6 +296,7 @@ const SCH3_SCH4_KEYS = [
   '23050/2017',
   '23050/2018',
   '23050/2019',
+  '25054/2017',
 ];
 
 const SHARED_ACROSS_DOMAINS = new Map<string, string>([
