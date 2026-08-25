@@ -287,7 +287,9 @@ All findings below were reproduced on the local seeded delivery DB
     lands, at which point its tag comes off. No test change is needed. Found 2026-08-25 by the repo owner;
     legacy-source-confirmed and scoped across the app the same day.
   - **Test:** `features/sch3/uc-sch3-001-report-admin-costs/check-status-unsaved.feature` (S12,
-    `@discovered-divergence`).
+    `@discovered-divergence`) — the Override input only. The amount variant, the fix-a-flagged-field
+    mirror and the same scenario on the other ten schedules are **GAP-4**, deliberately held until this
+    fix lands.
 
 **Coverage gaps (not tested yet — no app problem):**
 
@@ -322,6 +324,40 @@ All findings below were reproduced on the local seeded delivery DB
   - **Future action:** cover it as its own scenario when a second sub-page anchor exists.
   - **Status:** OPEN.
   - **Test:** none — tracked as a `deferred` row in coverage.md.
+
+- **GAP-4 — the "Check Status on UNSAVED edits" slices are missing everywhere except the one Override
+  case in this suite. GATED on the fix for [#359](https://github.com/bcgov/nr-ilcr/issues/359).**
+  - **Why not:** test-design blind spot, not a weak assertion. All four original Check Status scenarios
+    (S09–S12) seed or save first and *then* check, so screen and database always agreed and the whole
+    class of "does the verdict describe what I am looking at" was never asked. DIV-6 exists because the
+    repo owner asked it by hand. The single scenario now covering it
+    (`check-status-unsaved.feature`, S12) pins **one** input — the Override dropdown, on Schedule 3.
+  - **What is still uncovered:**
+    - **the amount variant on Schedule 3** — type a Harvest below its PO&P, or clear a required cost, and
+      press Check Status without saving. Same defect, different input; DIV-6's repro notes it holds, but
+      no scenario asserts it.
+    - **the mirror case** — fix a flagged field and re-check: the stale error is still reported. The
+      false-*red* direction, and it is the one a reporter hits most often.
+    - **the other ten affected schedules** (1, 2, 4, 5, 7a, 7b, 8, 9, 10, 11 — and Schedule 8's sample
+      sub-page as a second surface). Suites exist today for **sch1, sch2, sch4 and sch11**, so those four
+      can take a mirrored scenario as soon as it is worth writing; the rest wait for their suites.
+    - **Schedule 6 deserves the inverse test** — it is the one page built correctly
+      (`@RequestBody Schedule6CheckRequest`), so a green scenario there protects the precedent the fix
+      copies from.
+  - **Why it is gated, and not just "deferred":** every one of these scenarios asserts behaviour the app
+    does not have yet, so writing them now adds ten-plus `@discovered-divergence` reds that all track a
+    single ticket. That buys no information the one existing red does not already give, and a wall of
+    tracked reds is how a gate stops being read. **Write them once #359 lands**, where they become
+    ordinary green regression tests that stop the fix being reverted per-schedule.
+  - **Future action:** repo owner intends to add these after the #359 fix; QA then covers the remaining
+    schedules as their suites are built. Reuse this suite's shape — assert the violation appears without
+    a save, *and* that the optimistic-lock token has not moved, so a fix cannot satisfy the test by
+    quietly saving. Seed the anchor so it PASSES Check Status as stored, which is what makes the
+    unsaved-edit change observable.
+  - **Status:** OPEN — **blocked on [#359](https://github.com/bcgov/nr-ilcr/issues/359)**; not startable
+    before the fix lands. A gate should treat this as waived, not failing: the behaviour is tracked by
+    DIV-6's deliberate red in the meantime.
+  - **Test:** none yet — tracked as a `deferred` row in coverage.md. See **DIV-6**.
 
 **Spec gaps (the Gherkin is missing scenarios its own source docs list):**
 

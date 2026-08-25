@@ -178,6 +178,7 @@ recorded rather than silently dropped:
 | WCAG 2.1 AA across the distinct renders | NFR1 / #83 AC2 | — | `accessibility.feature` ×4 | `covered` | — |
 | Two people saving the same schedule (stale lock token → 409) | *(rewrite-only, AR11 — no legacy slice)* | `Schedule3Repository.bumpRevision` | — | `deferred` | **GAP-2** |
 | The Back-with-unsaved-edits prompt on a sub-page | `S04`/`S05` (navigate-away dialog) | `useEditableCostRows.handleBack` | — (the inbound prompt IS asserted) | `deferred` | **GAP-3** |
+| Check Status on unsaved edits — the *amount* variant, the fix-a-flagged-field mirror, and the same scenario on the other ten affected schedules | `S09`–`S12` (the unsaved half none of them ask for) | `Schedule3Api.checkStatus` (no `@RequestBody`) | — (Override variant only, `check-status-unsaved.feature` `@discovered-divergence @p1 @S12`) | `deferred` — **gated on #359** | **GAP-4** / **DIV-6** |
 
 ## Message catalog
 
@@ -321,11 +322,14 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-25. *
 - **P1: 100%** of P1 items covered — 27 tests: 25 green plus the DIV-5 and DIV-6 reds, which **count as covered** (they map to S04's confirm-before-delete and S12's evaluate-the-screen, and are red on purpose).
 - **Overall: 22/24 slices `covered`, 2 `not-applicable`** (S18/S19, DIV-3 closed — the state cannot exist in the
   rewrite). Every message-catalog row is dispositioned: covered, `not-applicable` with a reason, or
-  `deferred` (the page-fallback strings, which belong in Vitest). The three `deferred`/`blocked` items
-  (GAP-1 role-only read-only, GAP-2 optimistic-lock conflict, GAP-3 sub-page Back prompt) are none of
-  them P0/P1-critical.
+  `deferred` (the page-fallback strings, which belong in Vitest). The four `deferred`/`blocked` items
+  (GAP-1 role-only read-only, GAP-2 optimistic-lock conflict, GAP-3 sub-page Back prompt, GAP-4 the
+  remaining Check Status-on-unsaved-edits slices) are none of them P0/P1-critical: the P0/P1 half of the
+  Check Status behaviour is already carried by DIV-6's deliberate red.
 - **Verdict: PASS** — no waiver needed. GAP-1 is an environment limitation (single-role mock auth) and a
-  gate should treat it as waived; GAP-2 and GAP-3 are tracked additions, not app problems.
+  gate should treat it as waived; GAP-2 and GAP-3 are tracked additions, not app problems; GAP-4 is
+  blocked on the #359 fix by design — its scenarios only become meaningful (and green) once the fix
+  lands, and writing them early would add ten-plus reds all tracking one ticket.
 
 ## Accessibility (NFR1 / issue #83 AC2)
 
