@@ -46,13 +46,32 @@ All findings below were reproduced on the local seeded delivery DB
     suite cannot create its own test data either. `real-test-data-patches/sch3/draft-anchors.sql` seeds
     the one row legacy's first Save would have written on 16 mill-years. **When #296 is fixed, most of
     that patch can be retired** and the scenarios can create their own schedules.
+  - **FIXED 2026-08-26 — verified, and it behaved exactly as a tracked red should.** The fix landed on
+    the fork's `main` as `60c24dd` ("fix(schedules-1-3): open a blank, usable form when nothing is saved
+    yet (#296)") and merged into this branch as `704e4c6`. `Schedule3Service.getSchedule3` now serves a
+    200 empty EDITABLE document instead of throwing `ScheduleNotFoundException`, Save creates the summary
+    on absent, and Delete/Check Status stopped 404ing too. **`no-create.feature` went green on its own —
+    no assertion was edited**, only the `@discovered-divergence` tag retired, which is the whole design of
+    a red that asserts the correct behaviour. Verified live on the un-patched anchor: `GET
+    /api/v1/schedule3?millId=24051&year=2015` answers 200 `editable: true` where it answered 404
+    "Schedule not found." the day before.
+  - **THREE KNOCK-ONS, all handled on this branch:**
+    1. **The 404 was load-bearing in this suite, in four places** — see VER-2 below. "Absent" no longer
+       means 404 for Schedules 1 and 3, so every proxy built on that inverted silently.
+    2. **The sub-pages deliberately KEPT their 404** (`Schedule3Service.java:1136`: "both sub-pages are
+       reachable only from a SAVED Schedule 3"), which restores legacy's save-first gate and makes S18/S19
+       testable for the first time — see DIV-3, and `save-first-gate.feature`.
+    3. **The seed patch is now partly retirable.** Part 1 (the empty category-3 summaries) exists only
+       because a Schedule 3 could not be created through the app; Save creates one now, so a future pass
+       could let mutating scenarios create their own anchors. NOT done here, deliberately: the read-only
+       check-status anchors still need their seeded amounts (part 3), the crown anchor still needs its
+       category-1 Schedule 1 (part 2), and retiring part 1 would re-open the parallel-safety analysis for
+       every mutating scenario. `restoreAnchor` already stopped needing the patch for the delete path.
   - **Priority / env:** p0 · branch `test/schedule-3-e2e` · local seeded DB · Chrome.
-  - **Status:** OPEN — confirmed and triaged against the pre-existing ticket #296. Dev to fix when
-    capacity allows; QA re-verifies and closes this entry then. The `@discovered-divergence` test asserts
-    the CORRECT behaviour, so it is RED today and goes green on its own when the fix lands, at which
-    point its tag comes off. No test change is needed. Found 2026-08-24.
-  - **Test:** `features/sch3/uc-sch3-001-report-admin-costs/no-create.feature` (S16,
-    `@discovered-divergence`).
+  - **Status:** CLOSED (fixed and verified) 2026-08-26. Found 2026-08-24; triaged against the
+    pre-existing ticket #296; fixed by that ticket's PR and re-verified here by the suite going green.
+  - **Test:** `features/sch3/uc-sch3-001-report-admin-costs/no-create.feature` (S16) — GREEN, tag
+    retired, assertions untouched.
 
 - **DIV-2 — RETRACTED (author error): the Override switch DOES suppress the Harvest≥PO&P check on every
   fixed line in legacy too, so the app is faithful.**
@@ -142,11 +161,21 @@ All findings below were reproduced on the local seeded delivery DB
     covered by the navigate-away confirm, which is present, asserted, and verbatim. Worth revisiting if
     #296 gives Schedule 3 a create path: an unsaved schedule would become reachable and the save-first
     gate would become meaningful again.
-  - **Action:** none. No ticket.
+  - **RE-OPENED AND RE-CLOSED 2026-08-26 — the #296 fix brought the save-first gate BACK, so this
+    entry's central claim expired.** This entry rested on "the condition is unreachable by construction:
+    a Schedule 3 that can be opened at all already exists". That was true only while an unsaved schedule
+    404'd. Since #296 the parent page opens unsaved AND the two sub-pages deliberately keep their 404
+    (`Schedule3Service.java:1136`), so the client now gates them with a passive **"Save required"** modal
+    carrying the verbatim legacy string `The schedule has to be saved before opening other costs`
+    (`components/schedule3/index.tsx:47`, gated on `isScheduleSaved(data)` at `:208`). Legacy's ALT-002 /
+    ALT-003 therefore have a counterpart again, and S18/S19 stopped being `not-applicable`: they are
+    covered by `save-first-gate.feature` as of this branch. The navigate-away confirm this entry also
+    defends is unchanged and still asserted on every sub-page entry.
+  - **Action:** none. No ticket — the app now matches legacy on both halves.
   - **Priority / env:** p2 · local seeded DB · Chrome.
-  - **Status:** CLOSED (accepted re-grounding) 2026-08-25. Found 2026-08-24; scope corrected and closed
-    2026-08-25 after the repo owner verified the navigation confirm against the running stack and the
-    legacy link variants were read at source.
+  - **Status:** CLOSED (accepted re-grounding, then superseded by the #296 fix) 2026-08-26. Found
+    2026-08-24; scope corrected 2026-08-25 after the repo owner verified the navigation confirm against
+    the running stack; the save-first half became reachable and covered 2026-08-26.
   - **Test:** `render-states.feature` (S15 + the read-only sub-page scenario), plus the navigate-away
     text asserted on every sub-page entry in `pages/sch3/schedule3Page.ts` — all GREEN.
 
@@ -336,6 +365,39 @@ All findings below were reproduced on the local seeded delivery DB
     `@discovered-divergence`) — the Override input only. The amount variant, the fix-a-flagged-field
     mirror and the same scenario on the other ten schedules are **GAP-4**, deliberately held until this
     fix lands.
+
+- **VER-2 — the suite had FOUR places that read "HTTP 404" as "this schedule does not exist". The #296
+  fix removed that meaning, and every one of them inverted at once. Re-grounded 2026-08-26; the app is
+  right and was right.**
+  - **What broke, and it was our proxy rather than the app's behaviour:** an unsaved (or just-deleted)
+    Schedule 1/3 now answers 200 with an empty EDITABLE document. The four sites were: the BR-09
+    crown-anchor preflight; the two crown Given steps ("Schedule 1 has / has never been opened"); the
+    post-delete assertion ("Schedule 3 no longer exists"); and `restoreAnchor`'s repair path, which keyed
+    off `status === 404` to decide the summary was missing — so after the destructive S08 it skipped the
+    repair and the following sub-page PUT failed with "Schedule not found.", surfacing as a cleanup
+    failure rather than a test failure.
+  - **The durable signal, and why:** `revisionCount != null` — the optimistic-lock token the server
+    issues only once the summary row exists, which the backend omits when absent. This is the app's own
+    predicate (`utils/schedule.ts` `isScheduleSaved`, whose comment records that the loose `!=` is
+    load-bearing because the omitted field reads `undefined`). Added as `schedule1IsSaved` /
+    `schedule3IsSaved` in `steps/sch3/schedule3Api.ts` so the rule lives in one place.
+  - **`restoreAnchor` got simpler, not just fixed:** Save now creates on absent, so the app itself can
+    rebuild a deleted summary. The SQL patch is still called, but only for the crown anchor's category-1
+    Schedule 1.
+  - **Two post-delete assertions were re-grounded, and this was checked against LEGACY rather than
+    against the fix's own commit message** — the same discipline the sch1 S12 episode taught. Legacy's
+    `Schedule3MB.delete()` (`:125-136`) deletes, RE-READS the schedule (`schedule3 =
+    getIlcrService().getSchedule3(...)`), messages "Data deleted successfully" and comments "Stay on the
+    same page". Editability there is gated only on `disableReportEdits()` →
+    `userSessionMB.disableUserInput()` (track status / role — nothing about summary existence), and Delete
+    is `rendered="#{!disableReportEdits() and isScheduleOpen()}"` (`schedule3.xhtml:426`). So legacy's
+    post-delete screen was a blank EDITABLE form with Delete withdrawn — exactly what the app does now.
+    The OLD app (404, then a read-only blank strand) was the divergence; #296 restored legacy, and our
+    assertions had been pinned to the divergence. Re-grounding onto restored-legacy behaviour is
+    sanctioned; a new `@discovered-*` red here would have asserted something legacy never did.
+  - **Status:** CLOSED (re-grounded) 2026-08-26. No app defect at any point.
+  - **Test:** `crown-push.feature` `@S07`, `delete.feature` `@S08`, `preflight/sch3-anchors.setup.ts` —
+    all GREEN after re-grounding.
 
 **Coverage gaps (not tested yet — no app problem):**
 

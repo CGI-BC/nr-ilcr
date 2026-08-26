@@ -283,6 +283,51 @@ export async function schedule1Status(
 }
 
 /**
+ * Whether a Schedule 3 has ever been SAVED for this mill/year — the category-3 summary exists.
+ *
+ * Same reasoning as {@link schedule1IsSaved}: since defect #296 an unsaved (or just-deleted) Schedule 3
+ * answers 200 with an empty EDITABLE document instead of 404, so the HTTP status no longer distinguishes
+ * "never saved" from "saved and blank". `revisionCount` does — the server issues it only once the summary
+ * row exists, and omits it otherwise.
+ */
+export async function schedule3IsSaved(
+  request: APIRequestContext,
+  key: ScheduleKey,
+): Promise<boolean> {
+  const res = await request.get(scheduleUrl(key.millId, key.year));
+  if (res.status() !== 200) {
+    return false;
+  }
+  const doc = (await res.json()) as { revisionCount?: number | null };
+  return doc.revisionCount != null;
+}
+
+/**
+ * Whether a Schedule 1 has ever been SAVED for this mill/year — i.e. whether a category-1
+ * `ILCR_REPORT_SUMMARY` row exists, which is what legacy's `isScheduleOpen()` reported and what the
+ * BR-09 crown push actually branches on (`Schedule1Service.applyCrownTimberVolume`).
+ *
+ * WHY NOT THE HTTP STATUS. Until defect #296 an unsaved Schedule 1 answered 404, so
+ * `schedule1Status(...) === 404` was a faithful proxy for "never opened". Since #296 the GET serves a
+ * 200 empty EDITABLE document instead, so that proxy silently inverted — it is what broke the BR-09
+ * preflight the moment the fix landed. The durable signal is the one the app itself uses
+ * (`utils/schedule.ts` `isScheduleSaved`): `revisionCount` is the optimistic-lock token the server
+ * issues only once the summary exists, and the backend omits null fields, so an unsaved document
+ * carries no token at all. Loose `!= null` deliberately, matching the app.
+ */
+export async function schedule1IsSaved(
+  request: APIRequestContext,
+  { millId, year }: ScheduleKey,
+): Promise<boolean> {
+  const res = await request.get(schedule1Url(millId, year));
+  if (res.status() !== 200) {
+    return false;
+  }
+  const doc = (await res.json()) as { revisionCount?: number | null };
+  return doc.revisionCount != null;
+}
+
+/**
  * The volume the BR-09 push wrote to each of the THIRTEEN items it is documented to cover
  * (`Schedule1Service.CROWN_PUSH_VOLUME_ITEMS`): fixed lines 12-18, Forest Mgmt Admin (143), Subtotal
  * Company Logging (144) and the four silviculture rows (1/139/2/140). Keyed, so a failure names the item
@@ -363,13 +408,23 @@ export async function restoreAnchor(
       'Add it to the fixture (and to preflight) before writing to it.',
   ).toBe(true);
 
-  // A destructive scenario may have removed the summary (and, on the crown anchor, Schedule 1). The
-  // patch is the only way back, and it is a no-op when nothing is missing.
-  const { status } = await schedule3Status(request, key);
+  // A destructive scenario may have removed the summary (and, on the crown anchor, Schedule 1).
+  //
+  // RE-GROUNDED 2026-08-26 (defect #296). Two things changed here. First, a deleted Schedule 3 now
+  // answers 200-unsaved rather than 404, so the old `status === 404` test never fired and the sub-page
+  // PUTs below then failed with "Schedule not found." — the sub-pages deliberately KEPT their 404.
+  // Saved-ness is the signal now. Second, the app itself can put the summary back: Save creates on
+  // absent, so the SQL patch is no longer the only way home and is now needed only for the category-1
+  // Schedule 1 the crown anchor depends on.
+  const sch3Unsaved = !(await schedule3IsSaved(request, key));
   const schedule1Missing =
-    opts.alsoRestoreSchedule1 === true && (await schedule1Status(request, key)) === 404;
-  if (status === 404 || schedule1Missing) {
+    opts.alsoRestoreSchedule1 === true && !(await schedule1IsSaved(request, key));
+  if (schedule1Missing) {
     applySch3Patch();
+  }
+  if (sch3Unsaved) {
+    // Must precede either sub-page PUT: those still require an existing summary.
+    await saveSchedule3(request, key, {});
   }
 
   await putOtherAcceptable(request, key, []);

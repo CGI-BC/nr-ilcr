@@ -53,18 +53,36 @@ outcomes plus the S12 mirror (`check-status.feature`); S13–S16 the guards and 
 rejection on the main page and both sub-pages (`validation.feature`); WCAG 2.1 AA across four
 structurally distinct renders (`accessibility.feature`); and the DIV-1 divergence (`no-create.feature`).
 
+**2026-08-26 — defect #296 landed and moved this matrix in four ways.** The fix
+("fix(schedules-1-3): open a blank, usable form when nothing is saved yet", fork `main` `60c24dd`, merged
+here as `704e4c6`) makes an unsaved Schedule 3 serve a 200 empty EDITABLE document and Save create the
+summary on absent. Consequences, all verified by running the suite against the rebuilt stack:
+- **DIV-1's tracked red went GREEN on its own** (`no-create.feature`), no assertion edited, tag retired.
+  Tracked reds drop from 3 to 2.
+- **S18/S19 became coverable** and are now covered (`save-first-gate.feature`): the sub-pages deliberately
+  kept their 404, so the client gates them with the verbatim legacy save-first message. They had been
+  `not-applicable` on the grounds that the state could not exist.
+- **Four 404-as-signal proxies had to be re-grounded** onto saved-ness (`revisionCount != null`, the app's
+  own `isScheduleSaved`) — see defects.md VER-2. The post-delete assertions were re-grounded against
+  LEGACY (`Schedule3MB.delete():125-136` + `schedule3.xhtml:426`), which stayed on a blank editable form
+  with Delete withdrawn, not against the fix's own description.
+- **The seed patch is now partly retirable** (DIV-1's knock-on 3); `restoreAnchor` already stopped needing
+  it on the delete path.
+
 **Added 2026-08-26, closing two of this suite's own coverage gaps:** the AR11 optimistic-lock refusal
 (`concurrency.feature`, ex-**GAP-2**, mirroring `sch4` and `sch11`) and the sub-page Back-with-unsaved-edits
 guard (`subpage-back.feature`, ex-**GAP-3**). Both GREEN.
 
-**22 of the 24 slices are dispositioned `covered`; S18 and S19 are `not-applicable`** (the state they
-describe cannot exist in the rewrite — DIV-3). **36 scenarios / 45 tests after Scenario-Outline
-expansion: 42 green + 3 deliberate `@discovered-divergence` REDs** (DIV-1, DIV-5 and DIV-6). A clean run is
+**ALL 24 slices are now dispositioned `covered`** — S18 and S19 were `not-applicable` for the life of
+this suite because the state they describe could not be reached; the defect #296 fix made it reachable and
+they are covered as of 2026-08-26 (see below). **38 scenarios / 47 tests after Scenario-Outline expansion:
+45 green + 2 deliberate `@discovered-divergence` REDs** (DIV-5 and DIV-6 — DIV-1's red went green when
+#296 landed and its tag was retired). A clean run is
 `npm run test:gate` (regenerates the features first and excludes every `@discovered-*` red); verified
 green twice consecutively, and the suite ran identically across two back-to-back full runs. Counts
 measured from the generated specs 2026-08-26, not incremented.
 
-Priorities: **5 × p0, 28 × p1, 12 × p2.**
+Priorities: **5 × p0, 30 × p1, 12 × p2.** (Measured from the generated specs 2026-08-26.)
 
 ## Story AC traceability — bcgov/nr-ilcr#83 (Story 28.3, epic #226)
 
@@ -168,11 +186,11 @@ recorded rather than silently dropped:
 | …and the cost sub-pages are read-only too | `S15` (sub-page bindings) | `EditableSubPageLayout` `editable` | `render-states.feature` `@p2 @S15` | `covered` | **DIV-3** (links still render — closed) |
 | …and the read-only case for the *role* half of BR-01 | `S15`, BR-01 | `callerMayEdit` (EDIT_SCHEDULE) | — | `blocked` | **GAP-1** |
 | Schedule not found → form suppressed | `S16`, ERR-004 | `MillContextService` guard 1 → 404 | `render-states.feature` `@p2 @S16` | `covered` | — |
-| …and the rewrite's SECOND, much broader path to the same message | *(no legacy slice — the app 404s wherever a summary was never created)* | `Schedule3Service.java:170` | `no-create.feature` `@discovered-divergence @p0 @S16` | `divergence` | **DIV-1** |
+| …and a Draft mill-year whose Schedule 3 was never started opens an empty enterable form | *(legacy created the summary on first Save)* | `Schedule3Service.getSchedule3` serves 200 empty+editable; Save creates on absent (#296) | `no-create.feature` `@p0 @S16` | `covered` | ex-**DIV-1** — FIXED 2026-08-26, tag retired |
 | Save fails — persistence error, values kept, nothing written | `S17`, ERR-001 | `ScheduleNotSavedException` / `index.tsx:184` | `save-error.feature` `@p1 @S17` | `covered` | — |
 | …and the retry after the failure clears succeeds | `S17` step 2 | same — the retry is not intercepted | `save-error.feature` `@p1 @S17` | `covered` | — |
-| "Subtotal Other Costs" sub-page refused before the first save | `S18`, ALT-002, BR-08 | **no new-app equivalent** — the state cannot exist | — | `not-applicable` | **DIV-3** |
-| "Included Unacceptable Costs" sub-page refused before the first save | `S19`, ALT-003, BR-08 | **no new-app equivalent** | — | `not-applicable` | **DIV-3** |
+| "Subtotal Other Costs" sub-page refused before the first save | `S18`, ALT-002, BR-08 | `index.tsx:208` `isScheduleSaved` → "Save required" modal; sub-page GET still 404s (`Schedule3Service:1136`) | `save-first-gate.feature` `@p1 @S18` | `covered` | ex-**DIV-3** — reachable again since #296 |
+| "Included Unacceptable Costs" sub-page refused before the first save | `S19`, ALT-003, BR-08 | same gate, second link | `save-first-gate.feature` `@p1 @S19` | `covered` | ex-**DIV-3** — reachable again since #296 |
 | Cost amount out of range — main page | `S20`, FLD-001 | `validation.ts` `COST` | `validation.feature` `@p1 @S20` outline ×4 | `covered` | — |
 | …and an in-range value accepted afterwards, Crown recalculated | `S20` recovery | same | `validation.feature` `@p2 @S20` | `covered` | — |
 | Cost amount out of range — both sub-pages | `S21`, FLD-001 | `schedule3OtherAcceptableCosts/validation.ts`, `schedule3UnacceptableCosts/validation.ts` | `validation.feature` `@p2 @S21` outline ×2 | `covered` | — |

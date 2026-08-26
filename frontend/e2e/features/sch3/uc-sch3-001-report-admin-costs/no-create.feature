@@ -1,23 +1,23 @@
-# DIVERGENCE — this scenario is DELIBERATELY RED. It reproduces defects.md DIV-1 and stays failing until
-# the app is fixed or BA/QA rule the behaviour intended. Do not weaken it, skip it, or "fix" it by
-# asserting the current behaviour: the failing state IS the tracking signal. Filter it out of a
-# fresh-failures run with `npm run test:gate`.
+# DIV-1 — FIXED 2026-08-26 by bcgov/nr-ilcr#296 (fork main `60c24dd`, "fix(schedules-1-3): open a blank,
+# usable form when nothing is saved yet"). This scenario was a deliberate `@discovered-divergence` RED
+# from 2026-08-24; the tag is now retired and it stands as an ordinary regression guard. NO ASSERTION WAS
+# EDITED to make it pass — it always asserted the correct behaviour, which is the whole point of a tracked
+# red, and it went green on its own when the fix landed.
 #
-# WHAT IT REPRODUCES
-# A reporter cannot START a Schedule 3. Legacy created the schedule's summary row on the FIRST Save — that
-# is what `Schedule3MB.isScheduleOpen()` reported on, and why the legacy Gherkin has slices (S18/S19) for
-# "the schedule has to be saved before opening other costs". The rewrite has no such path: every Schedule 3
-# operation resolves the category-3 summary first and answers 404 "Schedule not found." when it is absent
-# (Schedule3Service.java:170 for the read, :1070 for every write). Schedule 2 by contrast inserts its own
-# summary on save (Schedule2Repository:200), so this is not an app-wide convention.
+# WHAT IT GUARDS
+# A reporter can START a Schedule 3. Legacy created the summary row on the FIRST Save — what
+# `Schedule3MB.isScheduleOpen()` reported on — and the rewrite now matches: `Schedule3Service.getSchedule3`
+# serves a 200 empty EDITABLE document when no category-3 summary exists, and Save creates it
+# (create-on-absent). Before the fix every operation resolved the summary first and answered 404
+# "Schedule not found.", so 87 Draft mill-years out of the extract's 118 could not be entered at all.
 #
-# The consequence is not hypothetical: in the delivery extract, 118 mill-years carry the
-# ILCR_REPORT_CATEGORY row that says Schedule 3 IS required, and only 31 have a summary. So 87 Draft
-# mill-years — including the anchor below — show "Schedule not found." where legacy would have opened an
-# empty, enterable form. The same gap is why this suite has to seed its own anchors
-# (real-test-data-patches/sch3/draft-anchors.sql).
+# WHAT DID *NOT* CHANGE, and why the suite still needs its seed patch: the two cost SUB-PAGES deliberately
+# still 404 without a summary (`Schedule3Service.java:1136` — "both sub-pages are reachable only from a
+# SAVED Schedule 3"), which restores legacy's ALT-001 save-first gate. See `save-first-gate.feature` (S18,
+# S19) for the coverage that fix made possible, and defects.md DIV-1/DIV-3.
 #
-# This anchor is deliberately NOT patched, and nothing writes to it.
+# This anchor is deliberately NOT patched and nothing writes to it, so it keeps proving the
+# create-on-save path rather than the seeded one.
 
 @sch3 @UC-SCH3-001 @no-create
 Feature: Report Forest Management Administration Costs (Schedule 3) — starting a schedule that was never saved
@@ -25,7 +25,7 @@ Feature: Report Forest Management Administration Costs (Schedule 3) — starting
   I want to open Schedule 3 for a reporting year I have not yet entered
   So that I can record the mill's administration costs for the first time
 
-  @discovered-divergence @p0 @S16
+  @p0 @S16
   Scenario: A Draft mill-year whose Schedule 3 was never started opens an empty enterable form
     Given the Schedule 3 render-state anchor "never-started"
     And I have selected that mill and reporting year on the Home page

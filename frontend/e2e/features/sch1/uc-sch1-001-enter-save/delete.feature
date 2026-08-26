@@ -23,5 +23,10 @@ Feature: Report Average Cost of Logging (Schedule 1) — delete the whole Schedu
     When I delete Schedule 1 and confirm the prompt
     Then I should see the message "Data deleted successfully"
     And the Schedule 1 should no longer exist
-    And the Schedule 1 amount and comment fields are read-only
-    And the Schedule 1 actions are disabled
+    # RE-GROUNDED 2026-08-26 (defect #296): a deleted Schedule 1 no longer 404s and is no longer rendered
+    # read-only — the page serves an empty EDITABLE form so the reporter can start over, with Delete gated
+    # off. Uses the steps #296's own suite work added (`input form is displayed`, `every amount is blank`,
+    # `Delete action is not offered`), which this scenario was left out of.
+    And the Schedule 1 input form is displayed
+    And every Schedule 1 amount is blank
+    And the Schedule 1 Delete action is not offered

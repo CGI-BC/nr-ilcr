@@ -130,25 +130,32 @@ test('the BR-09 crown anchors have the Schedule 1 state their outcome depends on
 }) => {
   // WRN-001 needs Schedule 1 "opened" (a category-1 summary); WRN-002 needs it absent. Both are pinned
   // states, not incidental ones, so a drift here would silently invert the two scenarios.
+  // ASSERTED ON SAVED-NESS, NOT ON A 404 (re-grounded 2026-08-26, defect #296). An unsaved Schedule 1
+  // now answers 200 with an empty EDITABLE document, so the old `=== 404` proxy for "never opened"
+  // inverted the moment the fix landed. `revisionCount` is the token the server issues only once the
+  // summary exists — the same signal the app's own `utils/schedule.ts isScheduleSaved` uses.
+  const saved = async (key: { millId: number; year: number }): Promise<boolean> => {
+    const res = await request.get(schedule1Url(key.millId, key.year));
+    if (res.status() !== 200) {
+      return false;
+    }
+    const doc = (await res.json()) as { revisionCount?: number | null };
+    return doc.revisionCount != null;
+  };
+
   const applied = ANCHORS['crown-applied'];
-  const appliedStatus = (
-    await request.get(schedule1Url(applied.key.millId, applied.key.year))
-  ).status();
   expect(
-    appliedStatus,
-    `the crown-applied anchor (${applied.key.millId}/${applied.key.year}) needs an OPEN Schedule 1 for ` +
-      `WRN-001 but its schedule1 GET answered ${appliedStatus}. ${APPLY_PATCH_HINT}`,
-  ).toBe(200);
+    await saved(applied.key),
+    `the crown-applied anchor (${applied.key.millId}/${applied.key.year}) needs a SAVED Schedule 1 for ` +
+      `WRN-001. ${APPLY_PATCH_HINT}`,
+  ).toBe(true);
 
   const notOpened = ANCHORS['crown-not-opened'];
-  const notOpenedStatus = (
-    await request.get(schedule1Url(notOpened.key.millId, notOpened.key.year))
-  ).status();
   expect(
-    notOpenedStatus,
-    `the crown-not-opened anchor (${notOpened.key.millId}/${notOpened.key.year}) must have NO Schedule 1 ` +
-      `for WRN-002 but its schedule1 GET answered ${notOpenedStatus}`,
-  ).toBe(404);
+    await saved(notOpened.key),
+    `the crown-not-opened anchor (${notOpened.key.millId}/${notOpened.key.year}) must have NO SAVED ` +
+      'Schedule 1 for WRN-002',
+  ).toBe(false);
 });
 
 test('the seeded check-status anchors still carry their pinned amounts', async ({ request }) => {

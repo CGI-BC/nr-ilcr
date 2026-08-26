@@ -193,14 +193,16 @@ export const RENDER_STATE_ANCHORS: Record<
     expectHttp: 404,
     detail: 'Schedule not found.',
   },
-  // DIV-1 — Draft, and ILCR_REPORT_CATEGORY says Schedule 3 IS required here, but no summary was ever
-  // started, so the rewrite 404s where legacy would have opened an empty enterable form. Deliberately
-  // NOT patched: this anchor's whole point is the un-patched state. Read-only.
+  // ex-DIV-1, RE-GROUNDED 2026-08-26 — Draft, ILCR_REPORT_CATEGORY says Schedule 3 IS required here, and
+  // no summary was ever started. The rewrite used to 404 on this state (that WAS DIV-1); since the
+  // defect #296 fix it serves a 200 empty EDITABLE document and the first Save creates the summary, which
+  // is what legacy did. Deliberately NOT patched: this anchor's whole point is the un-seeded state, and
+  // it is the only anchor that proves the create-on-save path. Read-only for this suite — no scenario
+  // saves here, so the summary stays absent and the anchor keeps working.
   'never-started': {
     key: { millId: 24051, year: 2015 },
     mill: MILL_8888,
-    expectHttp: 404,
-    detail: 'Schedule not found.',
+    expectHttp: 200,
   },
 };
 
@@ -283,6 +285,13 @@ export const CONFIRM_NAVIGATION_BODY =
   'Any unsaved data will be lost. Are you sure you would like to continue?';
 /** Client gate — Save is refused locally while a field is invalid. */
 export const MSG_CORRECT_BEFORE_SAVING = 'Please correct the highlighted fields before saving.';
+/**
+ * ALT-002/ALT-003 (legacy `saveScheduleBeforeOpeningOtherCostsMsg`) — the save-first gate on the two cost
+ * sub-pages, RESTORED by the defect #296 fix and verbatim in `components/schedule3/index.tsx:47`. Before
+ * that fix the state could not be reached (an unsaved Schedule 3 404'd), which is why S18/S19 were
+ * dispositioned `not-applicable`; they are covered now (`save-first-gate.feature`).
+ */
+export const MSG_SAVE_BEFORE_SUB_PAGE = 'The schedule has to be saved before opening other costs';
 
 /** FLD-001 (`costValidatorErrorMsg`) — mirrored client-side in `schedule3/validation.ts`. */
 export const MSG_COST_RANGE = 'Entered cost must be between -99,999,999 and 99,999,999.';

@@ -11,8 +11,10 @@ import {
   HAPPY_PATH_POP_TIMBER_VOLUME,
   HAPPY_PATH_SCALING_POP,
   MSG_NOT_SAVED,
+  MSG_SAVE_BEFORE_SUB_PAGE,
   RENDER_STATE_ANCHORS,
   ROUTE_OTHER_ACCEPTABLE,
+  ROUTE_SCHEDULE_3,
   ROUTE_UNACCEPTABLE,
   SEEDED_BASE_LINES,
   SEEDED_CROWN_TIMBER_VOLUME,
@@ -30,6 +32,8 @@ import {
   isMutatingAnchor,
   lineValues,
   saveSchedule3,
+  schedule1IsSaved,
+  schedule3IsSaved,
   schedule1PushedVolumes,
   schedule1Status,
   schedule1Volumes,
@@ -161,6 +165,37 @@ Then('the stored Wages line Harvest is {string}', async ({ request, world }, exp
   ).toBe(Number(expected));
 });
 
+// ---------------------------------------------------------------------------------------------------
+// S18/S19 — the save-first gate on the two cost sub-pages, restored by the defect #296 fix. Reachable
+// only because an unsaved Schedule 3 now OPENS (it used to 404), so these steps are new coverage rather
+// than a re-grounding.
+// ---------------------------------------------------------------------------------------------------
+
+When(
+  'I try to open the Schedule 3 {string} sub-page without saving',
+  async ({ schedule3Page }, which) => {
+    expect(
+      ['Other Costs', 'Included Unacceptable Costs'],
+      `unknown Schedule 3 sub-page "${which}"`,
+    ).toContain(which);
+    await schedule3Page.openSubPageBlocked(
+      which === 'Other Costs' ? 'other-acceptable' : 'unacceptable',
+    );
+  },
+);
+
+Then('Schedule 3 tells me to save first', async ({ schedule3Page }) => {
+  await expect(
+    schedule3Page.saveRequiredDialog.getByText(MSG_SAVE_BEFORE_SUB_PAGE, { exact: true }),
+    'the save-first gate no longer carries the verbatim legacy saveScheduleBeforeOpeningOtherCosts text',
+  ).toBeVisible();
+});
+
+Then('I am still on Schedule 3', async ({ page, schedule3Page }) => {
+  await expect(page).toHaveURL(new RegExp(`${ROUTE_SCHEDULE_3}$`));
+  await expect(schedule3Page.costTable).toBeVisible();
+});
+
 Given('a Crown Timber volume has already been saved', async ({ request, world }) => {
   // BR-09 fires when the entered Crown volume DIFFERS from the persisted one, so the scenario needs a
   // starting value to change away from.
@@ -172,21 +207,23 @@ Given('a Crown Timber volume has already been saved', async ({ request, world })
 });
 
 Given('Schedule 1 has been opened for the same mill and year', async ({ request, world }) => {
-  const status = await schedule1Status(request, world.scheduleKey!);
+  // "Opened" = a category-1 summary exists (legacy isScheduleOpen()). Asserted on the saved-ness of the
+  // document, NOT on a 404, because since defect #296 an unsaved Schedule 1 answers 200 empty+editable.
   expect(
-    status,
-    `the crown-applied anchor ${world.scheduleKey!.millId}/${world.scheduleKey!.year} has no Schedule 1 — ` +
+    await schedule1IsSaved(request, world.scheduleKey!),
+    `the crown-applied anchor ${world.scheduleKey!.millId}/${world.scheduleKey!.year} has no SAVED Schedule 1 — ` +
       're-run scripts/apply-patches.sh (real-test-data-patches/sch3/draft-anchors.sql adds it)',
-  ).toBe(200);
+  ).toBe(true);
 });
 
 Given('Schedule 1 has never been opened for the same mill and year', async ({ request, world }) => {
-  const status = await schedule1Status(request, world.scheduleKey!);
+  // WRN-002 needs NO category-1 summary. Before defect #296 that showed up as a 404; now the GET serves
+  // a 200 empty editable document either way, so the token's absence is the signal.
   expect(
-    status,
-    `the crown-not-opened anchor ${world.scheduleKey!.millId}/${world.scheduleKey!.year} unexpectedly HAS a Schedule 1 ` +
-      '(WRN-002 needs it absent)',
-  ).toBe(404);
+    await schedule1IsSaved(request, world.scheduleKey!),
+    `the crown-not-opened anchor ${world.scheduleKey!.millId}/${world.scheduleKey!.year} unexpectedly HAS a SAVED ` +
+      'Schedule 1 (WRN-002 needs it absent)',
+  ).toBe(false);
 });
 
 Given('the Schedule 3 save will fail', async ({ page, world }) => {
@@ -462,6 +499,16 @@ Then('the Schedule 3 amount fields are read-only', async ({ schedule3Page }) => 
   await expect(schedule3Page.commentsInput).toHaveCount(0);
 });
 
+Then('the Schedule 3 Delete action is not offered', async ({ schedule3Page }) => {
+  // Post-delete state since defect #296: the schedule is UNSAVED but still editable, so Save and Check
+  // Status stay available (an unsaved schedule is saveable and checkable — that IS the fix) while Delete
+  // is gated on a persisted record, as legacy gated it on isScheduleOpen(). Before #296 all three were
+  // disabled because the page stranded the reporter on a read-only blank.
+  await expect(schedule3Page.deleteButton).toBeDisabled();
+  await expect(schedule3Page.saveButton).toBeEnabled();
+  await expect(schedule3Page.checkStatusButton).toBeEnabled();
+});
+
 Then('the Schedule 3 actions are disabled', async ({ schedule3Page }) => {
   await expect(schedule3Page.saveButton).toBeDisabled();
   await expect(schedule3Page.checkStatusButton).toBeDisabled();
@@ -596,11 +643,16 @@ Then('the stored Crown Timber volume is the new one', async ({ request, world })
 });
 
 Then('Schedule 3 no longer exists for that mill and year', async ({ request, world }) => {
+  // RE-GROUNDED 2026-08-26 (defect #296): a deleted Schedule 3 no longer 404s — the GET serves a 200
+  // empty EDITABLE document, which is the point of the fix (the reporter can start again immediately
+  // rather than being stranded). "Gone" therefore means the summary row is gone, i.e. the document is
+  // UNSAVED — no optimistic-lock token — which is exactly what the page's own `isScheduleSaved` reads.
+  // Polled because the DELETE plus in-place redisplay is UI-triggered, so the commit can trail the click.
   await expect
-    .poll(async () => (await schedule3Status(request, world.scheduleKey!)).status, {
-      message: 'Schedule 3 still resolves after the delete',
+    .poll(async () => await schedule3IsSaved(request, world.scheduleKey!), {
+      message: 'Schedule 3 still reports a saved summary after the delete',
     })
-    .toBe(404);
+    .toBe(false);
 });
 
 Then('the stored Schedule 3 is still empty', async ({ request, world }) => {
@@ -660,10 +712,13 @@ Then('the new Crown Timber volume is applied to Schedule 1', async ({ request, w
 });
 
 Then('Schedule 1 still has not been opened', async ({ request, world }) => {
+  // "Not opened" = no category-1 summary. Since defect #296 the GET answers 200 empty+editable whether or
+  // not the summary exists, so this asserts saved-ness — the same signal the app uses. The behaviour under
+  // test is unchanged: WRN-002 says the push was NOT applied, so it must not have created a Schedule 1.
   expect(
-    await schedule1Status(request, world.scheduleKey!),
+    await schedule1IsSaved(request, world.scheduleKey!),
     'Schedule 1 was created by the crown push, but WRN-002 says it was not applied',
-  ).toBe(404);
+  ).toBe(false);
 });
 
 // ---------------------------------------------------------------------------------------------------

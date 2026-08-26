@@ -524,10 +524,26 @@ When('I delete Schedule 1 and confirm the prompt', async ({ schedule1Page }) => 
 })
 
 Then('the Schedule 1 should no longer exist', async ({ request, world }) => {
-  // Prove the delete persisted through the real write path: the summary is gone (GET 404). Poll —
-  // the DELETE + in-place redisplay is UI-triggered, so the commit can trail the click.
+  // Prove the delete persisted through the real write path: the summary row is gone.
+  //
+  // RE-GROUNDED 2026-08-26 (defect #296). This asserted a GET 404, which #296 deliberately removed for
+  // Schedules 1 and 3 — an unsaved or just-deleted schedule now serves a 200 empty EDITABLE document so
+  // the reporter can start again. The assertion was left behind by that change and failed on merged main
+  // (1 of 164 in the sch1 suite). "Gone" now means UNSAVED: no `revisionCount`, the optimistic-lock token
+  // the server issues only once the summary exists — the same signal `utils/schedule.ts isScheduleSaved`
+  // uses in the app. Poll — the DELETE + in-place redisplay is UI-triggered, so the commit can trail the
+  // click.
   const { millId, year } = world.scheduleKey!
-  await expect.poll(async () => (await request.get(scheduleUrl(millId, year))).status()).toBe(404)
+  await expect
+    .poll(async () => {
+      const res = await request.get(scheduleUrl(millId, year))
+      if (res.status() !== 200) {
+        return false
+      }
+      const doc = (await res.json()) as { revisionCount?: number | null }
+      return doc.revisionCount != null
+    })
+    .toBe(false)
 })
 
 Then('the Schedule 1 data should be unchanged', async ({ request, world }) => {

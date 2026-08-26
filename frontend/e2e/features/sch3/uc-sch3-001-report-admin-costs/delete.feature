@@ -28,8 +28,11 @@ Feature: Report Forest Management Administration Costs (Schedule 3) — delete t
     And I delete Schedule 3 and confirm the prompt
     Then I should see the message "Data deleted successfully"
     And Schedule 3 no longer exists for that mill and year
-    And the Schedule 3 amount fields are read-only
-    And the Schedule 3 actions are disabled
+    # RE-GROUNDED 2026-08-26 (defect #296): the page no longer strands the reporter on a read-only blank.
+    # It serves an empty EDITABLE form so they can start again immediately, with Delete gated off because
+    # there is nothing left to delete.
+    And the Schedule 3 form is displayed for entry
+    And the Schedule 3 Delete action is not offered
 
   @p2 @S08
   Scenario: Cancelling the delete confirmation changes nothing

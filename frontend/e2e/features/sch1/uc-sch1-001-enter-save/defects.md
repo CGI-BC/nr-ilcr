@@ -385,6 +385,31 @@ obsolete, one follow-up was confirmed done, one Coverage gap was closed, and thr
 
 **Verified — not a defect:**
 
+- **The #296 fix left TWO stale assertions in THIS suite, red on the fork's `main` before this branch
+  touched them. Re-grounded 2026-08-26 against legacy; no app defect.**
+  - **What was stale:** defect #296 ("open a blank, usable form when nothing is saved yet", fork `main`
+    `60c24dd`) deliberately removed the 404 for an unsaved or just-deleted Schedule 1 — the GET now serves
+    a 200 empty EDITABLE document so the reporter can start over. Two places still asserted the old
+    behaviour: `Then the Schedule 1 should no longer exist` polled for a GET **404**
+    (`steps/sch1/schedule1.steps.ts`), and `delete.feature` asserted the post-delete form was
+    **read-only** with **all actions disabled**. Measured on the merge commit before any edit: this suite
+    ran **163 passed / 1 failed**, the failure being `@delete @S13`.
+  - **Re-grounded against LEGACY, not against the fix's description** — the discipline the S12 episode
+    taught. `Schedule1MB`'s delete mirrors Schedule 3's (`Schedule3MB.delete():125-136`): delete, re-read
+    the schedule, stay on the page. Editability is gated on the track status / role
+    (`disableReportEdits()` → `userSessionMB.disableUserInput()`), never on summary existence, and Delete
+    renders only while the summary exists (`schedule3.xhtml:426` is the Schedule 3 twin). So a blank
+    EDITABLE form with Delete withdrawn IS legacy behaviour; the pre-#296 read-only strand was the
+    divergence.
+  - **What it asserts now:** the steps #296's own suite work added but never wired into `delete.feature` —
+    `the Schedule 1 input form is displayed`, `every Schedule 1 amount is blank`, `the Schedule 1 Delete
+    action is not offered` — and "no longer exists" now means UNSAVED (`revisionCount` absent), the
+    predicate the app itself uses (`utils/schedule.ts isScheduleSaved`).
+  - **Worth passing to whoever owns #296:** their PR merged with this suite red on `main`.
+  - **Status:** CLOSED (re-grounded) 2026-08-26. Suite state after: **164 passed, 1 deliberate
+    `@discovered-divergence` red** (DIV-3 / #362), no untagged failures. (`delete.feature` `@S13 @p1` —
+    GREEN.)
+
 - **Accessibility (AC4 / NFR1): zero WCAG 2.1 AA violations.** `@axe-core/playwright` (tags `wcag2a` + `wcag2aa` + `wcag21a` + `wcag21aa`) ran against the Schedule 1 page (24050/2017) and the Other Costs sub-page (17052/2016) → **zero violations** on both, so no triage/dispositions are required. (`accessibility.feature`, verified 2026-07-30; still green 2026-08-07.) If a future change introduces a violation, the axe helper prints each rule + node + help URL for a recorded disposition.
 
 - **The legacy `ILCR_LICENSEE` role was re-grounded to the new two-group model.** The Gherkin authenticates as `ILCR_LICENSEE`, but the new app has no such role — the ratified model is `ILCR_ADMIN` + `ILCR_SUBMITTER` (PRD DL-23). Schedule 1 saves are authorized for `ILCR_SUBMITTER` (live: `PUT /api/v1/schedule1?millId=13050&year=2017` with security off → HTTP 200, `message.text = "Data saved successfully"`, persisted on read-back). Scenarios use the real role; deliberate rename, not a defect. (Verified 2026-07-29.)

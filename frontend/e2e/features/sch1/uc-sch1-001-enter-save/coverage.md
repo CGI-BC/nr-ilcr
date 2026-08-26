@@ -61,6 +61,14 @@ until the prompt is restored. Suite state: **164 passed, 1 deliberate `@discover
 untagged failures** (measured 2026-08-26). A clean run needs `npm run test:gate`, which excludes every
 `@discovered-*` red.
 
+**2026-08-26 (later the same day) — defect #296 merged, and S13 needed re-grounding.** The fix removes the
+404 for an unsaved or just-deleted Schedule 1 and stops rendering it read-only, so `delete.feature`'s
+post-delete assertions were stale and this suite was **163 passed / 1 failed** on the merge commit. S13 now
+asserts a blank EDITABLE form with Delete withdrawn — which is what legacy did (delete, re-read, stay on
+the page; editability gated on the track status, Delete on summary existence) — and "no longer exists"
+means UNSAVED rather than 404. See defects.md, *Verified — not a defect*; the count above is the post-fix
+state.
+
 Note on snapshot/restore cleanup: four scenarios now leave changes the app's own blank-fields PUT cannot
 undo, so each snapshots its dedicated target to the `E2E_BAK_SCH1_*` tables and re-inserts the rows
 verbatim on teardown (`scripts/sch1_db_restore.py`, thin-mode oracledb — this host has no sqlplus), via

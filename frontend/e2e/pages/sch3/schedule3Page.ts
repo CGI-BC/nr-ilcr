@@ -351,6 +351,23 @@ export class Schedule3Page {
    * schedule that cannot be edited has no unsaved edits to lose (`openSubPage` in the app navigates
    * straight through), so waiting for the modal would hang.
    */
+  /**
+   * The save-first gate restored by defect #296 (legacy ALT-001/ALT-002): both cost sub-pages are
+   * reachable only from a SAVED Schedule 3, so an unsaved one shows a passive "Save required" modal
+   * instead of navigating. Before #296 this state could not arise — the parent page itself 404'd when
+   * unsaved — which is why S18/S19 were dispositioned `not-applicable` until now.
+   */
+  get saveRequiredDialog(): Locator {
+    return this.page.getByRole('dialog', { name: 'Save required' });
+  }
+
+  /** Click a sub-page link on an UNSAVED schedule and stay put behind the save-first gate. */
+  async openSubPageBlocked(link: 'other-acceptable' | 'unacceptable'): Promise<void> {
+    const target = link === 'other-acceptable' ? this.otherAcceptableLink : this.unacceptableLink;
+    await target.click();
+    await expect(this.saveRequiredDialog).toBeVisible();
+  }
+
   async openOtherAcceptableReadOnly(route: string): Promise<void> {
     await this.otherAcceptableLink.click();
     await expect(
