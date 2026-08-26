@@ -1,7 +1,7 @@
-# DIVERGENCE — this scenario is DELIBERATELY RED. It reproduces defects.md DIV-5 and stays failing until
-# the confirmation is restored or BA/QA rule the removal intended. Do not weaken it, skip it, or "fix" it
-# by asserting the current behaviour: the failing state IS the tracking signal. Filter it out of a
-# fresh-failures run with `npm run test:gate`.
+# DIVERGENCE — this scenario is DELIBERATELY RED. It reproduces defects.md DIV-5, tracked upstream as
+# bcgov/nr-ilcr#362, and stays failing until the confirmation is restored. Do not weaken it, skip it, or
+# "fix" it by asserting the current behaviour: the failing state IS the tracking signal. Filter it out of
+# a fresh-failures run with `npm run test:gate`.
 #
 # WHAT IT REPRODUCES
 # Each row on a Schedule 3 cost sub-page carries a small trash-can button. Clicking it deletes that row
@@ -15,8 +15,9 @@
 #
 # SHARED, NOT SCHEDULE-3-SPECIFIC. The behaviour lives in `useEditableCostRows.removeRow` ->
 # `persist(next, 'delete')`, inside the shared EditableSubPage rewrite — so Schedule 1 has the same
-# defect and logged it first (`features/sch1/uc-sch1-001-enter-save/defects.md` DIV-3, OPEN pending
-# exactly the legacy check above). Worth ONE ticket across both schedules.
+# defect and logged it first (`features/sch1/uc-sch1-001-enter-save/defects.md` DIV-3). #362 covers all
+# three pages, and Schedule 1's `other-costs.feature` `@S12` now tracks it from that side — one fix in
+# the shared hook turns both suites' reds green.
 #
 # WHAT THE ASSERTION PINS. That *a* confirmation is shown — not any particular heading or body text.
 # The chrome a fix would use is the developer's choice, and the repo already has

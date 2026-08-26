@@ -195,22 +195,50 @@ obsolete, one follow-up was confirmed done, one Coverage gap was closed, and thr
     with no prompt. A user can now destroy an itemized cost with one mis-click and no undo.
   - **It is also now internally inconsistent:** the whole-schedule delete (S13) KEPT its "Delete
     schedule" confirm Modal, so the same app confirms the large destructive action and not the small one.
-  - **Action — with the Schedule 1 developer (2026-08-07).** Walked through with him as part of the QA
-    review of this UC; when he gets a chance he'll look into it and raise a ticket if it is confirmed.
-    Restoring the prompt means changing the shared `EditableSubPageLayout` / `useEditableCostRows`
-    components either way — the behaviour does not live on the Schedule 1 pages themselves.
-  - **Next step — double-check against the legacy app.** The sidecar evidence is strong
-    (`technical.md:102,154`, `detailed.md:66`), but that is captured source, not the running system, so the
-    dev needs to investigate whether legacy actually prompts. If it does, this is a parity regression to fix
-    in the shared components; if it does not, the sidecars need correcting — which is worth knowing on its own.
-  - **If it is confirmed a defect:** S12 should flip from its current GREEN (re-grounded to the
-    no-confirm behaviour) to a genuinely-failing `@discovered-divergence` red tracking the missing
-    prompt until it is restored. Not done yet — the behaviour under test is real, so an honest red waits
-    on the ruling rather than pre-empting it.
-  - **Priority / env:** p1 · local seeded DB.
-  - **Status:** OPEN — with the Schedule 1 dev, who'll double-check it against legacy when he gets a chance.
-    Found 2026-08 (EditableSubPage rewrite); legacy-source-confirmed 2026-08-07.
-  - **Test:** `other-costs.feature` `@S12 @p1` — GREEN (re-grounded).
+  - **The open question is CLOSED against the legacy SOURCE (2026-08-26), not the sidecars.** This entry
+    previously deferred to the Schedule 1 dev to check "whether legacy actually prompts", because the
+    evidence was captured sidecars (`technical.md:102,154`, `detailed.md:66`) rather than legacy code.
+    Checked directly while triaging the same defect on Schedule 3: `webapp/schedule1OtherCosts.xhtml:94-96`
+    carries `<p:confirm header="Confirmation" message="#{msg.confirmDeleteMsg}" icon="ui-icon-alert"/>` on
+    the per-row Delete `p:commandButton`, and `messages.properties:31` resolves that key to *"This will
+    delete the current record. Do you want to continue?"*. The sidecars were right; nothing needs
+    correcting there.
+  - **SAME DEFECT AS SCHEDULE 3 DIV-5 — one ticket, one fix.** The behaviour is in the shared
+    `useEditableCostRows.removeRow` -> `persist(next, 'delete')` (`hooks/useEditableCostRows.ts:270-283`),
+    so all three pages built on it are affected: Schedule 1 Other Costs and both Schedule 3 cost
+    sub-pages. Legacy prompted on all three (`schedule3SubtotalOtherCosts.xhtml:94-96`,
+    `schedule3IncludedUnacceptableCosts.xhtml:80-82`). Eight other row-level deletes in the app still
+    confirm (Schedules 4, 5, 7A, 7B, 8, 9, 10, 11), which is what makes this a defect rather than a
+    house style.
+  - **The re-grounding was the WRONG CALL — ruled by the repo owner 2026-08-26.** From 2026-08-07 this
+    scenario asserted the app's actual no-confirm behaviour and passed. Re-grounding a scenario onto a
+    divergence makes the suite *ratify* the defect instead of tracking it: the green here is why the
+    regression sat unticketed for three weeks, and it is also why Schedule 3's suite had to rediscover
+    it independently. Corrected — S12 now asserts the legacy guarantee and is a tracked red. The rule
+    this entry now carries: re-ground a scenario onto changed *design*, never onto a suspected defect;
+    where the legacy guarantee is in doubt, the honest state is a tagged red, not a green.
+  - **Ticket:** [bcgov/nr-ilcr#362](https://github.com/bcgov/nr-ilcr/issues/362) — *"Deleting an itemized
+    cost row on the Schedule 1 and 3 cost sub-pages destroys it with no confirmation, unlike legacy and
+    every other schedule"*, labelled `bug`, filed by the repo owner 2026-08-26. Repro verified on the
+    extract anchor **727 Updated Mill E2E / 2017** (millId 17052) with no test-data patch applied: a row
+    added and saved, then removed, produced **0 dialogs** and was already gone after a reload — on both
+    this page and Schedule 3's. The filed issue deliberately omits two things this register keeps, as
+    the register is their home: why the suites missed it (the re-grounding above), and the
+    related-ticket comparison (#292 CLOSED — Schedule 2's Delete *button* hidden when no schedule
+    exists; #296 — Schedule 1 and 3 empty data set. Neither concerns confirming a destructive action).
+  - **Priority / env:** p1 · local seeded DB · Chrome. Real data loss, but bounded: the click is
+    deliberate and the row can be retyped, so it is not p0.
+  - **Status:** OPEN — confirmed and triaged by raising a ticket. Dev to gate
+    `useEditableCostRows.removeRow` behind a confirmation in the shared `EditableSubPageLayout` (the
+    `components/core/ConfirmDeleteModal` primitive already exists), without disturbing the
+    whole-schedule Delete or the "Leave Schedule 1" prompt; QA re-verifies and closes this entry and
+    Schedule 3's DIV-5 together when the fix lands. Found 2026-08 (EditableSubPage rewrite);
+    legacy-source-confirmed 2026-08-07 (sidecars) and 2026-08-26 (legacy code); ticketed 2026-08-26.
+  - **Test:** `other-costs.feature` `@S12 @p1 @discovered-divergence` — **RED on purpose** since
+    2026-08-26. Asserts that Remove asks first and that the row survives until the prompt is answered;
+    it does not pin any modal chrome, so it goes green on its own when the confirmation is restored, with
+    no test change needed. The seeded row is cleaned by the marker registry whichever way the assertion
+    goes, so the red leaves no residue (verified: anchor 9050/2017 clean after the run).
 
 - **DIV-4 — RETRACTED (author error): inline edits DO get client-side validation, and match legacy.**
   - **What it claimed:** that editing a row already in the list skipped browser-side validation, so an
