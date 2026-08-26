@@ -119,6 +119,48 @@ Given(
   },
 );
 
+// ---------------------------------------------------------------------------------------------------
+// GAP-2 — the optimistic lock (AR11). One out-of-band API save is enough: the page copies
+// `revisionCount` into React state when it loads, so a save from "another session" moves the stored
+// token past the one the browser is holding. Deliberately uses the Wages/Salaries HARVEST cell and never
+// a timber volume, so the BR-09 crown push cannot fire and Schedule 1 is never touched.
+// ---------------------------------------------------------------------------------------------------
+
+const WAGES_LINE = lineByLabel('Wages/Salaries, incl Benefits');
+
+Given(
+  'the Wages line has a saved Harvest of {string}',
+  async ({ request, world }, value) => {
+    await saveSchedule3(request, world.scheduleKey!, {
+      lines: [{ code: WAGES_LINE.code, harvest: Number(value), pop: null }],
+    });
+  },
+);
+
+When(
+  'another session changes the saved Wages line Harvest to {string}',
+  async ({ request, world }, value) => {
+    // Re-reads the CURRENT token before writing, which is exactly what a second session would do — so
+    // this save succeeds and the browser's captured token goes stale.
+    const saved = await saveSchedule3(request, world.scheduleKey!, {
+      lines: [{ code: WAGES_LINE.code, harvest: Number(value), pop: null }],
+    });
+    expect(
+      saved.revisionCount,
+      "the other session's save did not move the revision token, so nothing would be stale",
+    ).not.toBe(world.sch3RevisionAtOpen);
+  },
+);
+
+Then('the stored Wages line Harvest is {string}', async ({ request, world }, expected) => {
+  const doc = await getSchedule3(request, world.scheduleKey!);
+  const [harvest] = lineValues(doc, WAGES_LINE.code);
+  expect(
+    harvest,
+    'the refused save was written anyway — the other session\'s value was overwritten (AR11)',
+  ).toBe(Number(expected));
+});
+
 Given('a Crown Timber volume has already been saved', async ({ request, world }) => {
   // BR-09 fires when the entered Crown volume DIFFERS from the persisted one, so the scenario needs a
   // starting value to change away from.

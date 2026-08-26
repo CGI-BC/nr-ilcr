@@ -1,8 +1,10 @@
 import { Given, When, Then, expect } from '../fixtures';
 import { settleBeforeReadingSpy } from '../../pages/common/settle';
 import {
+  CONFIRM_NAVIGATION_BODY,
   OA_ROW,
   OA_ROW_EDITED_TOTAL,
+  SEEDED_OTHER_ACCEPTABLE,
   UNACCEPTABLE_ROW,
 } from '../../fixtures/sch3/schedule3-test-data';
 import { getOtherAcceptable, getUnacceptable, putOtherAcceptable } from './schedule3Api';
@@ -103,6 +105,79 @@ Given(
     world.sch3RowDescription = OA_ROW.description;
   },
 );
+
+// ---------------------------------------------------------------------------------------------------
+// GAP-3 — leaving a sub-page with an UNSAVED in-place edit. The inbound confirm is asserted on every
+// navigation (`schedule3Page.openSubPage`); these cover the way OUT, which nothing asserted before.
+// ---------------------------------------------------------------------------------------------------
+
+Then('the sub-page lists the seeded other-acceptable row', async ({ schedule3SubPage, world }) => {
+  world.sch3RowDescription = SEEDED_OTHER_ACCEPTABLE.description;
+  expect(await schedule3SubPage.descriptions(title(world))).toContain(
+    SEEDED_OTHER_ACCEPTABLE.description,
+  );
+});
+
+/** In-place edit only — Save is never pressed, which is what leaves the page dirty. */
+When('I change the seeded row total to {string}', async ({ schedule3SubPage, world }, value) => {
+  await schedule3SubPage.editRowValue(
+    title(world),
+    SEEDED_OTHER_ACCEPTABLE.description,
+    'total',
+    value,
+  );
+});
+
+When('I press Back on the sub-page', async ({ schedule3SubPage }) => {
+  await schedule3SubPage.pressBack();
+});
+
+Then('the sub-page warns me about leaving with unsaved edits', async ({ schedule3SubPage }) => {
+  await expect(
+    schedule3SubPage.leaveDialog,
+    'Back walked away from an unsaved row edit with no warning (legacy confirmed with '
+      + 'confirmNavigationMsg on the sub-page Back button)',
+  ).toBeVisible();
+  // Same verbatim legacy string the inbound confirm uses — one message, both directions.
+  await expect(
+    schedule3SubPage.leaveDialog.getByText(CONFIRM_NAVIGATION_BODY, { exact: true }),
+  ).toBeVisible();
+});
+
+When('I cancel leaving the sub-page', async ({ schedule3SubPage }) => {
+  await schedule3SubPage.cancelLeave();
+});
+
+Then('Schedule 3 is displayed', async ({ schedule3Page }) => {
+  await expect(schedule3Page.costTable).toBeVisible();
+});
+
+When('I confirm leaving the sub-page', async ({ schedule3SubPage }) => {
+  await schedule3SubPage.confirmLeave();
+});
+
+Then('the sub-page row total reads {string}', async ({ schedule3SubPage, world }, expected) => {
+  expect(
+    await schedule3SubPage.rowValue(title(world), SEEDED_OTHER_ACCEPTABLE.description, 'total'),
+    'cancelling the leave prompt discarded the edit it was supposed to protect',
+  ).toBe(expected);
+});
+
+/**
+ * The half that makes "discard" mean discard. An app that persisted on the way out would look identical
+ * on screen, so this reads the stored row through the API.
+ */
+Then('the stored other-acceptable row total is unchanged', async ({ request, world }) => {
+  const doc = await getOtherAcceptable(request, world.scheduleKey!);
+  const row = (doc.rows ?? []).find(
+    (r) => r.description === SEEDED_OTHER_ACCEPTABLE.description,
+  );
+  expect(row, 'the seeded other-acceptable row is gone from storage').toBeTruthy();
+  expect(
+    row?.total,
+    'leaving the sub-page PERSISTED an edit the reporter chose to discard',
+  ).toBe(SEEDED_OTHER_ACCEPTABLE.total);
+});
 
 // ---------------------------------------------------------------------------------------------------
 // Assertions — the rendered sub-page

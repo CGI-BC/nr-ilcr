@@ -11,10 +11,14 @@
 #    anchors whose stored amounts are seeded by the patch. That is what makes the outcomes a property of
 #    the data rather than of the scenario order.
 #  * BR-10 (S12): Override "Y" suppresses the Harvest>=PO&P check on the other-acceptable rows — what
-#    S12 asserts — AND on the eleven fixed lines. The sidecar describes only the first half, so the
-#    wider suppression was raised as DIV-2 and then RETRACTED: legacy does exactly the same, via
+#    S12 asserts — AND on the EIGHT fixed lines that carry a PO&P cost (27, 28, 30, 31, 32, 34, 35, 36).
+#    The other three (29 Annual Rents, 33 Scaling, 37 Silviculture Admin) have no PO&P cost and carry no
+#    such check in either app. The sidecar describes only the other-acceptable half, so the wider
+#    suppression was raised as DIV-2 and then RETRACTED: legacy does exactly the same, via
 #    `Schedule3CheckStatus.isHarvestCostGreaterThanPopCost`, which returns true unconditionally when the
-#    override is on. The sidecar's narrower wording is tracked as SPEC-1. The mirror scenario below
+#    override is on. The sidecar's narrower wording is tracked as SPEC-1. (An earlier version of this
+#    note said "the eleven fixed lines"; corrected 2026-08-26 after re-deriving the rule from the legacy
+#    source — 8 of 11, matching the app's own `CHECK_LINES` hasPop split.) The mirror scenario below
 #    proves the suppression discriminates rather than always passing.
 
 @sch3 @UC-SCH3-001 @check-status

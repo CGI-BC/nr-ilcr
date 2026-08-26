@@ -297,6 +297,12 @@ const SCH3_SCH4_KEYS = [
   '23050/2018',
   '23050/2019',
   '25054/2017',
+  // sch3 'stale-edit' (GAP-2, the optimistic-lock scenario) + sch4 'truck-rehaul'. Same reason as the
+  // rest of this list, and the narrowest case of it: BOTH anchors are mutating. Still structurally
+  // safe — sch3 writes category-3 summary/detail rows and sch4 writes category-4
+  // TRANSPORTATION_REPORT rows, and the sch3 scenario deliberately touches no Crown Timber volume, so
+  // it cannot reach Schedule 1 either.
+  '12050/2018',
 ];
 
 const SHARED_ACROSS_DOMAINS = new Map<string, string>([

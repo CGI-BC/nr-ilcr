@@ -199,6 +199,27 @@ export class Schedule3SubPage {
     return this.page.getByRole('dialog', { name: 'Leave page' });
   }
 
+  /**
+   * The three halves of the dirty-Back guard, exposed separately so `subpage-back.feature` (GAP-3) can
+   * assert the WARNING itself, then Cancel, then Continue. `back()` below is the one-shot form used by
+   * scenarios that only need to get out.
+   */
+  async pressBack(): Promise<void> {
+    await this.backButton.click();
+  }
+
+  /** Dismiss the "Leave page" guard and stay put, edit intact. */
+  async cancelLeave(): Promise<void> {
+    await this.leaveDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(this.leaveDialog).toBeHidden();
+  }
+
+  /** Accept the "Leave page" guard: discard the un-persisted edit and navigate back. */
+  async confirmLeave(): Promise<void> {
+    await this.leaveDialog.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(this.page).toHaveURL(new RegExp(`${ROUTE_SCHEDULE_3}$`));
+  }
+
   /** Back to Schedule 3. `confirmLeave` handles the dirty case (an un-persisted in-place edit). */
   async back(opts: { confirmLeave?: boolean } = {}): Promise<void> {
     await this.backButton.click();

@@ -27,7 +27,7 @@
 -- the same pair would watch its anchor move under it.
 --
 -- WHAT IT ADDS (all NEW rows — no existing row is ever modified)
---   1. An EMPTY category-3 ILCR_REPORT_SUMMARY on 14 Draft mill-years that
+--   1. An EMPTY category-3 ILCR_REPORT_SUMMARY on 17 Draft mill-years that
 --      already carry the ILCR_REPORT_CATEGORY '3' row (i.e. the schedule IS
 --      required there) but no summary. This is exactly the row legacy's first
 --      Save wrote, and nothing else: LOCATION = the Override Harvest/Total PO&P
@@ -113,7 +113,8 @@ BEGIN
     SELECT 23050,      2017,     'N',     'N'      FROM DUAL UNION ALL  -- check-oa-pop      (read-only)
     SELECT 23050,      2018,     'N',     'N'      FROM DUAL UNION ALL  -- a11y              (read-only)
     SELECT 23050,      2019,     'N',     'N'      FROM DUAL UNION ALL  -- check-subpage-missing (read-only)
-    SELECT 25054,      2017,     'N',     'N'      FROM DUAL            -- row-delete-confirm (DIV-5)
+    SELECT 25054,      2017,     'N',     'N'      FROM DUAL UNION ALL  -- row-delete-confirm (DIV-5)
+    SELECT 12050,      2018,     'N',     'N'      FROM DUAL            -- stale-edit (GAP-2, optimistic lock)
   ) LOOP
     SELECT COUNT(*) INTO l_n
       FROM THE.ILCR_REPORT_SUMMARY

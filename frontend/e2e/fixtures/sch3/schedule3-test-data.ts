@@ -76,6 +76,7 @@ const MILL_20171: MillRef = { millNumber: '20171', millName: 'MILES MILLING' }; 
 const MILL_20172: MillRef = { millNumber: '20172', millName: 'COVEY CUSTOM CUT' }; // millId 22051
 const MILL_20173: MillRef = { millNumber: '20173', millName: 'TOMTESTMILL042017' }; // millId 23050
 const MILL_9175: MillRef = { millNumber: '9175', millName: 'TCASEY-TEST' }; // millId 25054
+const MILL_987: MillRef = { millNumber: '987', millName: 'TURTLE DOVE' }; // millId 12050
 const MILL_11: MillRef = { millNumber: '11', millName: 'EVANS FOR. PROD. (DIV. OF LOUISIANA PACIFIC)' }; // millId 1, CLS
 
 const at = (mill: MillRef, millId: number, year: number, purpose: string): Sch3Anchor => ({
@@ -110,6 +111,12 @@ export const ANCHORS: Record<string, Sch3Anchor> = {
     2017,
     'DIV-5 — removing a sub-page row must ask for confirmation first (deliberately RED)',
   ),
+  'stale-edit': at(
+    MILL_987,
+    12050,
+    2018,
+    'GAP-2 (AR11) — a save carrying a token another session already moved is refused with 409',
+  ),
 
   // --- READ-ONLY: never written to, so scenarios may share them -------------------------------------
   validate: at(MILL_20171, 22050, 2018, 'S02/S20-S24 — client-rejected entry and the S111 alert; never written'),
@@ -141,6 +148,7 @@ export const MUTATING_ANCHOR_KEYS = [
   'unacceptable',
   'retry',
   'row-delete-confirm',
+  'stale-edit',
 ] as const;
 
 /** The `crown-applied` anchor is the only one carrying a (patched) Schedule 1 to push into. */
@@ -246,6 +254,13 @@ export const MSG_VALUE_REQUIRED = 'Value Required';
 /** BR-03 `harvestNotGreaterThanPopErrorMsg` — rendered as `<label>: <this>`. */
 export const MSG_HARVEST_NOT_GE_POP =
   'Value must be greater than or equal to the corresponding PO&P Cost';
+/**
+ * The optimistic-lock refusal (AR11), verbatim from `backend/.../messages.properties:21`
+ * `scheduleRevisionConflictErrorMsg` — the server authors it, the client never does (AD-8). Asserted by
+ * `concurrency.feature`; the same string the sch4 and sch11 suites pin.
+ */
+export const MSG_REVISION_CONFLICT =
+  'This schedule was changed by another user. Please reload and try again.';
 /** WRN-001 `crownVolumeChangeSchedule1`. */
 export const MSG_CROWN_APPLIED =
   'The new Crown Timber volume has been applied to Schedule 1 volume fields. Please check.';

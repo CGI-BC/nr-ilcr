@@ -53,13 +53,18 @@ outcomes plus the S12 mirror (`check-status.feature`); S13–S16 the guards and 
 rejection on the main page and both sub-pages (`validation.feature`); WCAG 2.1 AA across four
 structurally distinct renders (`accessibility.feature`); and the DIV-1 divergence (`no-create.feature`).
 
-**22 of the 24 slices are dispositioned `covered`; S18 and S19 are `not-applicable`** (the state they
-describe cannot exist in the rewrite — DIV-3). **34 scenarios / 43 tests after Scenario-Outline
-expansion: 40 green + 3 deliberate `@discovered-divergence` REDs** (DIV-1, DIV-5 and DIV-6). A clean run is
-`npm run test:gate` (regenerates the features first and excludes every `@discovered-*` red); verified
-green twice consecutively, and the suite ran identically across two back-to-back full runs.
+**Added 2026-08-26, closing two of this suite's own coverage gaps:** the AR11 optimistic-lock refusal
+(`concurrency.feature`, ex-**GAP-2**, mirroring `sch4` and `sch11`) and the sub-page Back-with-unsaved-edits
+guard (`subpage-back.feature`, ex-**GAP-3**). Both GREEN.
 
-Priorities: **5 × p0, 27 × p1, 11 × p2.**
+**22 of the 24 slices are dispositioned `covered`; S18 and S19 are `not-applicable`** (the state they
+describe cannot exist in the rewrite — DIV-3). **36 scenarios / 45 tests after Scenario-Outline
+expansion: 42 green + 3 deliberate `@discovered-divergence` REDs** (DIV-1, DIV-5 and DIV-6). A clean run is
+`npm run test:gate` (regenerates the features first and excludes every `@discovered-*` red); verified
+green twice consecutively, and the suite ran identically across two back-to-back full runs. Counts
+measured from the generated specs 2026-08-26, not incremented.
+
+Priorities: **5 × p0, 28 × p1, 12 × p2.**
 
 ## Story AC traceability — bcgov/nr-ilcr#83 (Story 28.3, epic #226)
 
@@ -143,7 +148,7 @@ recorded rather than silently dropped:
 | Itemize grouped other-acceptable costs; count + subtotal follow on return | `S04`, BR-06, CNT-001 | `Schedule3Service.addOtherAcceptable` / `saveOtherAcceptable` | `other-costs.feature` `@p1 @S04` | `covered` | — |
 | …and an in-place row edit persisted by the sub-page Save | `S04` (grid inputs) | `useEditableCostRows.persist` | `other-costs.feature` `@p1 @S04` | `covered` | — |
 | …and a row removed again | `S04` (row Delete) | `removeRow` → batch PUT `intent=delete` | `other-costs.feature` `@p1 @S04` | `covered` | — |
-| …and the removal asks for confirmation FIRST | `S04` (legacy `p:confirm` on the row Delete) | **not implemented** — `removeRow` persists at once | `row-delete-confirm.feature` `@discovered-divergence @p1 @S04` | `divergence` | **DIV-5** |
+| …and the removal asks for confirmation FIRST | `S04` (legacy `p:confirm` on the row Delete) | **not implemented** — `removeRow` persists at once | `row-delete-confirm.feature` `@discovered-divergence @p1 @S04` | `divergence` | **DIV-5** → [#362](https://github.com/bcgov/nr-ilcr/issues/362) |
 | Itemize included-unacceptable costs; count + total follow | `S05`, BR-07 | `Schedule3Service.addUnacceptable` | `unacceptable-costs.feature` `@p1 @S05` | `covered` | — (DIV-4 retracted: legacy counts it the same way) |
 | The read-only Annual Rents (Forest Act, S111) figure on the sub-page | `S05`, BR-04 | `#annualRentsS111`, `buildUnacceptableDocument` | `unacceptable-costs.feature` `@p1 @S05` | `covered` | — |
 | Crown Timber volume change pushed to an open Schedule 1 | `S06`, WRN-001, BR-09 | `Schedule1Service.applyCrownTimberVolume` | `crown-push.feature` `@p0 @S06` | `covered` | — |
@@ -156,7 +161,7 @@ recorded rather than silently dropped:
 | Check Status — a fixed line's Harvest below its PO&P | `S11`, BR-03 | `appendFixedLineCheckErrors` | `check-status.feature` `@p1 @S11` | `covered` | — |
 | Check Status — an other-acceptable row's Total below its PO&P | `S12` (mirror), BR-03 | `evaluateOtherAcceptableGroups` | `check-status.feature` `@p1 @S12` | `covered` | — |
 | Check Status describes the SCREEN, including unsaved edits | `S12` / AF5 (legacy `ajax="false"` postback) | **not implemented** — the endpoint takes no body, so it evaluates stored data | `check-status-unsaved.feature` `@discovered-divergence @p1 @S12` | `divergence` | **DIV-6** |
-| Override "Y" suppresses the Harvest≥PO&P check on other-acceptable rows | `S12`, BR-10 | `if (!override …)` | `check-status.feature` `@p1 @S12` | `covered` | **SPEC-1** (it suppresses the fixed lines too — as legacy did; the sidecar omits that) |
+| Override "Y" suppresses the Harvest≥PO&P check on the other-acceptable rows **and the 8 PO&P-bearing fixed lines** | `S12`, BR-10 | `if (!override …)` | `check-status.feature` `@p1 @S12` (both arms) | `covered` | ex-**SPEC-1** — the sidecar described the other-acceptable arm only; corrected at source 2026-08-26 |
 | Mill and reporting year not selected → form suppressed | `S13`, ERR-002 | `index.tsx:275` `contextMissing` | `render-states.feature` `@p1 @S13` | `covered` | — |
 | Mill not active for the reporting year | `S14`, ERR-003 | `MillContextService.validateMillYearActive` → 409 | `render-states.feature` `@p1 @S14` | `covered` | — |
 | Schedule not editable outside Draft (Submitted **and** Verified) | `S15`, STA-001, BR-01 | `Schedule3Response.editable` (server-derived) | `render-states.feature` `@p1 @S15` outline ×2 | `covered` | — |
@@ -176,8 +181,8 @@ recorded rather than silently dropped:
 | Required description blank — Other Acceptable sub-page | `S23`, FLD-003 | `validateOtherAcceptable` | `validation.feature` `@p1 @S23` | `covered` | — |
 | Required description blank — Included Unacceptable sub-page | `S24`, FLD-003 | `validateUnacceptable` | `validation.feature` `@p1 @S24` | `covered` | — |
 | WCAG 2.1 AA across the distinct renders | NFR1 / #83 AC2 | — | `accessibility.feature` ×4 | `covered` | — |
-| Two people saving the same schedule (stale lock token → 409) | *(rewrite-only, AR11 — no legacy slice)* | `Schedule3Repository.bumpRevision` | — | `deferred` | **GAP-2** |
-| The Back-with-unsaved-edits prompt on a sub-page | `S04`/`S05` (navigate-away dialog) | `useEditableCostRows.handleBack` | — (the inbound prompt IS asserted) | `deferred` | **GAP-3** |
+| Two people saving the same schedule (stale lock token → 409) | *(rewrite-only, AR11 — no legacy slice)* | `Schedule3Repository.bumpRevision` | `concurrency.feature` `@p1 @S01` | `covered` | ex-**GAP-2**, closed 2026-08-26 |
+| The Back-with-unsaved-edits prompt on a sub-page | `S04`/`S05` (navigate-away dialog) | `useEditableCostRows.handleBack` (`:293-298`) | `subpage-back.feature` `@p2 @S04` | `covered` | ex-**GAP-3**, closed 2026-08-26 — asserts the warning, that Cancel keeps the edit, and that Continue writes nothing |
 | Check Status on unsaved edits — the *amount* variant, the fix-a-flagged-field mirror, and the same scenario on the other ten affected schedules | `S09`–`S12` (the unsaved half none of them ask for) | `Schedule3Api.checkStatus` (no `@RequestBody`) | — (Override variant only, `check-status-unsaved.feature` `@discovered-divergence @p1 @S12`) | `deferred` — **gated on #359** | **GAP-4** / **DIV-6** |
 
 ## Message catalog
@@ -246,7 +251,7 @@ recorded rather than silently dropped:
 | BR-07 included-unacceptable rows (Description + Total only) | `unacceptable-costs.feature` `@p1 @S05` | `covered` |
 | BR-08 a sub-page cannot be opened until the schedule is saved | — | `not-applicable` — **DIV-3** (closed); the navigate-away confirm that legacy paired with it IS preserved and asserted |
 | BR-09 a changed Crown Timber volume propagates into Schedule 1 | `crown-push.feature` both scenarios, read back on Schedule 1 | `covered` |
-| BR-10 Override "Y" suppresses the Harvest≥PO&P check | `check-status.feature` `@p1 @S12` + its mirror | `covered` — wider than the sidecar describes, and legacy-faithful (**SPEC-1**; raised as DIV-2, retracted) |
+| BR-10 Override "Y" suppresses the Harvest≥PO&P check (8 PO&P-bearing fixed lines + other-acceptable rows) | `check-status.feature` `@p1 @S12` + its mirror | `covered` — legacy-faithful; was wider than the sidecar described, which is now corrected at source (ex-**SPEC-1**; raised as DIV-2, retracted) |
 | BR-11 Check Status requires the amounts, both volumes and each row's description + cost | `check-status.feature` `@p0 @S10` (main page, whole inventory) + `@p1 @S10` (sub-page rows) | `covered` |
 
 ## Deliberately excluded by the slice catalogue — re-checked against the new app
@@ -319,15 +324,16 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-25. *
 - **P0: 100%** — all 5 P0 items exercised: the happy path (entry, save, full derived arithmetic, reload),
   the BR-09 crown push, both Check Status headline outcomes, and the DIV-1 divergence (RED on purpose,
   which **counts as covered** — it maps to S16 and is the tracking signal).
-- **P1: 100%** of P1 items covered — 27 tests: 25 green plus the DIV-5 and DIV-6 reds, which **count as covered** (they map to S04's confirm-before-delete and S12's evaluate-the-screen, and are red on purpose).
+- **P1: 100%** of P1 items covered — 28 tests: 26 green plus the DIV-5 and DIV-6 reds, which **count as covered** (they map to S04's confirm-before-delete and S12's evaluate-the-screen, and are red on purpose).
 - **Overall: 22/24 slices `covered`, 2 `not-applicable`** (S18/S19, DIV-3 closed — the state cannot exist in the
   rewrite). Every message-catalog row is dispositioned: covered, `not-applicable` with a reason, or
-  `deferred` (the page-fallback strings, which belong in Vitest). The four `deferred`/`blocked` items
-  (GAP-1 role-only read-only, GAP-2 optimistic-lock conflict, GAP-3 sub-page Back prompt, GAP-4 the
-  remaining Check Status-on-unsaved-edits slices) are none of them P0/P1-critical: the P0/P1 half of the
-  Check Status behaviour is already carried by DIV-6's deliberate red.
-- **Verdict: PASS** — no waiver needed. GAP-1 is an environment limitation (single-role mock auth) and a
-  gate should treat it as waived; GAP-2 and GAP-3 are tracked additions, not app problems; GAP-4 is
+  `deferred` (the page-fallback strings, which belong in Vitest). **GAP-2 and GAP-3 were CLOSED 2026-08-26
+  by writing them** (`concurrency.feature`, `subpage-back.feature`), so the remaining two are GAP-1 (the
+  role half of BR-01 — no schedule-level role branch exists to test) and GAP-4 (the rest of the Check
+  Status-on-unsaved-edits family, deliberately held until #359 lands). Neither is P0/P1-critical: the
+  P0/P1 half of the Check Status behaviour is already carried by DIV-6's deliberate red.
+- **Verdict: PASS** — no waiver needed. GAP-1 is missing app behaviour rather than missing coverage (both
+  roles hold the same schedule actions, verified 2026-08-26) and a gate should treat it as waived; GAP-4 is
   blocked on the #359 fix by design — its scenarios only become meaningful (and green) once the fix
   lands, and writing them early would add ten-plus reds all tracking one ticket.
 

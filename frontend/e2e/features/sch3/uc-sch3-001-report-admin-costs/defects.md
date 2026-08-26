@@ -61,17 +61,46 @@ All findings below were reproduced on the local seeded delivery DB
     lines rather than only on the itemized other-acceptable rows — and that BA/QA had to decide whether
     the app or the requirements sidecar was wrong.
   - **Why it is wrong (checked against the legacy application source 2026-08-25, `docs/nr-ilcr-2.0.4`):**
-    legacy applies the override to every fixed line, exactly as the app does. The suppression simply does
-    not live where I looked:
+    legacy applies the override to the fixed lines too, exactly as the app does. The suppression simply
+    does not live where I looked:
     - `managedBean/Schedule3MB.checkStatus()` reads a PRE-COMPUTED flag per line
       (`!checkedSchedule3.getLicensesFeesInsurance().isHarvestGreaterThanPop()`), which is why that
       method carries no override guard on the fixed lines and guards only the other-acceptable rows
       (line 312). I read that absence as "legacy did not suppress here".
-    - the flag is computed one layer up, in `service/Schedule3CheckStatus.java:35-56`, which calls
-      `isHarvestCostGreaterThanPopCost(overrideTotPop, line)` for **each** fixed line — and that method
-      (`:64-72`) opens with `if (overrideTotPop) return true;`, an unconditional pass. The same class
-      repeats the guard in `isScheduleValid` (`:78-103`) as
-      `(!overrideTotPop && !…isHarvestGreaterThanPop())`.
+    - the flag is computed one layer up, in `service/Schedule3CheckStatus.java:33-56`, which calls
+      `isHarvestCostGreaterThanPopCost(overrideTotPop, line)` per line — and that method (`:64-72`) opens
+      with `if (overrideTotPop) return true;`, an unconditional pass. The same class repeats the guard in
+      `isScheduleValid` (`:78-103`) as `(!overrideTotPop && !…isHarvestGreaterThanPop())`.
+    - **Scope corrected 2026-08-26 (full re-derivation at the repo owner's request):** that is **8 of the
+      11** fixed lines, not all 11 — codes 27, 28, 30, 31, 32, 34, 35, 36, i.e. exactly the lines carrying
+      a PO&P cost. An earlier version of this entry said "every fixed line", which overstated it. The
+      three harvest-only lines are exempt in legacy for visible reasons: **29 Annual Rents** has its whole
+      harvest-vs-PO&P block COMMENTED OUT in the bean (`Schedule3MB.java:196-206`) and its PO&P forced to
+      `BigDecimal.ZERO` by the DAO (`Schedule3DAO.java:179`); **33 Scaling** has a derived,
+      `disabled="true"` PO&P display field (`schedule3.xhtml:186`, computed in `Schedule3DO.java:174`);
+      **37 Silviculture Admin** has no PO&P input at all (`<h:inputHidden>`, DAO sets ZERO at `:269`).
+      The app encodes the same split — `CHECK_LINES` marks those 8 `hasPop=true` and `continue`s past
+      BR-03 for 29/33/37 (`Schedule3Service.java:104-116, 934-945`) — so the retraction is **strengthened**
+      by the correction, not weakened.
+    - **Also verified in the same pass, and worth keeping:** `CostType.harvestGreaterThanPop` initialises
+      to **`true`** (`CostType.java:22`) and is only computed when BOTH values are present, so a missing
+      value produces only the missing-field error and never a spurious harvest-below-PO&P one — with or
+      without the override. The app matches (`harvest != null && pop != null && harvest < pop`). And the
+      other-acceptable comparison is **per row/group** in both — legacy
+      `CheckStatusUtil.isOtherHarvestCostLessThanPopCost:101-110` returns true if ANY row has
+      Total < its PO&P, raising ONE message labelled "Subtotal Other Costs (Harvest Total $)"; the app's
+      `evaluateOtherAcceptableGroups` (`:1014`) does the same per group. Despite the "Subtotal" label,
+      neither compares the summed subtotal.
+    - **Legacy carries TWO verdicts, and the override is honoured in both.** The Schedule 3 screen shows
+      the bean's message-derived `allRequirementsMet`; the consolidated submission gate uses
+      `passedCheckStatus`/`isScheduleValid` plus sub-page conditions, whose other-acceptable clause
+      repeats the override guard (`CheckStatusMB.isSchedule3OtherCostTotalCostGreater:453-460`). The two
+      are NOT identical — `isScheduleValid` additionally requires a non-null PO&P for **Scaling** and
+      **Silviculture Admin**, with no message counterpart, so a schedule whose PO&P + Crown volumes sum to
+      zero (division returns null → null derived Scaling PO&P) would fail the gate while the screen
+      reported all requirements met. Not comparable to the rewrite yet: its consolidated Check Status page
+      is still a placeholder (`frontend/src/routes/check-status.tsx`). Recorded here so whoever builds it
+      does not inherit the assumption that one verdict served both surfaces.
     So the app's `if (!override && …)` in `Schedule3Service.appendFixedLineCheckErrors` reproduces legacy
     precisely. The backend's own code comment cited this class and was right; I discounted it.
   - **What actually misled me:** the requirements sidecar describes BR-10 as applying to the
@@ -168,22 +197,39 @@ All findings below were reproduced on the local seeded delivery DB
     did prompt. The new app is also **internally inconsistent**: the whole-schedule Delete kept its
     "Delete schedule" confirm modal, so the app confirms the large destructive action and not the small
     one.
-  - **The same defect as Schedule 1's, one component deeper:**
+  - **The same defect as Schedule 1's, and now ONE ticket for both.**
     `features/sch1/uc-sch1-001-enter-save/defects.md` **DIV-3** records it for Schedule 1's Other Costs
-    sub-page and is OPEN pending exactly this check — its "Next step" asks the dev to confirm the prompt
-    against legacy, because the sidecar is captured source rather than the running system. The legacy
-    source above answers that for Schedule 3's sub-page, and Schedule 1's is the same `p:confirm` idiom on
-    the same shared rewrite. Worth resolving as ONE ticket across both schedules rather than two.
-  - **Action:** **BA/QA to raise a Jira ticket** (or fold it into Schedule 1 DIV-3's, once that has one).
-    Kept as a genuinely-failing `@discovered-divergence` test that asserts the prompt appears and the row
-    survives until it is confirmed — RED until the confirmation is restored. The test asserts that a
-    confirmation is *shown*, not any particular chrome, so any reasonable implementation satisfies it
-    (the repo already has `components/core/ConfirmDeleteModal` for exactly this).
+    sub-page. That entry had been waiting on exactly this check — whether legacy really prompts, its own
+    evidence being captured sidecars rather than legacy code. Closed 2026-08-26 by reading all three
+    legacy views at source: `schedule1OtherCosts.xhtml:94-96`,
+    `schedule3SubtotalOtherCosts.xhtml:94-96` and `schedule3IncludedUnacceptableCosts.xhtml:80-82` each
+    carry the same `p:confirm` on their per-row Delete, and `messages.properties:31` resolves
+    `confirmDeleteMsg`. Three affected pages, one shared hook, one ticket.
+  - **The sibling comparison that makes it a defect rather than a house style:** every other row-level
+    delete in the app confirms first — Schedule 4 sub-page rows (`schedule4/SubPage.tsx:471`), Schedule 5
+    camps (`:1406`), Schedule 8 rate rows (`RatesPage.tsx:375`), Schedule 11 locations (`:1037`), and
+    Schedules 7A/7B/9/10 through the shared `components/core/ConfirmDeleteModal`. Only the three pages
+    built on `useEditableCostRows` do not.
+  - **Ticket:** [bcgov/nr-ilcr#362](https://github.com/bcgov/nr-ilcr/issues/362) — *"Deleting an itemized
+    cost row on the Schedule 1 and 3 cost sub-pages destroys it with no confirmation, unlike legacy and
+    every other schedule"*, labelled `bug`, filed by the repo owner 2026-08-26. Its repro runs on the
+    extract anchor **727 Updated Mill E2E / 2017** with no test-data patch applied (verified: row added
+    and saved, Remove clicked → **0 dialogs**, row already gone after a reload, on this schedule and on
+    Schedule 1). The filed issue deliberately omits two things the registers keep, as they are their
+    home: why the suites missed it (Schedule 1's S12 had been re-grounded onto the defect — see that
+    entry) and the related-ticket comparison (#292, #296 — neither concerns confirming a destructive
+    action).
   - **Priority / env:** p1 · branch `test/schedule-3-e2e` · local seeded DB · Chrome.
-  - **Status:** OPEN. Found 2026-08-24 (bundled inside DIV-3), split out and legacy-source-confirmed
-    2026-08-25 at the repo owner's direction.
+  - **Status:** OPEN — confirmed and triaged by raising a ticket. Dev to gate
+    `useEditableCostRows.removeRow` behind a confirmation in the shared `EditableSubPageLayout`, without
+    disturbing the whole-schedule Delete or the "Leave Schedule 3" prompt (both asserted by this suite);
+    QA re-verifies and closes this entry and Schedule 1's DIV-3 together when the fix lands. Found
+    2026-08-24 (bundled inside DIV-3), split out and legacy-source-confirmed 2026-08-25 at the repo
+    owner's direction; ticketed 2026-08-26.
   - **Test:** `features/sch3/uc-sch3-001-report-admin-costs/row-delete-confirm.feature` (S04,
-    `@discovered-divergence`).
+    `@discovered-divergence`) — and, tracking the same ticket from the other side, Schedule 1's
+    `other-costs.feature` `@S12 @discovered-divergence`. Both assert that a confirmation is *shown*, not
+    any particular chrome, so one fix turns both green with no test change.
 
 - **DIV-6 — Check Status judges the SAVED schedule and silently ignores what is on screen. Legacy judged
   the screen. Affects 11 of the 12 schedules.**
@@ -299,10 +345,36 @@ All findings below were reproduced on the local seeded delivery DB
     that depends on the **track status** IS covered (both Submitted and Verified); only the
     role-dependent half is unreachable. The server-side gate itself exists and is covered by the
     backend's own `Schedule3AuthorizationIT` / `Schedule3WriteAuthorizationIT`.
-  - **Future action:** revisit as E2E once the environment can issue a reader-only principal; a gate
-    should treat this as **waived**, not failing.
-  - **Status:** OPEN.
-  - **Test:** none — tracked as a `blocked` row in coverage.md.
+  - **This is the cross-cutting deferral, not a Schedule 3 finding.** It is owned by `deferred-work.md`
+    → *"Deferred (cross-cutting): role-gated behaviour cannot be E2E-tested under single-role mock auth
+    (2026-08-12)"*, which lists `sch1` GAP-1, `sch2` GAP-1, `sch3` GAP-1, `sch4` GAP-1, `sch11` GAP-6 and
+    `sec` GAP-4 — this entry is the same gap on this page. Do not re-litigate it per page.
+  - **RE-CHECKED AGAINST THE CODE AND THE RUNNING STACK 2026-08-26 — and the old reason no longer holds.**
+    That deferral's premise was that role behaviour is unreachable because mock auth stamps one authority
+    and the two roles grant the same actions. Both halves have since changed, so do not repeat them:
+    - **The roles DO diverge now.** `security/SchedulePermissions.java` grants `ADMIN` six actions
+      (`VIEW_SCHEDULE`, `EDIT_SCHEDULE`, `MAINTAIN_CODE_TABLES`, `OPEN_REPORTING_YEAR`,
+      `EDIT_HOME_CONTENT`, `MAINTAIN_USERS`) and `SUBMITTER` two (`VIEW_SCHEDULE`, `EDIT_SCHEDULE`).
+    - **The mock-user selector DOES drive the backend principal now.** The SPA sends the chosen role as
+      `X-Mock-Groups` (`service/api-service.ts:38`) and `MockPrincipalFilter` builds the authority from
+      that header, falling back to `ilcr.security.mock-role` (default `ILCR_SUBMITTER`). Verified live:
+      `GET /api/v1/code-tables` answers **403** as `ILCR_SUBMITTER` and **200** as `ILCR_ADMIN`.
+    - **What is still true, and is the real reason this stays uncovered:** no *schedule* action differs by
+      role. Both roles hold exactly `VIEW_SCHEDULE` + `EDIT_SCHEDULE`, and `GET /api/v1/schedule3`
+      answers **200** for both (same probe). So there is no role branch on this screen to test — the gap
+      is missing *behaviour*, not a missing *capability* in the harness. Legacy's Licensee-only edit has
+      no counterpart because the role model itself changed (two FAM groups, PRD DL-23), which is why this
+      is not filed as a divergence.
+    - Role-gated behaviour that DOES exist is admin-surface, not schedule-surface (Administration nav is
+      `adminOnly` in `routes/-navigation.ts:94`, and code-table writes 403 a submitter) — owned by the
+      UC-CODE-001 / admin suites, not by this one.
+  - **When it is done** (per that entry): QA authors E2E tests for these coverage gaps and runs them
+    against the running app, once a schedule-level role branch actually exists — then this `Status:`
+    moves. The trigger to watch is `SchedulePermissions.ROLE_ACTIONS`: the day `EDIT_SCHEDULE` stops
+    being granted to both roles, this becomes testable in a single run by switching the mock user, and it
+    should be covered rather than deferred again.
+  - **Status:** OPEN — `blocked` in coverage.md. A gate should treat this as **waived**, not failing.
+  - **Test:** none today, by environment limitation rather than by choice.
 
 - **GAP-2 — the optimistic-lock conflict (two people saving the same Schedule 3) is not covered.**
   - **Why not:** it is a rewrite-only guarantee (AR11: a stale `revisionCount` is refused with HTTP 409)
@@ -310,20 +382,37 @@ All findings below were reproduced on the local seeded delivery DB
     Schedules 4 and 11 both have one — but it needs a dedicated anchor, and Schedule 3's anchors are
     currently seeded one-per-scenario (see DIV-1's knock-on note), so adding it costs a new patched
     mill-year rather than a new scenario.
-  - **Future action:** add a `concurrency.feature` (open two contexts, save both, assert the second is
-    refused and nothing is lost) when the next Schedule 3 work lands — or for free once DIV-1 is fixed
-    and scenarios can create their own schedules.
-  - **Status:** OPEN.
-  - **Test:** none — tracked as a `deferred` row in coverage.md.
+  - **CLOSED 2026-08-26 — written.** `concurrency.feature` covers it, and the anchor cost less than this
+    entry predicted: no second browser context is needed (the page copies `revisionCount` into React
+    state on load, so ONE out-of-band API save makes the browser's token stale — the same shortcut `sch4`
+    and `sch11` use), and the "new patched mill-year" is one extra line in `draft-anchors.sql`. The new
+    `stale-edit` anchor (12050/2018) follows this suite's established pattern: seeded on a mill-year only
+    **sch4** pins, declared with its reason in `preflight/sch4-anchors.setup.ts`. It is the narrowest such
+    share so far — both anchors are mutating — which is safe because Schedule 3 writes category-3 rows and
+    Schedule 4 writes category-4 `TRANSPORTATION_REPORT` rows, and the scenario deliberately edits a cost
+    line and never a timber volume, so BR-09 cannot reach Schedule 1.
+  - **What it asserts, and why three halves:** the verbatim 409 detail reaches the screen (AD-8), the
+    other session's value is the survivor in storage, and ours is not. The first alone would pass an app
+    that showed the error and still wrote our value — which is the actual lost-update bug worth guarding.
+  - **Status:** CLOSED (covered) 2026-08-26. Found 2026-08-25 as a gap; closed by writing the test.
+  - **Test:** `concurrency.feature` `@p1 @S01` — GREEN.
 
 - **GAP-3 — the sub-page "discard unsaved edits" prompt on Back is not asserted.**
   - **Why not:** the equivalent prompt on the way IN to a sub-page IS asserted (every navigation
     crosses it, and its verbatim text is checked). The Back-with-unsaved-edits variant needs a scenario
     that deliberately leaves a row edited and then walks away, which only fits on the one mutating
     sub-page anchor whose scenario is already the longest in the suite.
-  - **Future action:** cover it as its own scenario when a second sub-page anchor exists.
-  - **Status:** OPEN.
-  - **Test:** none — tracked as a `deferred` row in coverage.md.
+  - **CLOSED 2026-08-26 — written, and it needed no new anchor at all.** The premise that it required a
+    second mutating sub-page anchor was wrong: an in-place row edit lives in React state and only Save
+    persists it (Add and Remove persist immediately, and the scenario does neither), so the whole
+    scenario writes nothing and shares the READ-ONLY `check-oa-pop` anchor and its seeded
+    other-acceptable group. The final API read-back is what proves that claim rather than assuming it.
+  - **What it asserts:** the "Leave page" warning appears carrying the verbatim legacy
+    `confirmNavigationMsg` text (`useEditableCostRows.handleBack:293-298`); Cancel keeps you on the page
+    with the edit intact, so the guard is not a one-way door; and Continue leaves WITHOUT writing —
+    checked at the API, because a "discard" that quietly persisted would look identical on screen.
+  - **Status:** CLOSED (covered) 2026-08-26. Found 2026-08-25 as a gap; closed by writing the test.
+  - **Test:** `subpage-back.feature` `@p2 @S04` — GREEN.
 
 - **GAP-4 — the "Check Status on UNSAVED edits" slices are missing everywhere except the one Override
   case in this suite. GATED on the fix for [#359](https://github.com/bcgov/nr-ilcr/issues/359).**
@@ -367,17 +456,40 @@ All findings below were reproduced on the local seeded delivery DB
     Harvest/Total PO&P is set to Yes, the Harvest-greater-than-or-equal-to-PO&P check on the
     **other-acceptable costs** is not enforced", and the check-status table pairs the override only with
     the `Subtotal Other Costs (Harvest Total $)` row. S12 is written to match. In the legacy application
-    the override suppresses that check on **every fixed cost line as well** —
-    `service/Schedule3CheckStatus.java:35-56` computes each line's flag through
-    `isHarvestCostGreaterThanPopCost(overrideTotPop, line)`, which returns `true` unconditionally when
-    the override is on (`:64-72`).
+    the override ALSO suppresses that check on **the eight fixed cost lines that carry a PO&P cost**
+    (codes 27, 28, 30, 31, 32, 34, 35, 36) — `service/Schedule3CheckStatus.java:33-56` computes each of
+    those lines' flags through `isHarvestCostGreaterThanPopCost(overrideTotPop, line)`, which returns
+    `true` unconditionally when the override is on (`:64-72`). The other three fixed lines (29 Annual
+    Rents, 33 Scaling, 37 Silviculture Admin) have no PO&P cost to compare and carry no such check in
+    either app, so the accurate statement of BR-10 is "the 8 PO&P-bearing fixed lines **and** the
+    other-acceptable groups", not "all eleven lines" and not "other-acceptable only". Scope re-derived
+    from the legacy source 2026-08-26.
   - **The app is correct:** `Schedule3Service.appendFixedLineCheckErrors` reproduces the legacy rule
     exactly; we covered it anyway (S12 asserts the fixed line is not flagged and the schedule passes).
     A paperwork mismatch, not a bug — and the reason **DIV-2** was raised and then retracted.
-  - **Future action:** a BA corrects BR-10's wording in the technical and detailed sidecars (and, if the
-    slice catalogue is regenerated, S12's own description) so the next reader is not sent down the same
-    path.
-  - **Status:** OPEN. Found 2026-08-25.
+  - **FIXED 2026-08-26 — the source documents now state BR-10 correctly.** Corrected in the `ilcr-bmad`
+    planning repo at the repo owner's direction, after the full legacy re-derivation:
+    - `UC-SCH3-001.md` and `-detailed.md` BR tables — BR-10 restated as "not enforced **anywhere it
+      would otherwise apply** — the eight PO&P-bearing fixed lines (27, 28, 30, 31, 32, 34, 35, 36)
+      **and** the other-acceptable-cost rows", with the real citations
+      (`Schedule3CheckStatus.isHarvestCostGreaterThanPopCost:64-72`, `isScheduleValid:78-103`,
+      `Schedule3MB.checkStatus:312-316`, `CheckStatusMB:453-460`) replacing the single bean reference.
+    - `-detailed.md` step 24 and the AF5 Check Status step — both widened from "other-acceptable-cost
+      rows" to both arms.
+    - both check-status message tables (`-detailed.md`, `-technical.md`) — a footnote now says BR-10
+      applies to **every** "both keys" row, not only `Subtotal Other Costs`, since those rows key off the
+      flag the override forces to pass.
+    - `-technical.md` BR-03 rule row — now names the eight lines, records that BR-10 suppresses all
+      eight, and adds the `CostType.java:22` default-`true` semantics (a missing value yields only
+      `missingRequiredFieldMsg`, never a harvest-vs-PO&P error).
+    - `-technical.md` other-acceptable rule row — now states the comparison is **per row**, one message,
+      and that the summed subtotal is never compared (`CheckStatusUtil:101-110`).
+    - `-slices.md` BR-10 row, and a SCOPE NOTE on the `UC-SCH3-001-S12.feature` slice recording that it
+      covers one arm of a broader rule, with a pointer to this suite's scenario which covers both.
+  - **No app or test change followed, by design:** the app was already correct and S12 already asserted
+    both arms. This entry was always a paperwork defect, and the paperwork is what moved.
+  - **Status:** CLOSED (source documents corrected) 2026-08-26. Found 2026-08-25 as the by-product of
+    DIV-2's retraction; scope re-derived from the legacy source and the docs fixed 2026-08-26.
   - **Test (covers it anyway):** `check-status.feature` (S12 and its mirror) — GREEN.
 
 The 24 slices otherwise reconcile
