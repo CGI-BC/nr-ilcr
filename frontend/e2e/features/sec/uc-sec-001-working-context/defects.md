@@ -187,3 +187,36 @@ fixtures pinned in `fixtures/sec/working-context-test-data.ts`. Verified on real
   the exact text is unchanged). bcgov's `tombstone.spec.ts` (S01 display / S03 switch / S06 closed / S07
   no-status) is ported here as `schedule-tombstone.feature` (on Schedule 2), verified green incl. axe.
   An app design move, not a defect — recorded so the ported source is traceable.
+- **VER-1 — the tombstone a11y sweep was FLAKY (≈1 run in 4) and blamed Schedule 2 for BUG-1. Suite
+  defect, fixed 2026-08-26; the app is fine.** `@S01 @a11y` failed intermittently with
+  `color-contrast` "on Schedule 2 tombstone", on the same two nodes as BUG-1
+  (`p:nth-child(1) > .headerUnderline`, `p:nth-child(2) > span`).
+  - **What actually happened:** the sweep ran on **Home**, not on Schedule 2. Client-side navigation
+    flips the URL before the route's content swaps — while Schedule 2 resolved, the router kept Home
+    mounted, so `window.location` already read `/schedule-2` while the DOM was still Home-after-Save.
+    `SchedulePage.open()` gated on exactly those two things, and both were satisfied by Home: the URL,
+    and a visible `region[name="Working context"]` — which Home's PageTitle-hosted ContextBanner renders
+    with the SAME landmark and the SAME `WorkingContextLines` text once a context is saved. The tombstone
+    line assertions then passed against Home's banner, and axe scanned Home, where the admin-authored
+    welcome message lives.
+  - **Proof (from the failing run's trace, not inference):** the axe payload reports
+    `environmentData.url = http://localhost:3000/schedule-2` with `fromFrame: false`, yet the scanned DOM
+    contained Home's `h1 "Mill and Reporting Year"` and `Administrator Welcome Message` and **no**
+    Schedule 2 content (no "Purchased", no "Check Status"). The failing node ancestry
+    (`… > div:nth-child(2) > div:nth-child(2) > div > p:nth-child(1) > span`) is byte-identical to the
+    `Home (banner populated after Save)` sweep's, and differs from the `Home (landing)` sweep's only by
+    the success banner that Save inserts.
+  - **Why the existing guard missed it:** the URL check was added for this very trap (PR #5 review — "a
+    nav that silently stayed on Home would let the tombstone assertions pass falsely"), but a URL is not
+    a rendering guarantee under client-side routing.
+  - **Fix:** `pages/common/schedulePage.ts` — gate `open()` on the route-specific tombstone heading
+    (`heading[level=1][name="Schedule 2"]`, which the outgoing Home page cannot satisfy), and scope
+    `context` to `.schedule-tombstone` so Home's identically-labelled banner can never satisfy a
+    tombstone assertion. Verified: the a11y scenario failed **2 of 8** repeats before, and **32 of 32**
+    tombstone runs passed after.
+  - **Why it matters beyond this scenario:** BUG-1's authored-content contrast is real but belongs to
+    **Home**. Any a11y sweep that can scan a stale Home DOM inherits it and reports it against the wrong
+    page — which is how a tracked, tagged red turned into an **untagged** one that breaks
+    `npm run test:gate` on a page that is actually clean. Readiness anchors for client-side navigation
+    must be route-specific, never a shared landmark.
+  - **Status:** CLOSED 2026-08-26 (suite fix; no app change, no ticket).
