@@ -48,3 +48,57 @@ Feature: Report Forest Management Administration Costs (Schedule 3) — Check St
     And I should not see the message "All requirements for this schedule have been met"
     # Nothing was saved: Check Status must stay read-only whichever data it judges.
     And the Schedule 3 optimistic-lock token has not moved
+
+  # ---------------------------------------------------------------------------------------------------
+  # S25, the FALSE-GREEN arm on an AMOUNT rather than the Override switch. Added 2026-08-27 to finish the
+  # slice: the scenario above pins one control (a dropdown), and a reader could reasonably wonder whether
+  # the defect is specific to it. It is not — the endpoint carries no body at all, so every field on the
+  # page is invisible to it.
+  #
+  # WHY CLEARING, AND NOT TYPING A VIOLATION. The obvious probe is to type a Harvest below its PO&P on a
+  # schedule that passes. It cannot be done on read-only data: the only at-rest-PASSING anchor is
+  # `check-override`, and it passes BECAUSE Override is "Y" — which legitimately suppresses the
+  # Harvest>=PO&P comparison, so a typed violation would be correctly ignored even by legacy. Clearing a
+  # mandatory amount is the probe that works on the same anchor, because the Override switch does NOT
+  # suppress the required-field checks (`Schedule3CheckStatus.isScheduleValid`, the two families are
+  # independent). Verified at rest 2026-08-27: `POST /check-status` on 22050/2021 answers
+  # `requirementsMet: true` with zero errors, and Office Expense holds Harvest 25,000.
+  @discovered-divergence @p1 @S25
+  Scenario: Check Status reports a mandatory amount cleared on screen but not saved [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-6 / issue #359]
+    Given the Schedule 3 anchor "check-override"
+    And I have selected that mill and reporting year on the Home page
+    When I open Schedule 3
+    # As stored this schedule is complete, so Check Status passes.
+    And I run Check Status on Schedule 3
+    Then I should see the message "All requirements for this schedule have been met"
+    # Empty a mandatory amount on screen and check again WITHOUT saving. Legacy's full postback would have
+    # submitted the empty field and reported it required.
+    When I clear the "Office Expense" Harvest amount
+    And I run Check Status on Schedule 3
+    Then the "Office Expense (Harvest Total $)" field is flagged as required
+    And I should not see the message "All requirements for this schedule have been met"
+    And the Schedule 3 optimistic-lock token has not moved
+
+  # ---------------------------------------------------------------------------------------------------
+  # S26, the FALSE-RED arm — the direction a reporter meets most often, and the one this suite had no
+  # scenario for at all. Check Status tells you to fix a field; you fix it; you re-check without saving and
+  # are told about it again.
+  #
+  # ANCHOR. `check-harvest-pop` (22050/2020) stores Wages/Salaries Harvest 40,000 against PO&P 50,000 with
+  # Override "N", and — verified at rest 2026-08-27 — `POST /check-status` returns EXACTLY ONE error, that
+  # line's. That single-error state is what makes the mirror assertable in both directions: correcting the
+  # one thing on screen must clear the one error AND flip the whole verdict to met. Read-only: typing
+  # without saving writes nothing, which the unmoved lock token proves.
+  @discovered-divergence @p1 @S26
+  Scenario: Check Status stops reporting a flagged amount once it is corrected on screen [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-6 / issue #359]
+    Given the Schedule 3 anchor "check-harvest-pop"
+    And I have selected that mill and reporting year on the Home page
+    When I open Schedule 3
+    And I run Check Status on Schedule 3
+    Then the "Wages/Salaries, incl Benefits" line is flagged as Harvest below PO&P
+    # Correct it on screen — 60,000 clears the stored PO&P of 50,000 — and re-check WITHOUT saving.
+    When I enter "60000" into the "Wages/Salaries, incl Benefits" Harvest field
+    And I run Check Status on Schedule 3
+    Then the "Wages/Salaries, incl Benefits" line is not flagged as Harvest below PO&P
+    And I should see the message "All requirements for this schedule have been met"
+    And the Schedule 3 optimistic-lock token has not moved

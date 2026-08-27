@@ -1,8 +1,10 @@
 import { type Locator, type Page, expect } from '@playwright/test';
 import { navigateViaSideNav } from '../common/authNav';
+import { clickAwaitingCheckStatus } from '../common/checkStatus';
 import {
   CONFIRM_NAVIGATION_BODY,
   MILL_YEAR_STORAGE_KEY,
+  MSG_REQUIREMENTS_MET,
   ROUTE_SCHEDULE_3,
   type LineSpec,
   lineByLabel,
@@ -265,8 +267,29 @@ export class Schedule3Page {
     await this.bottomSaveButton.click();
   }
 
+  /**
+   * Press Check Status, settling on the server's answer when one is sent (see `clickAwaitingCheckStatus`),
+   * then on the outcome actually rendering — the met message or at least one notification.
+   *
+   * The second wait is specific to this domain and load-bearing for DIV-6's mirror arm (S26): that
+   * scenario checks twice, and its "no longer flagged" assertion passed VACUOUSLY against a DOM that had
+   * not re-rendered until this gate existed (found 2026-08-27).
+   */
   async checkStatus(): Promise<void> {
-    await this.checkStatusButton.click();
+    await clickAwaitingCheckStatus(this.page, '/schedule3/check-status', () =>
+      this.checkStatusButton.click(),
+    );
+    await expect(this.checkStatusOutcome.first()).toBeVisible();
+  }
+
+  /**
+   * Whatever Check Status rendered — the met message OR any error/warning notification. Used only as the
+   * readiness gate above; scenarios assert the specific message, never this.
+   */
+  get checkStatusOutcome(): Locator {
+    return this.page
+      .getByText(MSG_REQUIREMENTS_MET, { exact: true })
+      .or(this.page.locator('.cds--inline-notification'));
   }
 
   /** The delete confirm Modal (a Carbon dialog, aria-labelled by its "Delete schedule" heading). */

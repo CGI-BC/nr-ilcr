@@ -341,6 +341,16 @@ When(
   },
 );
 
+/**
+ * BR-12 / DIV-6: empty a stored Harvest amount on screen WITHOUT saving, so Check Status has a mandatory
+ * field that is present in the database and absent on the page. Deliberately its own step rather than
+ * `I enter "" into …` — an empty-string argument reads like a typo in a feature file, and this is the one
+ * place where clearing rather than changing is the whole point of the scenario.
+ */
+When('I clear the {string} Harvest amount', async ({ schedule3Page }, label) => {
+  await schedule3Page.enterHarvest(label, '');
+});
+
 When('I enter {string} into the {string} PO&P field', async ({ schedule3Page }, value, label) => {
   await schedule3Page.enterPop(label, value);
 });

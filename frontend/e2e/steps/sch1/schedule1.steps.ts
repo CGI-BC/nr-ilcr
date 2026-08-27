@@ -254,6 +254,19 @@ When('I enter the following Schedule 1 amounts:', async ({ schedule1Page }, data
   }
 })
 
+/**
+ * BR-12 / DIV-6 arms. Its own steps rather than the `I enter the following Schedule 1 amounts:` table,
+ * because that helper skips empty values by design (a blank cell means "leave alone") and clearing is the
+ * whole point of the false-GREEN arm.
+ */
+When('I clear the {string} volume', async ({ schedule1Page }, label) => {
+  await schedule1Page.setVolume(label, '')
+})
+
+When('I enter {string} into the {string} volume', async ({ schedule1Page }, value, label) => {
+  await schedule1Page.setVolume(label, value)
+})
+
 When('I enter Schedule 1 comments {string}', async ({ schedule1Page }, text) => {
   await schedule1Page.enterComments(text)
 })
