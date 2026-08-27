@@ -105,8 +105,9 @@ both are covered as of 2026-08-26 (S19 by a deliberate red, see DIV-7).
 A clean run is `npm run test:gate` (regenerates the features first and excludes every `@discovered-*`
 red). The three reds are DIV-5 (row delete has no confirm, [#362](https://github.com/bcgov/nr-ilcr/issues/362)),
 DIV-6 (Check Status ignores unsaved edits, [#359](https://github.com/bcgov/nr-ilcr/issues/359)) and DIV-7
-(the Included Unacceptable save-first gate shows the Other Costs wording — found 2026-08-27, no ticket
-yet). Each asserts the correct legacy behaviour, so each goes green on its own when its fix lands.
+(the Included Unacceptable save-first gate shows the Subtotal Other Costs wording,
+[#373](https://github.com/bcgov/nr-ilcr/issues/373)). Each asserts the correct legacy behaviour, so each
+goes green on its own when its fix lands.
 
 ## Story AC traceability — bcgov/nr-ilcr#83 (Story 28.3, epic #226)
 
@@ -122,7 +123,7 @@ checked without reading the matrix below.
 | "run Check Status through its all-met, missing-required, Harvest<PO&P, and Override-suppression outcomes (S09–S12)" | `check-status.feature` — 6 scenarios: `@p0 @S09`, `@p0 @S10` (whole field inventory), `@p1 @S10` (sub-page fields), `@p1 @S11`, `@p1 @S12` and its mirror | `covered` — but see **DIV-6**: every one of these checks AFTER a save, which is why the suite did not catch that Check Status ignores unsaved edits |
 | "render each context guard and the read-only non-Draft state (S13–S16)" | `render-states.feature` — `@p1 @S13`, `@p1 @S14`, `@p2 @S16`, `@p1 @S15` outline (**both** Submitted and Verified) + `@p2 @S15` read-only sub-page | `covered` |
 | "retry a failed save (S17)" | `save-error.feature` `@p1 @S17` — both arms, with the record read back to prove nothing was written | `covered` |
-| "hit the save-before-sub-page gates (S18, S19)" | `save-first-gate.feature` `@p1 @S18` + `@p2 @S19` (the DIV-7 red) | `covered` since 2026-08-26 — this clause was `not-applicable` until #296 made an unsaved schedule openable. Both arms assert the gate fires and refuses to navigate; S19 additionally pins legacy's *second* wording, which the app does not have (**DIV-7**) |
+| "hit the save-before-sub-page gates (S18, S19)" | `save-first-gate.feature` `@p1 @S18` + `@discovered-divergence @p2 @S19` | `covered` since 2026-08-26 — this clause was `not-applicable` until #296 made an unsaved schedule openable. Both arms assert the gate fires and refuses to navigate; S19 additionally pins legacy's *second* wording, which the app does not have (**DIV-7** → [#373](https://github.com/bcgov/nr-ilcr/issues/373)) |
 | "reject out-of-range costs/volumes and blank descriptions on the main page and both sub-pages (S20–S24)" | `validation.feature` — 7 scenarios / 15 tests, every rejection proving zero writes **and** an unchanged record | `covered` |
 | "axe accessibility checks … against the Schedule 3 page and both sub-pages … WCAG violations are zero or triaged" | `accessibility.feature` — 4 renders (editable, both populated sub-pages, read-only) | `covered` — **zero violations, nothing to triage** |
 | "written after implementation — verification, not the red phase" | Stories 4.1/4.2/4.4 were `done` before this suite was authored | satisfied |
@@ -242,7 +243,7 @@ recorded rather than silently dropped:
 | ERR-004 | `Schedule not found.` | API `ProblemDetail.detail` (404) | `render-states.feature` `@p2 @S16`; `no-create.feature` | `covered` |
 | ALT-001 | `Annual Rent (Forest Act, S111) is recorded as an Unacceptable Cost.` | `window.alert` on blur, `index.tsx:44` | `alerts.feature` `@p1 @S02` | `covered` |
 | ALT-002 | `The schedule has to be saved before opening other costs` | `index.tsx:47`, verbatim, in the passive "Save required" modal (legacy hardcoded it in the link's `onclick`, `schedule3.xhtml:267` — it is not a bundle key) | `save-first-gate.feature` `@p1 @S18` | `covered` — restored by #296; was `not-applicable` |
-| ALT-003 | `The schedule has to be saved before opening Unacceptable costs` (capital U, and "Unacceptable costs" not "other costs" — `schedule3.xhtml:293`) | **missing** — both links share ALT-002's string via one generic handler (`index.tsx:272`) | `save-first-gate.feature` `@p2 @S19 @discovered-divergence` | `divergence` — **DIV-7** |
+| ALT-003 | `The schedule has to be saved before opening Unacceptable costs` (capital U, and "Unacceptable costs" not "other costs" — `schedule3.xhtml:293`) | **missing** — both links share ALT-002's string via one generic handler (`index.tsx:272`) | `save-first-gate.feature` `@discovered-divergence @p2 @S19` | `divergence` — **DIV-7** → [#373](https://github.com/bcgov/nr-ilcr/issues/373) |
 | WRN-001 | `The new Crown Timber volume has been applied to Schedule 1 volume fields. Please check.` | API `warnings[]` on the save echo | `crown-push.feature` `@p0 @S06` | `covered` |
 | WRN-002 | `The new Crown Timber volume couldn't been applied to Schedule 1 volume fields as it has not been opened.` (ungrammatical in the source bundle; asserted verbatim) | same | `crown-push.feature` `@p1 @S07` | `covered` |
 | STA-001 | read-only state (every figure as text, all three actions disabled) | `Schedule3Response.editable` | `render-states.feature` `@p1 @S15` outline, `@p2 @S15` | `covered` |
@@ -293,7 +294,7 @@ recorded rather than silently dropped:
 | BR-05 Crown / subtotals / totals / overhead are computed read-only | `happy-path` — the full arithmetic, UI **and** stored | `covered` |
 | BR-06 grouped other-acceptable rows (Description, Total, PO&P, derived Crown) | `other-costs.feature` `@p1 @S04` | `covered` |
 | BR-07 included-unacceptable rows (Description + Total only) | `unacceptable-costs.feature` `@p1 @S05` | `covered` |
-| BR-08 a sub-page cannot be opened until the schedule is saved | `save-first-gate.feature` `@p1 @S18` + `@p2 @S19` | `covered` since #296 — the rule holds on both links (the gate fires and refuses to navigate); only ALT-003's wording is outstanding (**DIV-7**). The navigate-away confirm legacy paired with it is preserved and asserted on every sub-page entry |
+| BR-08 a sub-page cannot be opened until the schedule is saved | `save-first-gate.feature` `@p1 @S18` + `@p2 @S19` | `covered` since #296 — the rule holds on both links (the gate fires and refuses to navigate); only ALT-003's wording is outstanding (**DIV-7** → [#373](https://github.com/bcgov/nr-ilcr/issues/373)). The navigate-away confirm legacy paired with it is preserved and asserted on every sub-page entry |
 | BR-09 a changed Crown Timber volume propagates into Schedule 1 | `crown-push.feature` both scenarios, read back on Schedule 1 | `covered` |
 | BR-10 Override "Y" suppresses the Harvest≥PO&P check (8 PO&P-bearing fixed lines + other-acceptable rows) | `check-status.feature` `@p1 @S12` + its mirror | `covered` — legacy-faithful; was wider than the sidecar described, which is now corrected at source (ex-**SPEC-1**; raised as DIV-2, retracted) |
 | BR-11 Check Status requires the amounts, both volumes and each row's description + cost | `check-status.feature` `@p0 @S10` (main page, whole inventory) + `@p1 @S10` (sub-page rows) | `covered` |

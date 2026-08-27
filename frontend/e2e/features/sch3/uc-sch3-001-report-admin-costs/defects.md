@@ -412,15 +412,23 @@ count does.
     string, matched verbatim (`components/schedule1/index.tsx:44`), so it is unaffected. No other legacy
     page has a save-first alert at all; Schedules 4 and 8 use the different
     `confirmNavigationFromNew{Camp,Transportation}` save-now prompt, which is not this pattern.
-  - **Ticket:** none yet — for the repo owner to file. p2, wording-only.
+  - **Ticket:** [bcgov/nr-ilcr#373](https://github.com/bcgov/nr-ilcr/issues/373) — *Schedule 3's "Included
+    Unacceptable Costs" save-first message says "...before opening other costs" instead of legacy's
+    "...before opening Unacceptable costs"*, labelled `bug`, filed by the repo owner 2026-08-27. The filed
+    issue deliberately omits two things this entry keeps, as the register is their home: the captured DOM
+    evidence (its Screenshots block ships empty, as #324's and #359's do) and the explanation of why the
+    suite missed it — see the last bullet below. Neither was lost; do not "restore" either into the ticket.
   - **Priority / env:** p2 · branch `test/schedule-3-e2e` · local seeded DB · Chrome.
-  - **Status:** OPEN — confirmed against legacy source and the running app; awaiting a ticket. Dev to add
-    the second string and select on the sub-page the handler is already passed; QA re-verifies and closes
-    when it lands. The scenario asserts the CORRECT behaviour, so it goes green on its own and only the tag
-    comes off. Found 2026-08-27 while auditing DIV-3's own claim.
-  - **Test:** `save-first-gate.feature` `@p2 @S19 @discovered-divergence` ×1 (S18, the Other Costs arm, is
-    green). Read-only: the scenario clicks a link that refuses to navigate, so it writes nothing and needs
-    no cleanup.
+  - **Status:** OPEN — confirmed and triaged by raising a ticket. Dev to add a second message constant
+    beside `ALT_SAVE_BEFORE_SUB_PAGE` (`components/schedule3/index.tsx:47`) holding legacy's
+    `:293` wording verbatim, and to carry the blocked route alongside the existing `subPageBlockedOpen`
+    flag (`:138`) so the modal body at `:685` selects on it — the handler already receives the route;
+    QA re-verifies and closes this entry when the fix lands. The `@discovered-divergence` scenario asserts
+    the CORRECT behaviour, so it is RED today and goes green on its own, at which point only its tag comes
+    off. No test change is needed. Found 2026-08-27 while auditing DIV-3's own re-closure claim.
+  - **Test:** `save-first-gate.feature` `@discovered-divergence @p2 @S19` ×1 (S18, the Subtotal Other Costs
+    arm, is green). Read-only: the scenario clicks a link that refuses to navigate, so it writes nothing and
+    needs no cleanup.
   - **Why the suite missed it for a day:** S18 and S19 were written together and shared one step,
     `Schedule 3 tells me to save first`, which asserted ALT-002's text. S19 therefore *passed* against the
     wrong message — a shared step hid a per-link difference. They now use separate steps.
