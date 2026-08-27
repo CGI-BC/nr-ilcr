@@ -177,6 +177,15 @@ count does.
     a counterpart again, and S18/S19 stopped being `not-applicable`: they are covered by
     `save-first-gate.feature` as of this branch. The navigate-away confirm this entry also defends is
     unchanged and still asserted on every sub-page entry.
+  - **WHY THIS ENTRY EVER EXISTED, since it now reads like an error and was not one (added 2026-08-27).**
+    When it was raised on 2026-08-24, an unsaved Schedule 3 answered **HTTP 404** on the PARENT page. The
+    save-first alert's precondition is "you are looking at a Schedule 3 that has never been saved" — and
+    there was no such screen to look at, so no link to click and no alert to fire. That was DIV-1, and it
+    made this gate unreachable rather than missing. The entry was TRUE when written, and it stopped being
+    true the moment #296 removed the 404 — the parent page opens unsaved, the sub-pages kept their 404, and
+    the client re-acquired the gate. Nothing about the finding was wrong; it **expired**. Schedule 1's
+    GAP-3 expired the same day for the same reason. The lesson is not "check harder before raising" but
+    "an entry whose premise is another open defect must be re-read when that defect closes".
   - **CORRECTION 2026-08-27 — this entry claimed "the app now matches legacy on both halves", and the
     ALT-003 half is NOT matched.** Legacy wrote TWO different strings, one per link:
     `schedule3.xhtml:267` "…before opening other costs" and `:293` "…before opening **U**nacceptable
@@ -619,6 +628,46 @@ deliberately excluded was re-checked against the new app rather than inherited �
 "Deliberately excluded by the slice catalogue".
 
 **Verified — not a defect:**
+
+- **VER-3 — "Schedule 3 doesn't show the save-first modal like Schedule 1 does." It does. The mill-year it
+  was tested on already had a SAVED Schedule 3. Re-checked live 2026-08-27; DIV-3 stays CLOSED.**
+  - **How the confusion arises, and it will arise again:** on **727/2021** Schedule 1 has never been saved
+    (`revisionCount` absent) while Schedule 3 has been saved **43 times** — it is this suite's `retry`
+    anchor, seeded by `draft-anchors.sql` and re-saved by every `save-error` run. So on one screen the gate
+    fires and on the other it correctly does not, on what looks like the same mill-year. That anchor is also
+    the mill-year defect #296 reproduces, which is why sch1's `no-schedule` was deliberately re-grounded
+    onto it — so it is the single most likely pair to be compared by hand.
+  - **Evidence the gate is present on Schedule 3** (captured DOM from the S19 red on the genuinely
+    never-saved `never-started` anchor, 24051/2015 = *Mill 8888 CGI TEST MILL8*): `dialog "Save required"` →
+    `heading "Save required"` → `paragraph: The schedule has to be saved before opening other costs`. Note
+    that S19 fails on the *wording*, not on the dialog's absence — the failure is itself the proof the modal
+    renders. Confirmed by hand by the repo owner the same day.
+  - **Legacy re-read in full, both link blocks** (`schedule3.xhtml:265-278` and `:291-304`) — perfectly
+    symmetric, three variants each, and the app matches all three: `…EditsEnabledAlert`
+    (`!disableReportEdits() and !isScheduleOpen()`) → the passive modal, no navigation; `…EditsEnabled`
+    (`… and isScheduleOpen()`) → the "Leave Schedule 3" confirm, then navigate; `…EditsDisabled`
+    (`disableReportEdits()`) → navigate with no confirm, covered by `render-states` `@p2 @S15`. The ONLY
+    thing legacy has that the app lacks is ALT-003's separate wording, which is **DIV-7** — that entry
+    stands, and this is not a reason to widen it.
+
+- **HOW TO TELL A NEVER-SAVED SCHEDULE FROM A SAVED ONE — you cannot do it by looking at the form.**
+  Since #296 an unsaved schedule renders a full blank editable form *on purpose*, and a saved schedule can
+  be blank too (this suite's cleanup restores every mutating anchor to empty). Three reliable tells:
+  1. **The Delete button.** Enabled = saved; **greyed out = never saved**. Defect #292 decision 1 kept
+     legacy's rule (no delete without a persisted record) but changed the mechanism from legacy's
+     *not rendered* to *disabled*, so the button is always there — look at whether it is live. A
+     screen-reader-only hint, `Available once the schedule is saved`, renders only in the
+     editable-but-unsaved state. Asserted on both schedules (`the Schedule 3 Delete action is not offered`
+     → `toBeDisabled()`).
+  2. **Click a sub-page count link.** "Save required" modal and you stay put = never saved. The
+     "Leave Schedule 3" discard confirm, then it navigates = saved.
+  3. **Definitive — ask the API.** `GET /api/v1/schedule3?millId=<id>&year=<yyyy>` and read
+     `revisionCount`: absent = never saved, any number = saved. **0 counts as SAVED** (a freshly seeded
+     summary carries 0), which is why the app's predicate is a loose `revisionCount != null`
+     (`utils/schedule.ts isScheduleSaved`) and not a truthiness test. The backend omits null fields
+     (`default-property-inclusion: non_null`), so an unsaved document serves `undefined` — a strict `!==`
+     here was defect #292. In the DB it is simply whether a category-`3` `THE.ILCR_REPORT_SUMMARY` row
+     exists for that mill-year.
 
 - **The Crown column, both subtotals and all three $/m³ figures move as you type, before Save.** This
   looked like the derived figures being computed on the client (which would contradict "the server owns
