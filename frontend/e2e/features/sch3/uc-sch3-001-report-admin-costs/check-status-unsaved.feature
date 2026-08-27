@@ -32,7 +32,7 @@ Feature: Report Forest Management Administration Costs (Schedule 3) — Check St
   So that I am not told the schedule is fine when what I am looking at is not
 
   @discovered-divergence @p1 @S12
-  Scenario: Check Status reflects an Override change that has not been saved yet
+  Scenario: Check Status reflects an Override change that has not been saved yet [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-6 / issue #359]
     Given the Schedule 3 anchor "check-override"
     And I have selected that mill and reporting year on the Home page
     When I open Schedule 3

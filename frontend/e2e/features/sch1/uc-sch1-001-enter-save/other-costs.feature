@@ -81,7 +81,7 @@ Feature: Report Average Cost of Logging (Schedule 1) — maintain Subtotal Other
   # It asserts the LEGACY guarantee — Remove asks first (`confirmDeleteMsg`), and the row survives until
   # the prompt is answered — not any particular modal chrome, which is the fixer's choice.
   @S12 @p1 @discovered-divergence
-  Scenario: Removing an Other Cost line item asks for confirmation before deleting it
+  Scenario: Removing an Other Cost line item asks for confirmation before deleting it [DISCOVERED DIVERGENCE — the row delete has no confirmation; defects.md DIV-3 / issue #362]
     Given an itemized Other Cost line item exists to remove
     And I have selected that mill and reporting year on the Home page
     And I open Schedule 1

@@ -31,7 +31,7 @@ Feature: Report Forest Management Administration Costs (Schedule 3) — removing
   So that a single mis-click cannot destroy a recorded cost with no way back
 
   @discovered-divergence @p1 @S04
-  Scenario: Removing an other-acceptable cost row asks for confirmation before deleting it
+  Scenario: Removing an other-acceptable cost row asks for confirmation before deleting it [DISCOVERED DIVERGENCE — the row delete has no confirmation; defects.md DIV-5 / issue #362]
     Given the Schedule 3 anchor "row-delete-confirm"
     And an other-acceptable cost row has already been saved
     And I have selected that mill and reporting year on the Home page

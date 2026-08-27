@@ -55,7 +55,7 @@ Feature: Report Forest Management Administration Costs (Schedule 3) — the cost
   # Unacceptable costs" for this one. The rewrite routes both links through one generic handler holding one
   # constant (`index.tsx:272` -> `:47`), so this link shows the Subtotal Other Costs string.
   @discovered-divergence @p2 @S19
-  Scenario: Opening Included Unacceptable Costs from a never-saved Schedule 3 asks me to save first
+  Scenario: Opening Included Unacceptable Costs from a never-saved Schedule 3 asks me to save first [DISCOVERED DIVERGENCE — the gate shows the Subtotal Other Costs wording; defects.md DIV-7 / issue #373]
     Given the Schedule 3 render-state anchor "never-started"
     And I have selected that mill and reporting year on the Home page
     When I open Schedule 3 expecting a guard
