@@ -11,6 +11,7 @@ import {
   CROWN_PREFILL_VOLUME,
   DELETE_ANCHOR,
   DELETE_ANCHOR_MILL,
+  MSG_SAVE_BEFORE_OTHER_COSTS,
   MUTABLE_DRAFT,
   MUTABLE_DRAFT_MILL,
   READONLY_ANCHOR,
@@ -180,6 +181,28 @@ Then('the Schedule 1 input form is not displayed', async ({ schedule1Page }) => 
 Then('the Schedule 1 input form is displayed', async ({ schedule1Page }) => {
   await expect(schedule1Page.companyLoggingTable).toBeVisible()
   await expect(schedule1Page.saveButton).toBeEnabled()
+})
+
+/**
+ * S08, the save-first gate. Clicks WITHOUT dismissing anything: the ordinary `openOtherCosts` helper
+ * asserts and answers the "Leave Schedule 1" discard prompt, which on a never-saved schedule would never
+ * appear — and asserting it would mask the gate this scenario exists to prove.
+ */
+When('I try to open the Schedule 1 Other Costs sub-page without saving', async ({ schedule1Page }) => {
+  await schedule1Page.clickOtherCostsExpectingGate()
+})
+
+Then('Schedule 1 tells me to save first', async ({ schedule1Page }) => {
+  await expect(
+    schedule1Page.saveRequiredDialog.getByText(MSG_SAVE_BEFORE_OTHER_COSTS, { exact: true }),
+    'the save-first gate no longer carries legacy schedule1.xhtml:497 verbatim',
+  ).toBeVisible()
+})
+
+/** The gate must REFUSE the navigation, not merely warn about it — that is the guarantee, not the modal. */
+Then('I am still on Schedule 1', async ({ page, schedule1Page }) => {
+  await expect(page).toHaveURL(/\/schedule-1$/)
+  await expect(schedule1Page.companyLoggingTable).toBeVisible()
 })
 
 /**

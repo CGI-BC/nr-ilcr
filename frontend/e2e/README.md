@@ -142,6 +142,24 @@ has broken, so it is the one that is safe to copy-paste and safe to automate.
 Which reds exist at any moment is recorded in each UC's `defects.md` (and, when the fix is someone else's,
 in `deferred-work.md`) — deliberately not listed here, so this file cannot go stale.
 
+**Counting tests: measure, never increment.** Each UC's `coverage.md` carries exactly one *Suite state*
+block with its own numbers and the date they were measured; nothing else restates them. There is no
+whole-suite total written down anywhere on purpose — it would be stale within a day. Measure it:
+
+```bash
+# tests per domain, and the whole chromium project
+npx playwright test --list --project=chromium
+
+# how many tracked reds, and where
+npx playwright test --list --project=chromium --grep "@discovered-bug|@discovered-divergence"
+```
+
+The `--project=chromium` listing includes the `setup` project's preflight checks as a dependency, so a
+per-domain `--grep` total is "preflight + that domain" — subtract, or group the listed rows by their
+`features/<domain>/` path. And note tags are matched against the full test title, so `@sch1` also matches
+`@sch11`; use the `@UC-…` tag when you need one domain exactly. Both traps have produced wrong numbers in
+these files before.
+
 > **Stressing a snapshot/restore scenario?** Pass `--workers=1`. `--repeat-each=N` in parallel does not
 > merely go red on the single-owner keys — it can overwrite one repeat's backup with another's
 > already-mutated state and restore that as the "baseline", silently drifting the seeded anchor. See the
@@ -170,8 +188,8 @@ Every scenario carries two kinds of tag:
 
   | Tag | Meaning |
   |---|---|
-  | `@discovered-divergence` | **Deliberately RED** — reproduces a divergence (app ≠ legacy spec, suspected defect). Never forced green; logged in the UC's `defects.md` for BA/QA → Jira; flips to green when the app is fixed. |
-  | `@discovered-bug` | **Deliberately RED** — reproduces a confirmed bug/regression awaiting a fix (has a Jira ticket). |
+  | `@discovered-divergence` | **Deliberately RED** — reproduces a divergence (app ≠ legacy spec, suspected defect). Never forced green; logged in the UC's `defects.md` for BA/QA → a GitHub issue on `bcgov/nr-ilcr`; flips to green when the app is fixed. |
+  | `@discovered-bug` | **Deliberately RED** — reproduces a confirmed bug/regression awaiting a fix (has a GitHub issue on `bcgov/nr-ilcr`). |
   | `@skip` | Genuinely can't be automated yet (e.g. blocked by a single mock admin role) — never used to hide a failure. |
 
   **Never force green:** a suspected-defect divergence / confirmed bug is a genuinely-failing tagged test,

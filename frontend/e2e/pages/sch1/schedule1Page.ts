@@ -262,4 +262,21 @@ export class Schedule1Page {
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Continue' }).click()
   }
+
+  /**
+   * The S08 save-first gate's `passiveModal` (`index.tsx:767`). Distinct from the "Leave Schedule 1"
+   * discard prompt above: this one refuses the navigation outright and has no Continue button. Reachable
+   * only on a never-saved schedule, which defect #296 made possible — see `save-first-gate.feature`.
+   */
+  get saveRequiredDialog(): Locator {
+    return this.page.getByRole('dialog', { name: 'Save required' })
+  }
+
+  /**
+   * Click the Other Costs link WITHOUT answering any dialog. Separate from `openOtherCosts` on purpose:
+   * that helper asserts and dismisses the discard prompt, which would mask the save-first gate entirely.
+   */
+  async clickOtherCostsExpectingGate(): Promise<void> {
+    await this.otherCostsButton.click()
+  }
 }

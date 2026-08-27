@@ -12,6 +12,7 @@ import {
   HAPPY_PATH_SCALING_POP,
   MSG_NOT_SAVED,
   MSG_SAVE_BEFORE_SUB_PAGE,
+  MSG_SAVE_BEFORE_UNACCEPTABLE,
   RENDER_STATE_ANCHORS,
   ROUTE_OTHER_ACCEPTABLE,
   ROUTE_SCHEDULE_3,
@@ -187,7 +188,18 @@ When(
 Then('Schedule 3 tells me to save first', async ({ schedule3Page }) => {
   await expect(
     schedule3Page.saveRequiredDialog.getByText(MSG_SAVE_BEFORE_SUB_PAGE, { exact: true }),
-    'the save-first gate no longer carries the verbatim legacy saveScheduleBeforeOpeningOtherCosts text',
+    'the save-first gate no longer carries legacy schedule3.xhtml:267 verbatim',
+  ).toBeVisible();
+});
+
+// DIV-7. Legacy words the two gates DIFFERENTLY — `schedule3.xhtml:293` for the Included Unacceptable
+// link, `:267` for Other Costs. The app has one string for both, so this asserts the legacy guarantee and
+// is RED until the second wording is restored. Deliberately a separate step: reusing the one above would
+// have let S19 pass against the wrong message, which is exactly how this went unnoticed.
+Then('Schedule 3 tells me to save first before Unacceptable costs', async ({ schedule3Page }) => {
+  await expect(
+    schedule3Page.saveRequiredDialog.getByText(MSG_SAVE_BEFORE_UNACCEPTABLE, { exact: true }),
+    'the Included Unacceptable save-first gate does not carry legacy schedule3.xhtml:293 verbatim',
   ).toBeVisible();
 });
 

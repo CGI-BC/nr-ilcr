@@ -7,7 +7,7 @@
 
 | Source | What it contributed |
 |---|---|
-| `UC-SCH4-001/gherkin/*.feature` (31 slices S01–S31) | the executable scenarios |
+| `UC-SCH4-001/gherkin/*.feature` (**34** slices S01–S34) | the executable scenarios. S32 is "Correct a Sub-Page Row In Place"; **S33/S34 arrived upstream 2026-08-27 with ilcr-bmad PR #92** — the Check-Status-on-unsaved-edits arms, `deferred` here and gated on [#359](https://github.com/bcgov/nr-ilcr/issues/359) (Schedule 3's GAP-4 is the cross-schedule tracker and carries the one live red) |
 | `UC-SCH4-001-slices.md` (Relevant Controls / Messages / Fields / Business Rules per slice; Gap Analysis) | 9 business rules (BR-01…BR-09), 27 fields, the deliberate-exclusion list |
 | `UC-SCH4-001-technical.md` (Confirmed Messages, Validation Rules, UI Element Reference) | the ERR/WRN/STA/CNT/FLD/SUC/EF2/NAV catalogue (25 rows) |
 
@@ -38,7 +38,7 @@ See GAP-1.
 | Source item | Source citation | App enforcement / render point | Scenario (tags) | Status | Gap/defect |
 |---|---|---|---|---|---|
 | Add a location with a fixed + a distance category; success message; $/m³ recomputed | S01, BR-05, BR-06 | `index.tsx` `putLocation`→`PUT /v1/schedule4/locations`; `Schedule4Service.saveLocation`; `perUnit` in `Schedule4Service.perUnit` | happy-path `@S01 @p0` | covered | — |
-| …the recomputed $/m³ shown on the panel that saved it | S01, S02 ("shows the recomputed cost-per-volume") | `handleSave` never re-seeds `panelPerUnit` | nav-and-recompute `@S01 @S02 @discovered-divergence` | divergence | DIV-4 |
+| …the recomputed $/m³ shown on the panel that saved it | S01, S02 ("shows the recomputed cost-per-volume") | now re-seeded after save — issue #291's fix (`6e86d7a`) | nav-and-recompute `@S01 @S02` | covered | ex-DIV-4 — FIXED, tag retired |
 | Legacy grid row order (12 categories + 3 sub-page groups interleaved by cost-item code; dead 54 absent) | slices Field Reference; `subPageDefs.ts` | `GRID_ENTRIES` sort in `index.tsx` | happy-path `@S01 @p0` | covered | — |
 | Edit a saved location's amount and re-save | S02, AF1 | `putLocation` with `id`+`revisionCount` | update `@S02 @p0` | covered | — |
 | Optimistic lock refreshed after a save (a 2nd save must not 409) | §Decision 3 (Story 10.2) | `handleSave` re-seeds `panelRevision` | update `@S02 @p1` | covered | — |
@@ -132,7 +132,7 @@ See GAP-1.
 | STA-001 Copy/Delete disabled | S18, BR-03 | `disabled={!editable \|\| saving}` | render-states `@S18 @p0` outline | covered (mechanism re-grounded: disabled, not omitted) | — |
 | STA-001 the panel renders read-only (values as text, no inputs) | S18 | `readOnlyPanel` branches | render-states `@S18 @p0` outline | covered | — |
 | STA-001 the sub-page loses its add-row form and per-row Delete | S18 + Story 10.6 AC5 | `editable &&` guards in `SubPage.tsx` | render-states `@S18 @p0` outline | covered | — |
-| STA-001 Check Status disabled outside Draft | S18 (explicit), technical Control Reference `schedule4.xhtml:43` | NOT disabled (`disabled={saving}` only) | render-states `@S18 @discovered-divergence` | divergence | DIV-1 |
+| STA-001 Check Status disabled outside Draft | S18 (explicit), technical Control Reference `schedule4.xhtml:43` | disabled — `disabled={!editable \|\| saving}` (`index.tsx:879`), fixed 2026-08-24 | render-states `@S18` | covered | ex-DIV-1 — tag retired; #322 stays open for **Schedule 8** |
 | The empty-list state | S01 precondition | `data.locations.length === 0` branch | render-states `@S01 @p2` | covered | — |
 | NAV-004 confirm text | NAV-004 (`confirmDeleteMsgPart1` + `Part2`) | `CONFIRM_DELETE` in `index.tsx` | delete `@S10 @p0` | covered (punctuation re-grounded) | DIV-6 (CLOSED, not a defect) |
 | NAV-005 row-delete confirm text | NAV-005 | `CONFIRM_DELETE_ROW` in `SubPage.tsx` | subpage-rows `@S11 @p0` | covered | — |
@@ -171,6 +171,11 @@ named rather than absorbed — three of them counting against coverage, GAP-3 cl
 
 ## Run summary (authored 2026-08-17, stress + final gate 2026-08-18; local delivery DB, app commit `9632f7f`)
 
+> These two tables are **dated historical records**, kept for the stress-test evidence and the residue
+> sweep, which have not been repeated since. Their pass/fail counts are NOT current — the preflight has
+> grown from 117 to 126 checks and two reds have been fixed. For the current numbers read the *Suite state*
+> block below them.
+
 | Run | Command | Result |
 |---|---|---|
 | Full suite | `npm test -- --grep @sch4` | **197 passed / 0 skipped / 11 deliberately-red** of 208 (8 `@discovered-divergence`, 3 `@discovered-bug`) — no unexplained red. Two of the reds are BUG-4, added 2026-08-20; one of them previously PASSED on a subset assertion that could not see the defect. NOTE the total includes the `setup` project's 117 preflight assertions, which run as a dependency. |
@@ -179,30 +184,37 @@ named rather than absorbed — three of them counting against coverage, GAP-3 cl
 | Cleanup blind spot | the full run INCLUDES the `@discovered-*` reds | their teardown was exercised too (the residue sweep above followed that run) |
 | Parallel stress ×3 | `--repeat-each=5` (twice at default workers, once at `--workers=4`) | **512 / 514 each run — 1,542 executions, 6 failures, ALL at the entry point (app-shell paint, Home's first fetch, one Chrome launch >60 s), never the same test twice, and ZERO data-contention failures.** Two genuine readiness waits were stabilised as a result (see `defects.md`); the rest is this box's dev-mode Vite server saturating under ~24 concurrent browsers for 20+ min. Reported as measured rather than retried away or timeout-inflated — see the note below. |
 
-**RE-MEASURED 2026-08-24, after this suite merged upstream** (the row above is the authoring-time record and
-is left as written). The numbers moved by exactly +2, and only because two preflight guards that had been
-crashing now execute — see VER-8 in `defects.md`:
+> ### Suite state — the ONE place this is recorded
+> **73 scenarios / 91 tests after Scenario-Outline expansion: 82 green + 9 deliberately-red.** Measured
+> from the generated specs and a full run on **2026-08-27**. The run rows above are the dated
+> authoring-time records and are left as written. No whole-suite total is written down anywhere by design —
+> the e2e [`README.md`](../../../README.md) gives the command to measure one.
+>
+> **Two reds went green and this file did not follow.** It said 11 (8 divergence + 3 bug) through three
+> tables, after DIV-1's Schedule 4 half was fixed on 2026-08-24 and DIV-4 was fixed by #291's landing. Both
+> tags had already been retired in the feature files, so the tables disagreed with the suite they described.
+> Re-measure with `npx playwright test --list --project=chromium` and edit **this block only**.
 
-| Run | Command | Result |
-|---|---|---|
-| Schedule 4 scope | `npm test -- --grep @sch4` | **210 tests** = 119 preflight + 91 Schedule 4; 11 deliberately-red, 199 green, no unexplained red |
-| The gate | `npm run test:gate -- --grep @sch4` | **199 tests** — the 11 known reds excluded |
-| Whole suite, every domain | `npm test` | **313 passed / 15 failed** — the 13 tracked `@discovered-*` reds across all domains (5 bug + 8 divergence) plus 2 Home-content `color-contrast` reds that are admin-authored content, not app CSS (the seeded welcome message's `rgb(51,204,0)` at 2.15:1 and `rgb(204,51,204)` at 4.27:1) |
-
-The 11 deliberate reds (8 `@discovered-divergence` + 3 `@discovered-bug`, matching the run summary above),
-grouped below by the `defects.md` entry each is named in with an `ACTION: BA/QA → Jira`. Seven rows, because
-some entries are red in more than one scenario — the inline `×n` is a scenario count (absent means ×1), and
-those counts sum to 11. All 11 are plain `Scenario`s; none expands through `Examples`:
+The 9 remaining deliberate reds (6 `@discovered-divergence` + 3 `@discovered-bug`), grouped by the
+`defects.md` entry each is named in. Five rows, because some entries are red in more than one scenario —
+the inline `×n` is a scenario count (absent means ×1), and those counts sum to 9. All 9 are plain
+`Scenario`s; none expands through `Examples`:
 
 | Red | Entry | What it tracks |
 |---|---|---|
-| render-states `@S18` | DIV-1 | Check Status stays enabled outside Draft |
 | check-status `@S28` | DIV-2 | the Check Status issue does not name the category |
 | nav-and-recompute `@S12` ×3 | DIV-3 | NAV-001 confirm is not implemented — panel Back, Add New Location, and sub-page Back |
-| nav-and-recompute `@S01 @S02` | DIV-4 | the recomputed $/m³ is stale until the location is reopened |
 | update `@S02` ×2 | BUG-4 | a category cleared to fully-empty is silently discarded (data loss) |
 | accessibility ×2 | DIV-7 | the editing-row highlight should not exist (legacy had none); it also fails contrast at 3.81:1, Draft and View |
 | accessibility ×1 | BUG-1 | app-wide: a hovered table row fails contrast (3.79:1) |
+
+**Retired, GREEN, no longer reds** — kept here so a reader comparing against an older copy of this file can
+see where the two went:
+
+| Ex-red | Entry | Fixed |
+|---|---|---|
+| render-states `@S18` | DIV-1 | 2026-08-24 (defect #293's code review) — Schedule 4 half only; **#322 stays open for Schedule 8**, still `disabled={saving}` at `schedule8/index.tsx:792` |
+| nav-and-recompute `@S01 @S02` | DIV-4 | issue #291's fix (`6e86d7a`) — the panel shows the recomputed $/m³ without a reopen |
 
 > ⚠️ **Every mutating scenario owns its own (mill, year)** — 50 of them, listed in
 > `fixtures/sch4/schedule4-test-data.ts`'s anchor table, and `preflight/sch4-anchors.setup.ts` fails the run

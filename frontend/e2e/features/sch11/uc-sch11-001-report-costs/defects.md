@@ -6,7 +6,8 @@ verified against the running app and the seeded local delivery DB on that date �
 from another UC on trust.
 
 **Headline: one pre-existing app-wide accessibility bug (re-covered as a deliberate RED), and no
-Schedule-11 bugs.** 28 of 29 scenarios pass; the single red is BUG-1 — a critical WCAG defect
+Schedule-11 bugs.** 28 of 29 tests pass (26 scenarios; re-measured 2026-08-27, and
+[`coverage.md`](coverage.md) is the authoritative count); the single red is BUG-1 — a critical WCAG defect
 in Carbon's validation-error markup that affects every schedule page and is already tracked in
 `deferred-work.md`, which explicitly asked for it to be re-covered by a red check here. Schedule 11's own
 behaviour was correct on every path exercised, including the four legacy items the requirements could not

@@ -36,8 +36,8 @@
 --      only — WRN-001 requires Schedule 1 to be "opened"
 --      (applyCrownTimberVolume returns false without it). The `crown-not-opened`
 --      anchor deliberately has none, so the same save yields WRN-002.
---   3. Stored amounts on the four READ-ONLY check-status / accessibility
---      anchors, so their Check Status outcome is a property of the seed rather
+--   3. Stored amounts on FIVE READ-ONLY check-status / accessibility anchors,
+--      so their Check Status outcome is a property of the seed rather
 --      than something a scenario has to write (they are never written to):
 --        22050/2020 — complete, Wages/Salaries Harvest 40,000 < PO&P 50,000,
 --                     Override N -> the single BR-03 fixed-line error (S11)
@@ -50,6 +50,10 @@
 --        23050/2018 — complete and clean + one other-acceptable group + one
 --                     included-unacceptable row -> a populated page and two
 --                     populated sub-pages for the axe sweeps
+--        23050/2019 — complete and clean, plus a DELIBERATELY INCOMPLETE group
+--                     and unacceptable row ('M') -> the BR-11 sub-page checks
+--                     (a group with no description and no PO&P; a row with no
+--                     Total), which cannot be produced through the UI at all
 --      "Complete" = all 11 Harvest costs, the 8 PO&P costs the check requires,
 --      and both timber volumes — exactly the set `Schedule3Service.CHECK_LINES`
 --      plus the two volume checks read, so nothing else can fail the check.
@@ -72,9 +76,12 @@
 -- rows plus (on ONE anchor) the patched category-1 Schedule 1.
 --
 -- IDEMPOTENT: every insert is guarded on its own existence check, so re-running
--- is a no-op. It is ALSO the repair path the destructive S08 delete scenario
--- uses at teardown — `steps/sch3/schedule3DbRestore.ts` re-runs this file to put
--- the deleted summary back (the app cannot recreate it; see WHY above).
+-- is a no-op. `steps/sch3/schedule3DbRestore.ts` still re-runs this file at
+-- teardown, but since #296 only for the ONE thing the app cannot recreate: the
+-- crown anchor's category-1 Schedule 1 summary (`schedule3Api.restoreAnchor`
+-- calls it when `alsoRestoreSchedule1` and that summary is missing). The
+-- destructive S08 delete scenario no longer needs it — an empty PUT recreates
+-- the category-3 summary now.
 --
 -- SENTINEL: every row this file inserts carries
 -- ENTRY_USERID / UPDATE_USERID = 'E2E_SEED_SCH3'. The teardown keys on it, so it
@@ -84,9 +91,16 @@
 -- anchor (Draft, editable, the expected at-rest emptiness or the expected stored
 -- amounts) and both guard responses before a browser opens. If a future extract
 -- carries free Draft Schedule 3 pairs, discover real anchors and retire the
--- corresponding inserts. If the app gains a create-on-save path (see
--- features/sch3/uc-sch3-001-report-admin-costs/defects.md DIV-1), retire part 1
--- of this patch entirely and let the scenarios create their own schedules.
+-- corresponding inserts.
+--
+-- PART 1 IS NOW RETIRABLE, AND DELIBERATELY NOT RETIRED. The create-on-save path
+-- this header used to wish for arrived with defect #296 (2026-08-26): Save
+-- creates the category-3 summary, so a scenario CAN make its own schedule and
+-- DIV-1 is closed. Part 1 is kept because parts 2 and 3 depend on those
+-- summaries existing first (the amounts in part 3 attach to them, and part 2's
+-- Schedule 1 pairs with one), and because the read-only anchors must not be
+-- written to by any scenario. Retire part 1 only together with a rework of the
+-- read-only fixtures.
 -- ============================================================================
 
 SET DEFINE OFF

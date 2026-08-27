@@ -2,8 +2,8 @@
 
 > New to these files? See [`coverage-guide.md`](../../../coverage-guide.md) at the e2e root for the column + status-flag legend.
 
-Sources reconciled: `UC-SCH3-001-S01..S24.feature` (24 slices, 34 scenarios) + `UC-SCH3-001-slices.md`
-(the 62-field / 11-rule / 5-precondition / 4-combination Gap Analysis Summary and its 12 deliberate
+Sources reconciled: `UC-SCH3-001-S01..S26.feature` (26 slices, 39 scenarios) + `UC-SCH3-001-slices.md`
+(the 62-field / **12**-rule / 5-precondition / 4-combination Gap Analysis Summary and its 12 deliberate
 exclusions) + `UC-SCH3-001-detailed.md` + `UC-SCH3-001-technical.md` (message catalog ERR-001..004,
 ALT-001..003, WRN-001/002, STA-001/002, CNT-001, FLD-001..003, SUC-001..003, ASY-001), against the app's
 real write path (`schedule3/api/Schedule3Api.java` GET/PUT/DELETE + `check-status`, the two sub-resource
@@ -14,7 +14,9 @@ APIs, `Schedule3Controller`, `Schedule3Service`, `Schedule3Constants`, `dto/Sche
 > **Where the source documents live.** They are in the **`ilcr-bmad`** planning repo, not this one, so no
 > relative link from here can resolve (this suite is deliberately self-contained so it can be lifted into
 > the app repo). Repo-root-relative paths in `ilcr-bmad`:
-> `_bmad-output/implementation-artifacts/tests/UC-SCH3-001/gherkin/` (the 24 `.feature` slices) and
+> `_bmad-output/implementation-artifacts/tests/UC-SCH3-001/gherkin/` (the 26 `.feature` slices — S25 and
+> S26 were added upstream 2026-08-27 by ilcr-bmad PR #92, the "Check Status evaluates unsaved on-screen
+> edits" recovery; they are this suite's **GAP-4** / **DIV-6**) and
 > `_bmad-output/planning-artifacts/requirements/use-cases/UC-SCH3-001/` (the detailed UC, slice catalog
 > and technical sidecar).
 
@@ -26,14 +28,21 @@ status / `trackStatus` / `editable` / stored values. Every **mutating** scenario
 every anchor, its at-rest contents, the two BR-09 Schedule 1 states, the seeded amounts and both guard
 responses before a browser opens.
 
-**Why this domain needs a seed patch — read this first.** Schedule 3 has **no create path**: every
-operation resolves the category-3 summary and 404s when it is absent, where legacy created that row on
-the first Save. The extract marks Schedule 3 *required* on 118 mill-years and *started* on only 31, so 87
-Draft mill-years cannot be entered at all — that is **defects.md DIV-1**, tracked by a deliberately-RED
-scenario. It also means a Schedule 3 anchor cannot be created through the API, so
-`real-test-data-patches/sch3/draft-anchors.sql` seeds the one row legacy's first Save would have written
-on 16 mill-years (and, on four of them, stored amounts the read-only Check Status scenarios need). **If
-DIV-1 is fixed, most of that patch can be retired.**
+**Why this domain still needs a seed patch — read this first.** The original reason is **gone**: until
+defect #296 landed (2026-08-26) Schedule 3 had **no create path**, every operation 404'd when the
+category-3 summary was absent, and 87 Draft mill-years could not be entered at all. That was
+**defects.md DIV-1**, and it is **FIXED** — Save now creates the summary, so *part 1 of the patch is
+retirable* and a scenario could create its own schedule.
+
+It is deliberately kept anyway, for two reasons that #296 did not touch:
+- the four **read-only** Check Status anchors and the a11y anchor need *stored amounts* no scenario ever
+  writes (a read-only fixture cannot seed itself), and
+- the BR-09 `crown-applied` anchor needs a pre-existing **category-1** Schedule 1 summary, which is what
+  makes `applyCrownTimberVolume` return WRN-001 rather than WRN-002.
+
+`real-test-data-patches/sch3/draft-anchors.sql` therefore seeds: an empty category-3 summary on **17**
+mill-years, one category-1 summary on the crown anchor, and stored amounts on **5** of them. The
+retirable half is left in place rather than deleted — see the note at the head of that file.
 
 **Cross-schedule note (why the anchor choice matters here more than elsewhere):** Schedule 1 pulls its
 item-143 / item-139 costs **from** Schedule 3, Schedule 2 carries its purchased-log volume and wood
@@ -49,9 +58,14 @@ Rents S111 alert (`alerts.feature`); S04/S05 the two cost sub-pages (`other-cost
 `unacceptable-costs.feature`); S06/S07 the BR-09 crown push, both outcomes, read back on Schedule 1
 (`crown-push.feature`); S08 delete + cancel (`delete.feature`); S09–S12 Check Status through all four
 outcomes plus the S12 mirror (`check-status.feature`); S13–S16 the guards and the read-only render
-(`render-states.feature`); S17 a persistence failure and its retry (`save-error.feature`); S20–S24 entry
-rejection on the main page and both sub-pages (`validation.feature`); WCAG 2.1 AA across four
-structurally distinct renders (`accessibility.feature`); and the DIV-1 divergence (`no-create.feature`).
+(`render-states.feature`); S17 a persistence failure and its retry (`save-error.feature`); S18/S19 the
+save-first gate on both sub-pages (`save-first-gate.feature`); S20–S24 entry rejection on the main page and
+both sub-pages (`validation.feature`); WCAG 2.1 AA across four structurally distinct renders
+(`accessibility.feature`); a never-started schedule opening enterable (`no-create.feature`, the ex-DIV-1
+red); and four scenarios that exist to track divergences — the row-delete confirm
+(`row-delete-confirm.feature`, DIV-5), Check Status on unsaved edits (`check-status-unsaved.feature`,
+DIV-6), plus the optimistic-lock refusal (`concurrency.feature`) and the sub-page Back guard
+(`subpage-back.feature`), which are rewrite-only gains rather than legacy slices.
 
 **2026-08-26 — defect #296 landed and moved this matrix in four ways.** The fix
 ("fix(schedules-1-3): open a blank, usable form when nothing is saved yet", fork `main` `60c24dd`, merged
@@ -73,16 +87,26 @@ summary on absent. Consequences, all verified by running the suite against the r
 (`concurrency.feature`, ex-**GAP-2**, mirroring `sch4` and `sch11`) and the sub-page Back-with-unsaved-edits
 guard (`subpage-back.feature`, ex-**GAP-3**). Both GREEN.
 
-**ALL 24 slices are now dispositioned `covered`** — S18 and S19 were `not-applicable` for the life of
+**ALL 26 slices are now dispositioned `covered`** — S18 and S19 were `not-applicable` for the life of
 this suite because the state they describe could not be reached; the defect #296 fix made it reachable and
-they are covered as of 2026-08-26 (see below). **38 scenarios / 47 tests after Scenario-Outline expansion:
-45 green + 2 deliberate `@discovered-divergence` REDs** (DIV-5 and DIV-6 — DIV-1's red went green when
-#296 landed and its tag was retired). A clean run is
-`npm run test:gate` (regenerates the features first and excludes every `@discovered-*` red); verified
-green twice consecutively, and the suite ran identically across two back-to-back full runs. Counts
-measured from the generated specs 2026-08-26, not incremented.
+both are covered as of 2026-08-26 (S19 by a deliberate red, see DIV-7).
 
-Priorities: **5 × p0, 30 × p1, 12 × p2.** (Measured from the generated specs 2026-08-26.)
+> ### Suite state — the ONE place this is recorded
+> **38 scenarios / 47 tests after Scenario-Outline expansion: 44 green + 3 deliberate
+> `@discovered-divergence` REDs** (DIV-5, DIV-6, DIV-7). Measured from the generated specs and a full
+> run on **2026-08-27**, not incremented. Priorities: **5 × p0, 29 × p1, 13 × p2** (= 47, and that sum is
+> worth re-checking whenever you edit this — a breakdown that no longer adds up to its total is how three
+> of these numbers went stale unnoticed).
+>
+> Every other file that used to restate these numbers now points here instead, because they moved four
+> times in three days and the copies disagreed each time. If you change a scenario, re-measure with
+> `npx playwright test --list --project=chromium` and edit **this block only**.
+
+A clean run is `npm run test:gate` (regenerates the features first and excludes every `@discovered-*`
+red). The three reds are DIV-5 (row delete has no confirm, [#362](https://github.com/bcgov/nr-ilcr/issues/362)),
+DIV-6 (Check Status ignores unsaved edits, [#359](https://github.com/bcgov/nr-ilcr/issues/359)) and DIV-7
+(the Included Unacceptable save-first gate shows the Other Costs wording — found 2026-08-27, no ticket
+yet). Each asserts the correct legacy behaviour, so each goes green on its own when its fix lands.
 
 ## Story AC traceability — bcgov/nr-ilcr#83 (Story 28.3, epic #226)
 
@@ -98,16 +122,18 @@ checked without reading the matrix below.
 | "run Check Status through its all-met, missing-required, Harvest<PO&P, and Override-suppression outcomes (S09–S12)" | `check-status.feature` — 6 scenarios: `@p0 @S09`, `@p0 @S10` (whole field inventory), `@p1 @S10` (sub-page fields), `@p1 @S11`, `@p1 @S12` and its mirror | `covered` — but see **DIV-6**: every one of these checks AFTER a save, which is why the suite did not catch that Check Status ignores unsaved edits |
 | "render each context guard and the read-only non-Draft state (S13–S16)" | `render-states.feature` — `@p1 @S13`, `@p1 @S14`, `@p2 @S16`, `@p1 @S15` outline (**both** Submitted and Verified) + `@p2 @S15` read-only sub-page | `covered` |
 | "retry a failed save (S17)" | `save-error.feature` `@p1 @S17` — both arms, with the record read back to prove nothing was written | `covered` |
-| "hit the save-before-sub-page gates (S18, S19)" | — | **`not-applicable`** — the gate cannot exist in the rewrite; see **DIV-3** (closed), and DIV-1 for why |
+| "hit the save-before-sub-page gates (S18, S19)" | `save-first-gate.feature` `@p1 @S18` + `@p2 @S19` (the DIV-7 red) | `covered` since 2026-08-26 — this clause was `not-applicable` until #296 made an unsaved schedule openable. Both arms assert the gate fires and refuses to navigate; S19 additionally pins legacy's *second* wording, which the app does not have (**DIV-7**) |
 | "reject out-of-range costs/volumes and blank descriptions on the main page and both sub-pages (S20–S24)" | `validation.feature` — 7 scenarios / 15 tests, every rejection proving zero writes **and** an unchanged record | `covered` |
 | "axe accessibility checks … against the Schedule 3 page and both sub-pages … WCAG violations are zero or triaged" | `accessibility.feature` — 4 renders (editable, both populated sub-pages, read-only) | `covered` — **zero violations, nothing to triage** |
 | "written after implementation — verification, not the red phase" | Stories 4.1/4.2/4.4 were `done` before this suite was authored | satisfied |
 
-> **The one clause this suite cannot satisfy as written** is the S18/S19 gate. It is not an oversight and
-> not a shortcut: the warning existed to stop a reporter opening a sub-page *before the schedule had ever
-> been saved*, and in the rewrite a Schedule 3 that can be opened at all already exists. Reproducing the
-> gate would mean reproducing a state the app cannot reach. DIV-3 records the replacement behaviour, which IS present and asserted verbatim (a
-> discard-unsaved-edits modal, asserted verbatim on every sub-page entry) and DIV-1 records the reason.
+> **Every #83 clause is now satisfied.** This note used to read "the one clause this suite cannot satisfy
+> as written is the S18/S19 gate", on the reasoning that a Schedule 3 which can be opened at all is already
+> saved, so the state was unreachable. **That reasoning expired with defect #296** (2026-08-26): the parent
+> page now opens unsaved while the sub-pages deliberately keep their 404, so the gate is back and testable.
+> Kept here as history because it explains why the two slices sat `not-applicable` for a month, and because
+> the same expiry hit Schedule 1's GAP-3 — worth remembering that "unreachable by construction" is a claim
+> about *today's* construction.
 
 ## Re-grounding headline
 
@@ -215,12 +241,12 @@ recorded rather than silently dropped:
 | ERR-003 | `This Mill is not active for the current Reporting Year. Please select another mill from the Home Page.` | API `ProblemDetail.detail` (409) | `render-states.feature` `@p1 @S14` | `covered` |
 | ERR-004 | `Schedule not found.` | API `ProblemDetail.detail` (404) | `render-states.feature` `@p2 @S16`; `no-create.feature` | `covered` |
 | ALT-001 | `Annual Rent (Forest Act, S111) is recorded as an Unacceptable Cost.` | `window.alert` on blur, `index.tsx:44` | `alerts.feature` `@p1 @S02` | `covered` |
-| ALT-002 | `The schedule has to be saved before opening other costs` | **no new-app equivalent** | — | `not-applicable` — **DIV-3** |
-| ALT-003 | `The schedule has to be saved before opening Unacceptable costs` | **no new-app equivalent** | — | `not-applicable` — **DIV-3** |
+| ALT-002 | `The schedule has to be saved before opening other costs` | `index.tsx:47`, verbatim, in the passive "Save required" modal (legacy hardcoded it in the link's `onclick`, `schedule3.xhtml:267` — it is not a bundle key) | `save-first-gate.feature` `@p1 @S18` | `covered` — restored by #296; was `not-applicable` |
+| ALT-003 | `The schedule has to be saved before opening Unacceptable costs` (capital U, and "Unacceptable costs" not "other costs" — `schedule3.xhtml:293`) | **missing** — both links share ALT-002's string via one generic handler (`index.tsx:272`) | `save-first-gate.feature` `@p2 @S19 @discovered-divergence` | `divergence` — **DIV-7** |
 | WRN-001 | `The new Crown Timber volume has been applied to Schedule 1 volume fields. Please check.` | API `warnings[]` on the save echo | `crown-push.feature` `@p0 @S06` | `covered` |
 | WRN-002 | `The new Crown Timber volume couldn't been applied to Schedule 1 volume fields as it has not been opened.` (ungrammatical in the source bundle; asserted verbatim) | same | `crown-push.feature` `@p1 @S07` | `covered` |
 | STA-001 | read-only state (every figure as text, all three actions disabled) | `Schedule3Response.editable` | `render-states.feature` `@p1 @S15` outline, `@p2 @S15` | `covered` |
-| STA-002 | "the schedule has never been saved" (drives ALT-002/003) | **no new-app equivalent** — see DIV-1 | — | `not-applicable` — **DIV-3** |
+| STA-002 | "the schedule has never been saved" (drives ALT-002/003) | `utils/schedule.ts isScheduleSaved` (`revisionCount != null`) — the rewrite's counterpart to legacy's `schedule3MB.isScheduleOpen()` | `save-first-gate.feature` (both scenarios turn on this state); `no-create.feature` | `covered` — the state exists again since #296; it also drives four re-grounded proxies, see **VER-2** |
 | CNT-001 | `Subtotal Other Costs (n):` / `Included Unacceptable Costs (n):` | ghost-button labels, server counts | `other-costs.feature`, `unacceptable-costs.feature` | `covered` | 
 | FLD-001 | `Entered cost must be between -99,999,999 and 99,999,999.` | `validation.ts` (mirrors the backend bundle) | `validation.feature` `@p1 @S20`, `@p2 @S21` | `covered` |
 | FLD-002 | `Entered volume must be between 0 and 9,999,999.` | same (Schedule 3 volumes are non-negative) | `validation.feature` `@p1 @S22` | `covered` |
@@ -267,10 +293,11 @@ recorded rather than silently dropped:
 | BR-05 Crown / subtotals / totals / overhead are computed read-only | `happy-path` — the full arithmetic, UI **and** stored | `covered` |
 | BR-06 grouped other-acceptable rows (Description, Total, PO&P, derived Crown) | `other-costs.feature` `@p1 @S04` | `covered` |
 | BR-07 included-unacceptable rows (Description + Total only) | `unacceptable-costs.feature` `@p1 @S05` | `covered` |
-| BR-08 a sub-page cannot be opened until the schedule is saved | — | `not-applicable` — **DIV-3** (closed); the navigate-away confirm that legacy paired with it IS preserved and asserted |
+| BR-08 a sub-page cannot be opened until the schedule is saved | `save-first-gate.feature` `@p1 @S18` + `@p2 @S19` | `covered` since #296 — the rule holds on both links (the gate fires and refuses to navigate); only ALT-003's wording is outstanding (**DIV-7**). The navigate-away confirm legacy paired with it is preserved and asserted on every sub-page entry |
 | BR-09 a changed Crown Timber volume propagates into Schedule 1 | `crown-push.feature` both scenarios, read back on Schedule 1 | `covered` |
 | BR-10 Override "Y" suppresses the Harvest≥PO&P check (8 PO&P-bearing fixed lines + other-acceptable rows) | `check-status.feature` `@p1 @S12` + its mirror | `covered` — legacy-faithful; was wider than the sidecar described, which is now corrected at source (ex-**SPEC-1**; raised as DIV-2, retracted) |
 | BR-11 Check Status requires the amounts, both volumes and each row's description + cost | `check-status.feature` `@p0 @S10` (main page, whole inventory) + `@p1 @S10` (sub-page rows) | `covered` |
+| BR-12 Check Status evaluates what is ON SCREEN, including unsaved edits (legacy's `ajax="false"` full postback) | `check-status-unsaved.feature` `@p1 @S12 @discovered-divergence` — the Override arm only | `divergence` — **DIV-6** ([#359](https://github.com/bcgov/nr-ilcr/issues/359)); the remaining arms are **GAP-4**. Recovered upstream 2026-08-27 (ilcr-bmad PR #92) as slices S25/S26; this rule had been missing from the catalogue, which is why every Check Status scenario here checks AFTER a save |
 
 ## Deliberately excluded by the slice catalogue — re-checked against the new app
 
@@ -290,7 +317,7 @@ inherited:
 | Casing dimension | no name-style rule in this field set | `not-applicable` — unchanged |
 | Invalid enum for Override | a two-item `selectOneMenu` cannot submit an out-of-list value | `not-applicable` — unchanged (a two-item Carbon `Select`) |
 | Missing PO&P for the three Harvest-only lines | a data point inside S10's field set | `covered` — S10 asserts exactly 11 Harvest + 8 PO&P checks, i.e. that those three have none |
-| Delete cascading to the sub-page rows | "no distinct outcome from a plain delete" | `not-applicable` — and in the rewrite the DELETE removes the summary itself, so re-opening 404s (asserted in `delete.feature`) |
+| Delete cascading to the sub-page rows | "no distinct outcome from a plain delete" | `not-applicable` — the DELETE removes the summary itself. Since #296 re-opening no longer 404s: it serves a blank EDITABLE form with Delete withdrawn, which is what legacy did (`Schedule3MB.delete():125-136`), and that is what `delete.feature` asserts |
 
 ## Symmetry checks performed
 
@@ -317,7 +344,7 @@ The mirror-matrix smell test — one arm covered but not the other:
 | Count on the link / rows on the sub-page | yes — asserted on both sides of every navigation (the +1 for Annual Rents is legacy-faithful) |
 | Client-rejected write / server-rejected write | yes — `validation` (spy proves 0 requests) ∥ `save-error` (500, read-back proves nothing stored) |
 | Guard 409 (closed mill) / 404 (no report-status row) | yes — `render-states` `@S14` ∥ `@S16` |
-| Schedule exists / schedule was never started | yes — every scenario ∥ `no-create` (the RED that found DIV-1) |
+| Schedule exists / schedule was never started | yes — every scenario ∥ `no-create` (the ex-RED that found DIV-1, green since #296) ∥ `save-first-gate` (the never-saved state seen from the sub-page links) |
 | Blank amounts accepted at Save / caught by Check Status | yes — the mutating anchors save empty at cleanup ∥ `@p0 @S10` |
 
 ## Test-quality DoD (RV) — self-audit
@@ -339,12 +366,14 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-25. *
 
 ## Coverage gate (TR)
 
-- **P0: 100%** — all 5 P0 items exercised: the happy path (entry, save, full derived arithmetic, reload),
-  the BR-09 crown push, both Check Status headline outcomes, and the DIV-1 divergence (RED on purpose,
-  which **counts as covered** — it maps to S16 and is the tracking signal).
-- **P1: 100%** of P1 items covered — 28 tests: 26 green plus the DIV-5 and DIV-6 reds, which **count as covered** (they map to S04's confirm-before-delete and S12's evaluate-the-screen, and are red on purpose).
-- **Overall: 22/24 slices `covered`, 2 `not-applicable`** (S18/S19, DIV-3 closed — the state cannot exist in the
-  rewrite). Every message-catalog row is dispositioned: covered, `not-applicable` with a reason, or
+- **P0: 100%** — all 5 P0 items exercised and all 5 GREEN: the happy path (entry, save, full derived
+  arithmetic, reload), the BR-09 crown push, both Check Status headline outcomes, and the never-started
+  schedule opening enterable (`no-create.feature` — the ex-DIV-1 red, green since #296).
+- **P1: 100%** of P1 items covered — 29 tests, 27 green plus the DIV-5 and DIV-6 reds, which **count as
+  covered** (they map to S04's confirm-before-delete and S12's evaluate-the-screen, and are red on purpose).
+- **Overall: 26/26 slices `covered`.** S18/S19 stopped being `not-applicable` when #296 made their state
+  reachable; S25/S26 arrived upstream with ilcr-bmad PR #92 and are carried by DIV-6's red plus GAP-4.
+  Every message-catalog row is dispositioned: covered, `divergence`, `not-applicable` with a reason, or
   `deferred` (the page-fallback strings, which belong in Vitest). **GAP-2 and GAP-3 were CLOSED 2026-08-26
   by writing them** (`concurrency.feature`, `subpage-back.feature`), so the remaining two are GAP-1 (the
   role half of BR-01 — no schedule-level role branch exists to test) and GAP-4 (the rest of the Check

@@ -286,12 +286,33 @@ export const CONFIRM_NAVIGATION_BODY =
 /** Client gate — Save is refused locally while a field is invalid. */
 export const MSG_CORRECT_BEFORE_SAVING = 'Please correct the highlighted fields before saving.';
 /**
- * ALT-002/ALT-003 (legacy `saveScheduleBeforeOpeningOtherCostsMsg`) — the save-first gate on the two cost
- * sub-pages, RESTORED by the defect #296 fix and verbatim in `components/schedule3/index.tsx:47`. Before
- * that fix the state could not be reached (an unsaved Schedule 3 404'd), which is why S18/S19 were
- * dispositioned `not-applicable`; they are covered now (`save-first-gate.feature`).
+ * ALT-002 — the save-first gate on the **Other Costs** sub-page, RESTORED by the defect #296 fix and
+ * verbatim in `components/schedule3/index.tsx:47`. Before that fix the state could not be reached (an
+ * unsaved Schedule 3 404'd), which is why S18/S19 were dispositioned `not-applicable`; S18 is covered now
+ * (`save-first-gate.feature`).
+ *
+ * PROVENANCE, corrected 2026-08-27: this is NOT a message-bundle key. Legacy hardcodes it in the link's
+ * own `onclick` — `schedule3.xhtml:267`, on the `subtotalOtherCostsEditsEnabledAlert` variant rendered
+ * only when `!schedule3MB.isScheduleOpen()`. Nothing matching it exists in `messages.properties`
+ * (searched whole-file 2026-08-27), so an earlier version of this comment citing
+ * `saveScheduleBeforeOpeningOtherCostsMsg` named a key that has never existed.
  */
 export const MSG_SAVE_BEFORE_SUB_PAGE = 'The schedule has to be saved before opening other costs';
+
+/**
+ * ALT-003 — legacy's SEPARATE, differently-worded gate on the **Included Unacceptable Costs** link
+ * (`schedule3.xhtml:293`, the `includedUnacceptableCostsEditsEnabledAlert` variant). Note the capital U
+ * and "Unacceptable costs" rather than "other costs": legacy wrote two distinct strings, one per link.
+ *
+ * The rewrite has only ONE — `ALT_SAVE_BEFORE_SUB_PAGE` is shown for BOTH links from the single generic
+ * `openSubPage` handler (`components/schedule3/index.tsx:272`), so opening Included Unacceptable Costs
+ * from a never-saved schedule shows the *Other Costs* wording. That is **defects.md DIV-7**, asserted by
+ * the deliberately-red S19 in `save-first-gate.feature`. Schedule 1 is NOT affected: legacy gives it one
+ * such link and one string (`schedule1.xhtml:497`), which the app matches verbatim. Verified by sweeping
+ * every legacy `.xhtml` for "saved before opening" — exactly three hits, all accounted for here.
+ */
+export const MSG_SAVE_BEFORE_UNACCEPTABLE =
+  'The schedule has to be saved before opening Unacceptable costs';
 
 /** FLD-001 (`costValidatorErrorMsg`) — mirrored client-side in `schedule3/validation.ts`. */
 export const MSG_COST_RANGE = 'Entered cost must be between -99,999,999 and 99,999,999.';

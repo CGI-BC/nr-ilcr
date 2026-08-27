@@ -2,7 +2,7 @@
 
 > New to these files? See [`coverage-guide.md`](../../../coverage-guide.md) at the e2e root for the column + status-flag legend.
 
-Sources reconciled: `UC-SCH11-001-S01..S20.feature` (20 slices; `../../../../tests/UC-SCH11-001/gherkin/`)
+Sources reconciled: `UC-SCH11-001-S01..S22.feature` (22 slices; `../../../../tests/UC-SCH11-001/gherkin/`)
 + `UC-SCH11-001-slices.md` (control/message/field matrix) + `UC-SCH11-001-technical.md` (message/error
 catalog: ERR-001..003, ALT-001, WRN-001, STA-001, CNT-001, FLD-001..004, SUC-001..004, ASY-001), against
 the app's real write path (`schedule11/api/Schedule11Api.java` GET/POST/PUT/DELETE + `check-status`,
@@ -27,7 +27,13 @@ S14–S19 entry rejection (`validation.feature`); the correct-and-retry recovery
 **validation-error** state, carries a genuine pre-existing violation and is therefore a deliberate RED
 (`accessibility.feature` `@discovered-bug`) rather than a clean pass.
 
-**Every one of the 20 slices is dispositioned `covered`.** 29 scenarios: 28 green + **1 deliberate
+**20 of the 22 slices are `covered`; 2 are `deferred`.** The deferred pair is **S21/S22**, the
+Check-Status-on-unsaved-edits arms added upstream 2026-08-27 by ilcr-bmad PR #92 — held until
+[#359](https://github.com/bcgov/nr-ilcr/issues/359) lands. Schedule 3's **GAP-4** is the cross-schedule
+tracker for that family and carries its one live red.
+
+26 scenarios / **29 tests** after
+Scenario-Outline expansion: 28 green + **1 deliberate
 `@discovered-bug` RED** tracking a pre-existing, app-wide accessibility defect (defects.md
 BUG-1 — Carbon's validation-error markup is never announced to assistive technology; it
 affects every schedule page and is already recorded in `deferred-work.md`, which asked for exactly this
@@ -81,7 +87,8 @@ VER-1–VER-4. Two of them (`S15` Enhanced, `S18` NAR range) are the exact strin
 work. **The comments in `validation.ts` should now be updated to drop the PROVISIONAL label**
 (GAP-7, now CLOSED — the dev accepted the follow-up; the labels may still be in `validation.ts` until she lands it).
 
-Suite state: **28 green + 1 intentional red** (the `@discovered-bug` accessibility check above). The
+Suite state: **29 tests — 28 green + 1 intentional red** (the `@discovered-bug` accessibility check
+above; re-measured 2026-08-27). The
 whole-suite clean run `npm run test:gate` is green; the two excluded reds
 are this UC's accessibility bug and Schedule 1's pre-existing `clear-amounts` bug — both genuine,
 pre-existing app defects with `defects.md` entries, neither masked or weakened.

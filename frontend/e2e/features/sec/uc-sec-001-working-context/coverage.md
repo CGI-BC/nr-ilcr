@@ -11,6 +11,12 @@ Test data (real, 2026-07-30): pinned in `fixtures/sec/working-context-test-data.
 comments). Home "Save" is a read/resolve (`GET /v1/mill-context`) that writes nothing → no teardown;
 every scenario is parallel-safe by construction.
 
+> ### Suite state — the ONE place this is recorded
+> **13 scenarios / 13 tests: 11 green + 2 deliberate `@discovered-bug` REDs** (both are BUG-1, the
+> admin-authored welcome-message contrast — see AC4 below). Measured from the generated specs and a full
+> run on **2026-08-27**. No whole-suite total is written down anywhere by design — the e2e
+> [`README.md`](../../../README.md) gives the command to measure one.
+
 | Source item (slice) | Source citation | App enforcement point | Scenario (tags) | Status | Gap/defect |
 |---|---|---|---|---|---|
 | S01 Establish working context (happy path) | S01.feature; SUC-001 | `Home.handleSave` → `GET /v1/mill-context` 200 `message.text`; `ContextBanner` renders | `working-context.feature` `@S01 @SUC-001` | covered | Role + role-notice re-grounded — see defects.md |

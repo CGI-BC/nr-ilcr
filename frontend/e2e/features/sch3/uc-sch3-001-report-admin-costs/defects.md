@@ -3,8 +3,13 @@
 > How this log works (registers, tags, glossary): [defects-guide.md](../../../defects-guide.md)
 
 All findings below were reproduced on the local seeded delivery DB
-(`THE/…@localhost:1525/DBDOCK_01`), app repo branch `test/schedule-3-e2e`, commit `f70cc46`,
-2026-08-25.
+(`THE/…@localhost:1525/DBDOCK_01`), app repo branch `test/schedule-3-e2e`. Each entry carries its own
+verification date; the newest re-verification of the whole set is **2026-08-27**, against the branch after
+the upstream merge that brought in defects #296, #298 and the Epic 24 parity work.
+
+Scenario/test counts are deliberately **not** repeated here — [`coverage.md`](coverage.md) holds the single
+authoritative "Suite state" block. Entries name their scenarios and tags instead, which do not move when a
+count does.
 
 **Bug / Regression:** _none._
 
@@ -153,10 +158,11 @@ All findings below were reproduced on the local seeded delivery DB
     editable schedule shows the "Leave Schedule 3" modal with the verbatim legacy text before navigating.
     This suite asserts that text on **every** sub-page entry (`pages/sch3/schedule3Page.ts`
     `openSubPage`), so its loss would fail the suite immediately.
-  - **Why the alert cannot exist here:** it was gated on `!schedule3MB.isScheduleOpen()` — "the schedule
-    has never been saved". In the rewrite a Schedule 3 that can be opened at all already exists (that is
-    DIV-1), so the condition is unreachable by construction. S18 and S19 are therefore dispositioned
-    `not-applicable` in coverage.md rather than covered — the state they describe cannot be produced.
+  - **Why the alert cannot exist here** *(as written 2026-08-24 — SUPERSEDED, see the re-opening below;
+    S18/S19 are `covered` today, not `not-applicable`)*: it was gated on `!schedule3MB.isScheduleOpen()` —
+    "the schedule has never been saved". In the rewrite a Schedule 3 that can be opened at all already
+    exists (that is DIV-1), so the condition is unreachable by construction. S18 and S19 were therefore
+    dispositioned `not-applicable` in coverage.md rather than covered.
   - **Is it a defect?** No — an accepted re-grounding. The data-loss risk the alert existed to prevent is
     covered by the navigate-away confirm, which is present, asserted, and verbatim. Worth revisiting if
     #296 gives Schedule 3 a create path: an unsaved schedule would become reachable and the save-first
@@ -167,11 +173,18 @@ All findings below were reproduced on the local seeded delivery DB
     404'd. Since #296 the parent page opens unsaved AND the two sub-pages deliberately keep their 404
     (`Schedule3Service.java:1136`), so the client now gates them with a passive **"Save required"** modal
     carrying the verbatim legacy string `The schedule has to be saved before opening other costs`
-    (`components/schedule3/index.tsx:47`, gated on `isScheduleSaved(data)` at `:208`). Legacy's ALT-002 /
-    ALT-003 therefore have a counterpart again, and S18/S19 stopped being `not-applicable`: they are
-    covered by `save-first-gate.feature` as of this branch. The navigate-away confirm this entry also
-    defends is unchanged and still asserted on every sub-page entry.
-  - **Action:** none. No ticket — the app now matches legacy on both halves.
+    (`components/schedule3/index.tsx:47`, gated on `isScheduleSaved(data)` at `:208`). Legacy's ALT-002 has
+    a counterpart again, and S18/S19 stopped being `not-applicable`: they are covered by
+    `save-first-gate.feature` as of this branch. The navigate-away confirm this entry also defends is
+    unchanged and still asserted on every sub-page entry.
+  - **CORRECTION 2026-08-27 — this entry claimed "the app now matches legacy on both halves", and the
+    ALT-003 half is NOT matched.** Legacy wrote TWO different strings, one per link:
+    `schedule3.xhtml:267` "…before opening other costs" and `:293` "…before opening **U**nacceptable
+    costs". The rewrite routes both links through one generic handler with one constant, so the Included
+    Unacceptable link shows the Other Costs wording. Split out as **DIV-7** below. The claim was wrong
+    because it was written from the *app* side — one modal, one string, gate restored — without going back
+    to the legacy page to count the strings.
+  - **Action:** none for this entry. The wording half is DIV-7.
   - **Priority / env:** p2 · local seeded DB · Chrome.
   - **Status:** CLOSED (accepted re-grounding, then superseded by the #296 fix) 2026-08-26. Found
     2026-08-24; scope corrected 2026-08-25 after the repo owner verified the navigation confirm against
@@ -366,6 +379,43 @@ All findings below were reproduced on the local seeded delivery DB
     mirror and the same scenario on the other ten schedules are **GAP-4**, deliberately held until this
     fix lands.
 
+- **DIV-7 — the "save the schedule first" gate on the Included Unacceptable Costs link shows the OTHER
+  COSTS wording. Legacy had two different messages, one per link; the rewrite has one.**
+  - **What's wrong, in plain terms:** open a Schedule 3 that has never been saved and click *Included
+    Unacceptable Costs*. You are correctly told to save first — but the message talks about "other costs",
+    which is the *other* sub-page. A reporter who has just clicked "Included Unacceptable Costs" is told
+    about a page they did not click. Nothing is lost or mis-saved; it is a wrong-wording defect.
+  - **Expected vs actual:** expected `The schedule has to be saved before opening Unacceptable costs`
+    (note the capital U). Actual `The schedule has to be saved before opening other costs`.
+  - **Why (technical):** legacy put the string in each link's own `onclick`, and wrote it twice —
+    `webapp/schedule3.xhtml:267` on `subtotalOtherCostsEditsEnabledAlert` and `:293` on the Included
+    Unacceptable equivalent, both rendered only when `!schedule3MB.isScheduleOpen()`. The rewrite has ONE
+    generic `openSubPage` handler (`components/schedule3/index.tsx:272`) that sets one flag, and one modal
+    body rendering one constant, `ALT_SAVE_BEFORE_SUB_PAGE` (`:47`, `:685`). Fix: a second constant plus
+    the sub-page identity the handler already receives.
+  - **How we caught it (verified against legacy source and the running app 2026-08-27):** while re-reading
+    DIV-3's re-closure, which asserted "the app now matches legacy on both halves". Swept every legacy
+    `.xhtml` for `saved before opening` — exactly **three** hits: `schedule1.xhtml:497` and
+    `schedule3.xhtml:267`/`:293`. So Schedule 3 needs two strings and has one. Confirmed live: the S19
+    scenario now fails on the message and passes on everything else, which is the shape of a wording-only
+    defect.
+  - **Scope — Schedule 3 ONLY, checked rather than assumed:** Schedule 1 has one such link and one legacy
+    string, matched verbatim (`components/schedule1/index.tsx:44`), so it is unaffected. No other legacy
+    page has a save-first alert at all; Schedules 4 and 8 use the different
+    `confirmNavigationFromNew{Camp,Transportation}` save-now prompt, which is not this pattern.
+  - **Ticket:** none yet — for the repo owner to file. p2, wording-only.
+  - **Priority / env:** p2 · branch `test/schedule-3-e2e` · local seeded DB · Chrome.
+  - **Status:** OPEN — confirmed against legacy source and the running app; awaiting a ticket. Dev to add
+    the second string and select on the sub-page the handler is already passed; QA re-verifies and closes
+    when it lands. The scenario asserts the CORRECT behaviour, so it goes green on its own and only the tag
+    comes off. Found 2026-08-27 while auditing DIV-3's own claim.
+  - **Test:** `save-first-gate.feature` `@p2 @S19 @discovered-divergence` ×1 (S18, the Other Costs arm, is
+    green). Read-only: the scenario clicks a link that refuses to navigate, so it writes nothing and needs
+    no cleanup.
+  - **Why the suite missed it for a day:** S18 and S19 were written together and shared one step,
+    `Schedule 3 tells me to save first`, which asserted ALT-002's text. S19 therefore *passed* against the
+    wrong message — a shared step hid a per-link difference. They now use separate steps.
+
 - **VER-2 — the suite had FOUR places that read "HTTP 404" as "this schedule does not exist". The #296
   fix removed that meaning, and every one of them inverted at once. Re-grounded 2026-08-26; the app is
   right and was right.**
@@ -492,6 +542,12 @@ All findings below were reproduced on the local seeded delivery DB
     - **the other ten affected schedules** (1, 2, 4, 5, 7a, 7b, 8, 9, 10, 11 — and Schedule 8's sample
       sub-page as a second surface). Suites exist today for **sch1, sch2, sch4 and sch11**, so those four
       can take a mirrored scenario as soon as it is worth writing; the rest wait for their suites.
+      **The SOURCE side is done as of 2026-08-27:** ilcr-bmad PR #92 recovered the missing rule (BR-12 here)
+      and projected two arms per schedule across all twelve UCs — `UC-SCH1-001-S27/S28`,
+      `UC-SCH2-001-S17/S18`, `UC-SCH3-001-S25/S26`, `UC-SCH4-001-S33/S34`, `UC-SCH11-001-S21/S22` and the
+      equivalents on the seven UCs with no suite yet. Each of the four existing suites now carries those
+      slices as `deferred` in its own coverage.md, pointing here. So this gap is now "write the tests",
+      with nothing left to author upstream.
     - **Schedule 6 deserves the inverse test** — it is the one page built correctly
       (`@RequestBody Schedule6CheckRequest`), so a green scenario there protects the precedent the fix
       copies from.
@@ -554,8 +610,10 @@ All findings below were reproduced on the local seeded delivery DB
     DIV-2's retraction; scope re-derived from the legacy source and the docs fixed 2026-08-26.
   - **Test (covers it anyway):** `check-status.feature` (S12 and its mirror) — GREEN.
 
-The 24 slices otherwise reconcile
-cleanly against the slice catalogue's own Gap Analysis (62 fields, 11 business rules, 5 preconditions,
+The 26 slices otherwise reconcile
+cleanly against the slice catalogue's own Gap Analysis (62 fields, 12 business rules — **BR-12** "Check
+Status evaluates what is on screen, including unsaved edits" was recovered upstream 2026-08-27 by ilcr-bmad
+PR #92 together with its two arms S25/S26 — 5 preconditions,
 4 combinations) and against the technical sidecar's message catalog. Every item that catalogue
 deliberately excluded was re-checked against the new app rather than inherited — see coverage.md,
 "Deliberately excluded by the slice catalogue".

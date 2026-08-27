@@ -337,14 +337,28 @@ obsolete, one follow-up was confirmed done, one Coverage gap was closed, and thr
   - **Status:** CLOSED 2026-08-07.
   - **Test:** `crown-prefill.feature` `@S02 @p1 @WRN-001` — GREEN. Asserts the WRN-001 advisory, all 13 pre-filled volume fields, that the shared Other-Costs volume is excluded from the pre-filled set, and that nothing is persisted until the user saves.
 
-- **GAP-3 — S08 (open Other Costs before first save) is unreachable in the current backend model.**
-  - **Why not:** The legacy guard blocked opening Other Costs before Schedule 1 was saved. In the new app an openable schedule is always already saved (the GET 404s when no summary exists), so `Schedule1.handleOtherCosts`'s `!data` branch (the ALT-001 "save first" Modal) cannot be produced through the UI against real data.
-  - **It is unreachable by construction, not for want of data (proved 2026-08-07).** No seed patch or
-    probe can produce it, because the requirement is self-contradictory within one render:
-    `index.tsx:341` is `if (!data) { return null }`, and the "Subtotal Other Costs(N):" button that calls
-    `handleOtherCosts` is rendered *below* that guard. So triggering the `if (!data)` branch at
-    `index.tsx:261` needs `data` to be null, while clicking the button that reaches it needs `data` to be
-    non-null. Dead code — the component's own comment already says "effectively unreachable".
+- **GAP-3 — S08 (open Other Costs before first save) was unreachable dead code. Defect #296 REWIRED the
+  branch and made it live; the gap is now CLOSED by a test.**
+  - **CLOSED 2026-08-27 — and the reasoning below expired rather than being wrong.** #296 makes an unsaved
+    Schedule 1 serve a 200 empty editable document, so `data` is truthy on a never-saved schedule and the
+    old `!data` condition could never fire again. Rylan re-gated it on saved-ness instead —
+    `if (!data || !isScheduleSaved(data))` (`components/schedule1/index.tsx:288`) — and his commit comment
+    at `:280-287` cites this slice by name, explaining that the sub-page controllers still require a
+    summary (`validateScheduleViewable`, deliberately kept, #296 D1) so without the gate the click would
+    land on a 404 dead-end. So the branch is now reachable by an ordinary user action, and the legacy
+    guarantee is testable. Covered by `save-first-gate.feature` `@p1 @S08`, GREEN — the verbatim message
+    plus the refusal to navigate. The `not-applicable (E2E)` row in coverage.md moved to `covered`.
+  - **The lesson worth keeping:** "unreachable by construction" is a claim about *today's* construction. It
+    was true and proved when written, and a fix elsewhere silently falsified it. Schedule 3's S18/S19 and
+    its DIV-3 entry expired the same way, on the same day, from the same fix.
+  - **Why it was unreachable, as proved 2026-08-07** *(historical — superseded above)*: the legacy guard
+    blocked opening Other Costs before Schedule 1 was saved, and in the new app an openable schedule was
+    always already saved (the GET 404'd when no summary existed). The requirement was self-contradictory
+    within one render: `if (!data) { return null }` sat ABOVE the "Subtotal Other Costs(N):" button that
+    calls `handleOtherCosts`, so triggering the `!data` branch needed `data` to be null while clicking the
+    button that reaches it needed `data` to be non-null. Dead code — the component's own comment said
+    "effectively unreachable". (Those line numbers have since moved: the `return null` guard is
+    `index.tsx:360` today.)
   - **Not related to BUG-3** (a different register — see the id legend at the top). While that 500 still
     existed, it did not expose this branch either: `data` was null, so the component rendered the error
     state and the button never existed — BUG-3 stopped the page rendering rather than reaching this guard.
@@ -356,12 +370,14 @@ obsolete, one follow-up was confirmed done, one Coverage gap was closed, and thr
     confirm) and none forces a null-data state. The BR-06 hits in
     `Schedule1OtherCostsServiceTest`/`Schedule1OtherCostsIT` are about the shared-volume **inheritance**
     rule, not the save-before-open gate. So this branch is currently covered by nothing, at any level.
-  - **Future action:** with the Schedule 1 dev, who'll look into it when he gets a chance — either delete the
-    dead branch (a guard that cannot fire is a maintenance trap) or, if it is being kept for a future backend
-    model with create-on-open, add the component test that mounts `Schedule1` with a forced null-data state.
-    Either way it is not an E2E concern.
-  - **Status:** OPEN — with the Schedule 1 dev, who'll look into it when he gets a chance. Re-verified 2026-08-07.
-  - **Test:** none, at any level — `not-applicable (E2E; unreachable by construction)` in coverage.md.
+  - **What happened to the "future action":** it asked the Schedule 1 dev to either delete the dead branch
+    or unit-test it with a forced null-data state. He did neither, and the third option was the right one —
+    #296 gave the branch a real trigger, so it needed re-gating rather than deleting. Nothing is outstanding.
+  - **Status:** CLOSED (covered) 2026-08-27. Raised 2026-08-07 and re-verified then; made reachable by #296
+    (2026-08-26); closed by writing the E2E scenario 2026-08-27.
+  - **Test:** `save-first-gate.feature` `@p1 @S08` — GREEN. Mirrors `sch3`'s `save-first-gate.feature`,
+    which covers the same behaviour on the other schedule #296 touched (and where the second sub-page's
+    wording is still wrong — sch3 DIV-7).
 
 **Spec gaps (the Gherkin is missing scenarios its own docs list):**
 

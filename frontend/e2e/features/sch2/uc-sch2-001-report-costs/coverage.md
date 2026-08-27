@@ -2,7 +2,8 @@
 
 > New to these files? See [`coverage-guide.md`](../../../coverage-guide.md) at the e2e root for the column + status-flag legend.
 
-Sources reconciled: `UC-SCH2-001-S01..S16.feature` (16 slices, 21 scenarios) + `UC-SCH2-001-slices.md`
+Sources reconciled: `UC-SCH2-001-S01..S18.feature` (18 slices, 21 scenarios for S01–S16) +
+`UC-SCH2-001-slices.md`
 (control/message/field/rule matrix
 and its Gap Analysis Summary) + `UC-SCH2-001-detailed.md` + `UC-SCH2-001-technical.md` (message catalog:
 SUC-001..003, FLD-001..004, ERR-001..004, STA-001), against the app's real write path
@@ -39,8 +40,17 @@ S13–S16 entry rejection (`validation.feature`); the save round-trip surviving 
 (`persistence.feature`); and WCAG 2.1 AA (NFR1) across four structurally distinct renders
 (`accessibility.feature`).
 
-**Every one of the 16 slices is dispositioned `covered`.** 33 scenarios (39 tests after Scenario-Outline
-expansion). **All green as of 2026-08-24:** the one deliberate `@discovered-bug` RED — Delete offered on a
+**16 of the 18 slices are `covered`; 2 are `deferred`.** The deferred pair is **S17/S18**, the
+Check-Status-on-unsaved-edits arms added upstream 2026-08-27 by ilcr-bmad PR #92 — held until
+[#359](https://github.com/bcgov/nr-ilcr/issues/359) lands, because they would be reds all tracking one
+ticket. Schedule 3's **GAP-4** is the cross-schedule tracker for that whole family (11 of 12 schedules;
+Schedule 6 is the only correct implementation), and Schedule 3 carries the one live red for it.
+
+> ### Suite state — the ONE place this is recorded
+> **33 scenarios / 39 tests after Scenario-Outline expansion: all 39 GREEN, no tracked reds.** Measured
+> from the generated specs and a full run on **2026-08-27**.
+
+**All green as of 2026-08-24:** the one deliberate `@discovered-bug` RED — Delete offered on a
 schedule that has never been saved (defects.md **BUG-1**, BR-08/S06) — was fixed in nr-ilcr #292, so its tag
 is removed and the scenario now runs in the gate as the regression barrier. The suite's own `deleteButton`
 locator moved from the top bar to the bottom one at the same time, because #292 also restored legacy's
@@ -266,7 +276,8 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-13. *
   Status arms, persistence).
 - **P1: 100%** of P1 items covered — 17 scenarios, **all green** since nr-ilcr #292 closed BUG-1; the
   formerly-excluded BR-08/S06 scenario now runs inside the gate rather than counting as covered-while-red.
-- **Overall: 16/16 slices covered.** On messages: **the two GAP-3 fallbacks are no longer
+- **Overall: 16/18 slices covered, 2 `deferred`** (S17/S18, the unsaved-edit arms — gated on #359; see the
+  header). On messages: **the two GAP-3 fallbacks are no longer
   `deferred`** — covered in Vitest by [#298](https://github.com/bcgov/nr-ilcr/issues/298) on
   2026-08-26, which is where they belong (Vitest gates in CI; this data-backed suite is a manual gate).
   Two rows remain uncovered: the `blocked` role item (GAP-1) and `Unable to check status.`, the latter

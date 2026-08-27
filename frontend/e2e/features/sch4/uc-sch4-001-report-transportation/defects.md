@@ -206,9 +206,14 @@ seeded delivery Oracle) on **2026-08-17**, branch `test/schedule-4-e2e`, app com
     restoration, not a new rule.
   - **SCHEDULE 8 HAS THE SAME DEFECT (swept 2026-08-19, confirmed by QA in the browser).** Exactly 2 of the 9
     schedules are wrong; the other 7 all include `!editable`:
-      - **wrong:** Schedule 4 (`schedule4/index.tsx:821`) and Schedule 8 (`schedule8/index.tsx:780`), both
-        `disabled={saving}`. Legacy disabled BOTH — `schedule4.xhtml:43` and `schedule8.xhtml:48` each bind
+      - **wrong (as swept 2026-08-19):** Schedule 4 (`schedule4/index.tsx:821`) and Schedule 8
+        (`schedule8/index.tsx:780`), both `disabled={saving}`. Legacy disabled BOTH —
+        `schedule4.xhtml:43` and `schedule8.xhtml:48` each bind
         `disabled="#{scheduleNMB.disableReportEdits()}"`.
+        **Re-checked 2026-08-27: Schedule 4 is FIXED** (`schedule4/index.tsx:879`, now
+        `disabled={!editable || saving}`, with an inline comment saying #322 does not close on this alone);
+        **Schedule 8 is STILL WRONG** (`schedule8/index.tsx:792`, `disabled={saving}` — the line moved from
+        :780). So 1 of 9 schedules is wrong now, not 2.
       - **correct:** Schedules 1 and 3 via `core/ScheduleActions/index.tsx:44`
         (`!editable || saving || checking`); Schedule 2 (`schedule2/index.tsx:319`) and Schedule 11
         (`schedule11/index.tsx:881`) (`!editable || saving`); Schedule 5 (`schedule5/index.tsx:1084`)
@@ -219,13 +224,13 @@ seeded delivery Oracle) on **2026-08-17**, branch `test/schedule-4-e2e`, app com
     app already do, so this is two pages having drifted rather than a deliberate product decision.
   - **Ticket:** [bcgov/nr-ilcr#322](https://github.com/bcgov/nr-ilcr/issues/322).
   - **Priority / env:** p2 · local seeded DB · Chrome.
-  - **Status:** OPEN — confirmed and triaged by raising a ticket. Dev to add the `!editable` term on both pages when capacity allows; QA
-    re-verifies and closes this entry then. The `@discovered-divergence` test already asserts the CORRECT
-    behaviour (the button IS disabled), so it is RED today and goes green on its own when the fix lands, at
-    which point its tag comes off. No test change is needed. Schedule 8 has no E2E coverage of its own yet, so
-    QA's close-out check there is manual until a Schedule 8 suite exists.
-  - **Test:** `features/sch4/uc-sch4-001-report-transportation/render-states.feature` (S18,
-    `@discovered-divergence`).
+  - **Status:** **HALF CLOSED — the Schedule 4 half is FIXED (2026-08-24, defect #293's code review); #322
+    stays OPEN for Schedule 8.** The scenario went green on its own exactly as designed, so only the
+    `@discovered-divergence` tag was dropped and no assertion was edited (see the note at
+    `render-states.feature:113-119`). Re-verified in the source 2026-08-27. Schedule 8 has no E2E suite yet,
+    so QA's close-out check there is manual; do not close #322 on the Schedule 4 evidence alone.
+  - **Test:** `features/sch4/uc-sch4-001-report-transportation/render-states.feature` (S18) — **GREEN,
+    tag retired**; it is now an ordinary regression guard for the Schedule 4 half.
 
 - **DIV-2 — Check Status says a value is required but not WHICH figure is missing.**
   - **What's wrong:** when a location is missing a required Cost, Check Status reports the location name and
@@ -349,13 +354,16 @@ seeded delivery Oracle) on **2026-08-17**, branch `test/schedule-4-e2e`, app com
     this entry.
   - **Ticket:** [bcgov/nr-ilcr#291](https://github.com/bcgov/nr-ilcr/issues/291) (pre-existing).
   - **Priority / env:** p1 · local seeded DB · Chrome.
-  - **Status:** OPEN — confirmed and triaged by raising a ticket (the pre-existing #291). Dev to fix when capacity allows; QA re-verifies and closes
-    this entry then. The `@discovered-divergence` test asserts the CORRECT behaviour, so it is RED today and
-    goes green on its own when the fix lands, at which point its tag comes off. It is paired with a passing
-    test proving that reopening shows the right figure, so the scope is "refresh the panel after save", not
-    "the calculation is wrong". Found 2026-08-17.
-  - **Test:** `features/sch4/uc-sch4-001-report-transportation/nav-and-recompute.feature` (S01/S02,
-    `@discovered-divergence`).
+  - **Status:** **CLOSED (fixed) — verified GREEN 2026-08-27.** #291's fix landed (`6e86d7a`,
+    "automatic recalculation of derived figures during data entry"), the panel now shows the recomputed
+    `$/m³` without a reopen, and both scenarios went green on their own — the tag was dropped with no
+    assertion edited. Found 2026-08-17.
+    **This entry sat OPEN after the fix landed**, and its feature-file comment still said "DELIBERATELY
+    RED" while the test passed. The tag was retired without closing the register entry or the comment,
+    which is the failure the guide warns about in reverse: a green test still *described* as a tracked red
+    tells a reader an open defect exists when it does not. Both are corrected now.
+  - **Test:** `features/sch4/uc-sch4-001-report-transportation/nav-and-recompute.feature` (S01/S02) —
+    **GREEN, tag retired**; now ordinary regression guards for the recalculation.
 
 - **DIV-5 — A rejected duplicate name stays in the field instead of being wiped.**
   - **What's wrong:** nothing is broken. When a save is refused because the location name already exists, the
@@ -680,7 +688,7 @@ entries are kept only because their ids are cited elsewhere:**
   - **The app is correct:** it matches legacy and the delivery-confirmed Story 10.4 §Decision 2. Raised so
     the S29 scenario is not read later as missing coverage.
   - **Future action:** a BA corrects S29 in the UC-SCH4-001 slice set — either delete it or restate it as
-    the app's (and legacy's) actual rule, Cost-only. A Jira ticket is needed ONLY if the ministry actually
+    the app's (and legacy's) actual rule, Cost-only. A ticket is needed ONLY if the ministry actually
     wants a distance check, which would be new behaviour rather than a fix.
   - **CLOSED 2026-08-20 — S29 corrected.** `UC-SCH4-001-S29.feature` is now "Check Status Does NOT
     Require a Distance", restated as the rule that exists (Cost only) with two scenarios: a location
@@ -717,7 +725,7 @@ entries are kept only because their ids are cited elsewhere:**
   - **The app is correct:** it matches legacy Schedule 4 and the delivery-confirmed Story 10.4 §Decision 3.
     If a soft advisory message is wanted, it needs a product decision; it must not be invented by the suite.
   - **Future action:** a BA corrects S30 in the UC-SCH4-001 slice set — delete it, or restate it as the
-    conditional Schedule 7B rule it appears to have come from. A Jira ticket only if the ministry wants a
+    conditional Schedule 7B rule it appears to have come from. A ticket only if the ministry wants a
     Schedule 4 prompt, which would be new behaviour.
   - **CLOSED 2026-08-20 — S30 corrected.** `UC-SCH4-001-S30.feature` is now "Comments Never Affect
     Check Status", restated as the behaviour that exists, with the false premise and its disproof kept
@@ -776,6 +784,15 @@ entries are kept only because their ids are cited elsewhere:**
   **Recommendation for stress runs on a developer box:** pass `--workers=4`. A full-worker `--repeat-each=5`
   run puts ~24 concurrent browsers through one on-demand-compiling Vite dev server and one backend for 20+
   minutes; the resulting entry-point failures say nothing about the app or the tests. (Verified 2026-08-18.)
+  **RECURRED 2026-08-27 in an ORDINARY run, not a stress run** — so do not read this entry as stress-only.
+  Two `subpage-validation` scenarios (`S26 A Truck Rehaul Cycle above its band is rejected`, `A volume the
+  category grid accepts is refused on a sub-page row`) failed on the same `openApp` app-shell banner check
+  in `pages/common/authNav.ts:30`, 30 s budget exhausted, element never found. Same signature as above:
+  entry point, never the assertion, and **both passed 2/2 when re-run in isolation immediately afterwards**
+  (128/128 including preflight). A back-to-back full run of the identical tree 40 minutes earlier had ZERO
+  untagged failures. Left as a measured environment flake rather than "fixed" by inflating the budget
+  again — but if it recurs at this rate on 4 default workers, the honest next step is a serve-the-built-app
+  option for the suite instead of the Vite dev server, not a longer timeout.
 
 - **VER-6 — The a11y sweeps parked the pointer at (0, 0), which is NOT a resting position: it is inside the
   app header. Found in review, resolved before merge.** `pages/common/axe.ts` parks the pointer before every

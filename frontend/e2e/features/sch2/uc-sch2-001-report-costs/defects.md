@@ -279,8 +279,10 @@ at-rest state.
 > The requirements/Gherkin do not describe behaviour the app genuinely has. These feed back to the BA,
 > not to the dev team.
 
-**None — nothing is owed here.** Every one of the 16 slices in the catalogue has a feature file, and the
-21 scenarios match the slice descriptions (including the recovery arms for S09, S10, S12, S13, S14 and
+**None — nothing is owed here.** Every one of the 18 slices in the catalogue has a feature file (S17/S18
+were added upstream 2026-08-27 by ilcr-bmad PR #92 and are correct as written — they are `deferred` for
+coverage reasons, not a spec problem), and the 21 scenarios projected from S01–S16 match the slice
+descriptions (including the recovery arms for S09, S10, S12, S13, S14 and
 S15). The reconciliation in `coverage.md` found no scenario the source documents list but the Gherkin
 omits.
 
