@@ -559,27 +559,24 @@ When('I delete Schedule 1 and confirm the prompt', async ({ schedule1Page }) => 
   await schedule1Page.confirmDelete()
 })
 
-Then('the Schedule 1 should no longer exist', async ({ request, world }) => {
-  // Prove the delete persisted through the real write path: the summary row is gone.
-  //
-  // RE-GROUNDED 2026-08-26 (defect #296). This asserted a GET 404, which #296 deliberately removed for
-  // Schedules 1 and 3 — an unsaved or just-deleted schedule now serves a 200 empty EDITABLE document so
-  // the reporter can start again. The assertion was left behind by that change and failed on merged main
-  // (1 of 164 in the sch1 suite). "Gone" now means UNSAVED: no `revisionCount`, the optimistic-lock token
-  // the server issues only once the summary exists — the same signal `utils/schedule.ts isScheduleSaved`
-  // uses in the app. Poll — the DELETE + in-place redisplay is UI-triggered, so the commit can trail the
-  // click.
+Then('the Schedule 1 should no longer be saved', async ({ request, world }) => {
+  // Prove the delete persisted through the real write path. The GET no longer 404s for a missing
+  // summary (defect #296 serves the 200 empty EDITABLE document instead), so "deleted" is that
+  // document's own signal: no revisionCount — the server's not-saved marker, the same field the
+  // client's isScheduleSaved reads to close the Delete gate — with zero stored detail rows. Checked
+  // loosely (`== null`) exactly as that helper does: the serializer OMITS the null field, so it
+  // arrives as undefined (the absent-vs-null rule behind defect #292). Poll — the DELETE +
+  // in-place redisplay is UI-triggered, so the commit can trail the click.
   const { millId, year } = world.scheduleKey!
   await expect
     .poll(async () => {
       const res = await request.get(scheduleUrl(millId, year))
-      if (res.status() !== 200) {
-        return false
-      }
-      const doc = (await res.json()) as { revisionCount?: number | null }
-      return doc.revisionCount != null
+      if (!res.ok()) return `GET -> HTTP ${res.status()}`
+      const doc = (await res.json()) as { revisionCount?: number | null; lineItems: unknown[] }
+      if (doc.revisionCount == null && doc.lineItems.length === 0) return 'deleted'
+      return `revisionCount=${doc.revisionCount}, lineItems=${doc.lineItems.length}`
     })
-    .toBe(false)
+    .toBe('deleted')
 })
 
 Then('the Schedule 1 data should be unchanged', async ({ request, world }) => {
