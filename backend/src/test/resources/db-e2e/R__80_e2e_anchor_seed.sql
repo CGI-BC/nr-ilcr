@@ -44,6 +44,18 @@
 -- Copying a patch's DECLARE/IF-NOT-EXISTS block in here would work and would
 -- also make the id claims below unverifiable, which is the whole point of them.
 --
+-- ORDERING NOTE (2026-08-28, Story 5.7). Flyway orders repeatables by
+-- description, so db/R__70_test_scope_canonical_submitter.sql runs BEFORE this
+-- file. Its set-based INSERT associates its canonical submitter with every
+-- ILCR_MILL_STATUS_XREF row that exists AT THAT MOMENT — which excludes every
+-- mill below, because they are added here, afterwards. That is harmless today:
+-- the e2e job runs ILCR_SECURITY_ENABLED=false, and MillContextService
+-- .validateMillAccess returns early when the principal is not a Jwt (:85-87), so
+-- mill-scope enforcement is a no-op for this suite. It stops being harmless the
+-- day the e2e job runs security-ON — every anchor below would then 403 with
+-- "Mill is not associated to the caller." If that day comes, add the xref rows
+-- here rather than renumbering either file.
+--
 -- NOT REPLICATED, deliberately: THE.ILCR_REPORT_CATEGORY. Three of the patches
 -- seed eleven category rows per anchor because the REAL Oracle has a composite
 -- FK onto that table and a bare mill-year 500s on its first save
