@@ -53,8 +53,16 @@
 -- .validateMillAccess returns early when the principal is not a Jwt (:85-87), so
 -- mill-scope enforcement is a no-op for this suite. It stops being harmless the
 -- day the e2e job runs security-ON — every anchor below would then 403 with
--- "Mill is not associated to the caller." If that day comes, add the xref rows
--- here rather than renumbering either file.
+-- "Mill is not associated to the caller." on all ~268 data-backed scenarios at
+-- once, which reads as an authorization regression rather than as missing
+-- fixture rows.
+--
+-- TRACKED as bcgov/nr-ilcr#385, so the fix does not rest on someone reading this
+-- comment at the right moment. The fix is to add the xref rows HERE (this file
+-- already runs after R__70, so the ILCR_USER row its FK needs exists) rather
+-- than renumbering either file — #385 records why renumbering was rejected.
+-- Note the trigger is NOT a flag flip: the suite has no way to present a real
+-- principal today, so #385 is best sequenced with whatever gives it one.
 --
 -- NOT REPLICATED, deliberately: THE.ILCR_REPORT_CATEGORY. Three of the patches
 -- seed eleven category rows per anchor because the REAL Oracle has a composite
