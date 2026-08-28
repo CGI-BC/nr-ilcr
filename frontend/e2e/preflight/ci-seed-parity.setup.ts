@@ -37,11 +37,24 @@ import {
  * ABSENCE IS SOMETIMES THE FIXTURE — why this is not a set-difference
  * ---------------------------------------------------------------------------------------------------
  * Four pinned anchors exist to make a GET FAIL in a specific way, and having no report-status row is
- * precisely what produces the failure. A bare "every fixture key must be seeded" check would report all
- * four as missing, and seeding them to clear the report would silently disable the four scenarios that
- * depend on them. So each is enumerated in DELIBERATELY_ABSENT below WITH its reason, and the gate
- * checks BOTH directions: an unlisted missing key fails, and a listed key that someone HAS seeded fails
- * too. That second half is the one a naive diff can never do.
+ * precisely what produces the failure. They are absent from BOTH databases — the extract does not carry
+ * them either (verified 2026-08-28) — so parity is already satisfied; there is nothing to fix.
+ *
+ * A bare "every fixture key must be seeded" check would nonetheless report all four as missing, every
+ * run, forever. That matters for two reasons, and neither is the one an earlier version of this comment
+ * gave: four permanent false alarms train people to ignore the gate, and the obvious way to silence
+ * them is to seed the rows — which breaks the very scenarios the anchors exist for. So each is
+ * enumerated in DELIBERATELY_ABSENT below WITH its reason, and the gate checks BOTH directions: an
+ * unlisted missing key fails, and a listed key that someone HAS seeded fails too. Only the first half
+ * is something a diff could do.
+ *
+ * CORRECTION, and worth keeping so the value of the reverse check is not overstated: this used to say
+ * seeding one would "silently disable" its scenarios. It would not. Each of the four asserts a POSITIVE
+ * observable — a verbatim error message, or a banner with its status lines suppressed — so a seeded row
+ * makes them FAIL, loudly. What the reverse check actually buys is failing FAST and AT THE CAUSE: two
+ * seconds into the `setup` project, naming the anchor and the reason, instead of twelve minutes later as
+ * scenarios in two different domains complaining about a missing error banner. That is worth having. It
+ * is not the same as catching something that would otherwise pass unnoticed.
  *
  * ---------------------------------------------------------------------------------------------------
  * WHAT THIS DOES NOT CATCH — read before trusting it
@@ -100,8 +113,11 @@ const FIX_IT =
 const DELIBERATELY_ABSENT = new Map<AnchorKey, string>([
   [
     '16050/2016',
-    'sch1 S21 + sch11 S13 + sec S07 — no report-status row is what makes the schedule GET 404 and the '
-      + 'Home banner statuses null. Seeding it turns three scenarios green-for-the-wrong-reason.',
+    'sch11 S13 (GET 404 "Schedule not found.") + sec S07 (Home saves, and the banner shows the mill '
+      + 'line ONLY — both track-status lines suppressed). Both read the absence directly. NOTE: an '
+      + "earlier version of this entry also credited sch1 S21, copied from #327's seed comment without "
+      + "checking. sch1's 'no-schedule' anchor is 17052/2021, which expects HTTP 200 (the #296 "
+      + 'blank-form case) and IS seeded — a different fixture entirely.',
   ],
   [
     '16050/2015',

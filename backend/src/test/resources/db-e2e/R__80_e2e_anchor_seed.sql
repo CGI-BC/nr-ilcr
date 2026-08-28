@@ -144,11 +144,14 @@ INSERT INTO THE.ILCR_MILL_STATUS_XREF (ILCR_MILL_STATUS_XREF_ID, ILCR_MILL_STATU
 -- track-independence anchors.
 --
 -- SOME PINNED ANCHORS DELIBERATELY HAVE NO ROW HERE — the absence IS the
--- fixture (it is what makes the GET 404), so seeding one does not fix a gap, it
--- silently disables a scenario. The authoritative list, with a reason per
--- entry, is DELIBERATELY_ABSENT in frontend/e2e/preflight/ci-seed-parity.setup.ts;
--- that gate fails if one of them is ever given a row here. Kept in ONE place on
--- purpose — two copies of a list like this drift.
+-- fixture (it is what makes the GET 404 or leaves the Home banner statuses
+-- blank). They are absent from the real extract too, so this is parity, not a
+-- gap: seeding one would break the scenario that reads the absence. The
+-- authoritative list, with a reason per entry, is DELIBERATELY_ABSENT in
+-- frontend/e2e/preflight/ci-seed-parity.setup.ts; that gate fails if one of them
+-- is ever given a row here. Kept in ONE place on purpose — two copies of a list
+-- like this drift, and the copy that used to live here had already acquired a
+-- wrong attribution.
 -- ----------------------------------------------------------------------------
 -- Mill 1 (closed) - sch3's own closed-mill guard (S14 -> 409). A row must EXIST
 -- for 2016: without one MillContextService answers 404 first and the 409 the
