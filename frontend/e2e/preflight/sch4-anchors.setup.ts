@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 // so this one-file bug took 39 scenarios out of the run on any branch, not just Schedule 4's.
 // Same ESM-safe idiom already used by `sch11-anchors.setup.ts`.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+import { collectAnchorKeys, fixtureFiles } from './anchor-keys';
 import {
   ANCHORS,
   GUARD_ANCHORS,
@@ -305,12 +306,37 @@ const SCH3_SCH4_KEYS = [
   '12050/2018',
 ];
 
+/**
+ * Why every `sec` anchor is safe to share, and why five of them appeared here only on 2026-08-28.
+ *
+ * The `sec` (Home / working context) fixture interleaves `millNumber` and `millName` between `millId`
+ * and `year`, and both regexes this guard used until then required the two to be ADJACENT — so all five
+ * sec anchors were invisible to it from the day it was written. Nothing was wrong with the anchors; the
+ * scan could not see them. Fixed in `preflight/anchor-keys.ts` (it now pairs `millId` with the `year` in
+ * its own enclosing braces), which surfaced these five for adjudication.
+ *
+ * All five are safe, and structurally rather than by convention. sec writes NOTHING: Home's "Save" is a
+ * resolve — `GET /api/v1/mill-context` — so no sec scenario can move anything. And nothing the other
+ * side writes can move what sec reads: sec asserts the mill number/name and the two TRACK STATUS banner
+ * lines, and the only code in the whole backend that writes `ILCR_MILL_REPORT_STATUS` is
+ * `ReportingYearRepository` (the admin open-year flow, Story 24.1) — no schedule save touches it, and
+ * nothing writes `ILCR_MILL_REPORT_STATUS_RPT_VW` at all, which is where the banner DATE comes from
+ * (verified 2026-08-28 by sweeping backend/src/main/java for writes to both).
+ */
+const SEC_READ_ONLY =
+  'sec asserts only the mill number/name and the two track-status banner lines; it writes nothing, and '
+  + 'no schedule save can move a track code or a banner date — see the note above this map.';
+
 const SHARED_ACROSS_DOMAINS = new Map<string, string>([
   // The three guard anchors. Each exists to make a GET fail in a specific way and is held read-only by
   // construction — a closed mill and a missing schedule cannot be written to at all.
-  ['13/2017', 'closed-mill guard (HTTP 409) — read-only in sch1, sch2 and sch11'],
-  ['16050/2016', 'no-schedule guard (HTTP 404) — read-only in sch1 and sch11'],
+  ['13/2017', 'closed-mill guard (HTTP 409) — read-only in sch1, sch2, sch11 and sec'],
+  ['16050/2016', 'no-schedule guard (HTTP 404) — read-only in sch1, sch11 and sec'],
   ['12050/2016', 'submitted/non-Draft guard — read-only in sch1 and sch11'],
+  // The three sec shares where the other side DOES write. Same reason for all three.
+  ['13050/2017', `sch1 MUTABLE_DRAFT (the S01 write target) + sec DEFAULT_CONTEXT. ${SEC_READ_ONLY}`],
+  ['12050/2017', `sch1 Other-Costs inline-edit anchor + sec OPEN_WITH_STATUS. ${SEC_READ_ONLY}`],
+  ['9050/2019', `sch4 'validation-recovery' (mutating) + sec OPEN_ALT. ${SEC_READ_ONLY}`],
   // The two mixed pairs: a read-only Check Status fixture in sch1 alongside a mutating anchor in another
   // domain. Safe because the writer writes a DIFFERENT schedule's rows than the reader reads.
   [
@@ -340,70 +366,27 @@ const SHARED_ACROSS_DOMAINS = new Map<string, string>([
 
 test('preflight: Cross-domain anchors are globally distinct', async () => {
   const fixturesDir = path.join(HERE, '../fixtures');
-  const domains = fs
-    .readdirSync(fixturesDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && e.name !== 'common');
 
-  // Discover each domain's fixture file by EXTENSION, and THROW when one has none.
+  // The scan itself lives in `preflight/anchor-keys.ts`, shared with the CI-seed-parity gate.
   //
-  // This used to derive the filename from the directory name through a ternary chain and then drop
-  // anything missing with `.filter(fs.existsSync)`. That mapped seven domains which have no fixtures
-  // directory at all and none of the four that do (`sch1` resolved to `sch1-test-data.ts`, on disk it is
-  // `schedule1-test-data.ts`), so the scan silently narrowed to a single domain and the assertion below
-  // became unreachable — one domain cannot collide with itself. Raised in review; recorded as VER-8.
-  // A guard that quietly inspects fewer inputs than it believes is the same dead-check class VER-8 is
-  // about, so a missing fixture is now a hard failure rather than a skipped file.
-  const fixtureFiles = domains.map((d) => {
-    const dir = path.join(fixturesDir, d.name);
-    const [file] = fs.readdirSync(dir).filter((n) => n.endsWith('-test-data.ts'));
-    if (!file) {
-      throw new Error(
-        `fixtures/${d.name} contains no *-test-data.ts — the cross-domain anchor guard cannot scan it, `
-          + 'so it would pass without checking that domain. Add the fixture or remove the directory.',
-      );
-    }
-    return path.join(dir, file);
-  });
-
-  const allKeys = new Map<string, string[]>();
-
-  for (const file of fixtureFiles) {
-    const domainName = path.basename(path.dirname(file));
-    const content = fs.readFileSync(file, 'utf8');
-    // Both property orders: a fixture written `year: … , millId: …` is otherwise invisible here.
-    //
-    // AND the positional `at(MILL_x, millId, year, …)` builder both this domain and sch3 use for their
-    // anchor TABLES. Until 2026-08-24 the scan matched only the object-literal forms, so it saw sch4's
-    // four guard anchors and NONE of its 48 table anchors — and none of sch3's 14 either. That is the
-    // same silent-under-scanning failure VER-8 records, one level down: the guard ran, passed, and was
-    // blind to the majority of the keys it exists to compare. Caught when UC-SCH3-001 landed (its only
-    // object-literal anchor collided and was reported, while its 14 table anchors were not).
-    const matches = [
-      ...content.matchAll(/millId:\s*(\d+),\s*year:\s*(\d+)/g),
-      ...[...content.matchAll(/year:\s*(\d+),\s*millId:\s*(\d+)/g)].map(
-        (m) => [m[0], m[2], m[1]] as unknown as RegExpMatchArray,
-      ),
-      ...content.matchAll(/at\(\s*MILL_\w+\s*,\s*(\d+)\s*,\s*(\d{4})/g),
-    ];
-    for (const match of matches) {
-      const key = `${match[1]}/${match[2]}`;
-      if (!allKeys.has(key)) {
-        allKeys.set(key, []);
-      }
-      const list = allKeys.get(key)!;
-      if (!list.includes(domainName)) {
-        list.push(domainName);
-      }
-    }
-  }
+  // It handles both object-literal property orders AND the positional `at(MILL_x, millId, year, …)`
+  // builder that sch3 and sch4 use for their anchor TABLES. Until 2026-08-24 this guard matched only
+  // the object literals, so it saw sch4's four guard anchors and NONE of its 48 table anchors — and
+  // none of sch3's 14 either: it ran, passed, and was blind to most of the keys it exists to compare
+  // (the dead-check class VER-8 records, one level down). It also THROWS on a domain whose fixture it
+  // cannot find, rather than skipping it, for the same reason. Two consumers re-deriving that regex
+  // would reopen the hole, which is why it is one module.
+  const files = fixtureFiles(fixturesDir);
+  const allKeys = collectAnchorKeys(fixturesDir);
 
   // Prove the scan actually saw every domain — the failure this guard had was silent under-scanning, so
   // assert the inputs before asserting the property.
   expect(
-    fixtureFiles.length,
-    `the cross-domain guard scanned ${fixtureFiles.length} fixture file(s); expected one per domain `
-      + `directory (${domains.map((d) => d.name).join(', ')})`,
-  ).toBe(domains.length);
+    files.length,
+    `the cross-domain guard scanned ${files.length} fixture file(s): ${files
+      .map((f) => f.domain)
+      .join(', ')}`,
+  ).toBeGreaterThanOrEqual(6);
   expect(allKeys.size, 'the cross-domain guard found no (mill, year) keys at all — it is not scanning')
     .toBeGreaterThan(0);
 

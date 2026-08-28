@@ -224,20 +224,39 @@ Two things that bite:
 At scale you can also filter at *generation* time so only matching scenarios compile:
 `npm run bddgen -- --tags @p0` (that regenerates, so the follow-up run is safe).
 
-## CI / manual gate — delivery-DB verification
+## CI — the whole suite runs on every PR
 
-**This suite is a documented MANUAL gate, not a default CI job.** CI has **no delivery-DB access** (no Oracle
-in `docker-compose`; the app's own fixtures are Testcontainers-only), and the suite needs the running
-two-process stack plus the seeded Oracle. So run it locally per *Prerequisites*, gate on
-**`npm run test:gate`** (see *Install and run* for why that and not `npm test`), and record the run + the HTML
-report (`playwright-report/`) as the TEST-review evidence.
+Since PR #327 the **complete** suite runs in CI: the `e2e-tests` job in `.github/workflows/reusable-tests.yml`
+executes all three projects — `smoke`, the `setup` preflight, and the data-backed `chromium` scenarios — in
+one job, gated on **`npm run test:gate`** so the known `@discovered-*` reds are excluded (see *Install and run*
+for why that and not `npm test`). It is no longer a manual gate.
 
-If a pipeline ever gains delivery-DB access, wire the full data-backed suite (the `chromium` project) behind
-an **env-guarded opt-in job** so it can never run without live data — keep it off the default path.
+How it gets a stack and a database:
 
-**What IS safe to run on every PR** is the data-independent `@smoke` project: no `setup`/seeded-DB dependency
-and all `/api` aborted, so it guards against a frontend-only deploy with nothing but the frontend served
-(see *Notes*).
+- **The stack runs on the runner**, not against the deployed PR environment: mock auth only engages on
+  localhost (`isMockAuth()` double-gates on `isLocalHost()`), so the job starts the frontend on `:3000` and
+  the backend on `:8080` itself.
+- **The database is the shared Oracle in the OpenShift *tools* namespace** (`database/openshift.deploy.yml`,
+  deployed by `reusable-deploy`'s `deploy-database` job), reached with `oc port-forward` because a route
+  cannot carry SQL*Net. `concurrency: group: e2e-tools-oracle` queues runs so two never share it.
+- **Data comes from Flyway, not from the extract.** `mvn -P e2e-db flyway:clean flyway:migrate` rebuilds the
+  schema at the start of every run from the backend's test-scope chain (`backend/src/test/resources/db/`) plus
+  the e2e-only anchor seed (`db-e2e/R__80_e2e_anchor_seed.sql`). That reset is why the job needs no cleanup —
+  and it **wipes the tools database each run**, which is fine by design (its template declares the data
+  ephemeral); nothing else may treat that DB as durable.
+
+### The one rule this creates: keep the CI seed in step
+
+CI has **no real-data extract image and no `sqlplus` step**, so nothing under `real-test-data-patches/` runs
+there — a patch that is not folded into `db-e2e/R__80_e2e_anchor_seed.sql` does not exist in CI. Local runs
+are the mirror image: the real extract plus the patches, per *Prerequisites*.
+
+So **when data is added, the seed is updated in the same change**, following that file's own conventions
+(plain `INSERT`s with pre-claimed ids against an empty schema, not the patches' guarded PL/SQL). That is
+enforced, not just documented: `preflight/ci-seed-parity.setup.ts` compares the fixture anchor tables against
+the migration SQL on disk — no database needed — and fails when an anchor is neither seeded nor listed there
+as a deliberate absence. It checks both directions, because four anchors exist to make a GET *fail* and
+seeding one would quietly disable its scenario.
 
 Re-verify the pinned anchors after any DB re-extract — `preflight/` fails fast, with one actionable message,
 if one has drifted.
@@ -273,12 +292,11 @@ project. Point `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` at your seeded D
   single mock admin role yet — a `@skip` scenario documents this; deferred.
 - **Data-independent CI smoke (`@smoke`):** the `smoke` Playwright project runs the app-shell smoke
   (`features/shell/app-shell.feature`) with NO `setup`/seeded-DB dependency and all `/api` aborted, so it
-  guards every PR against a frontend-only deploy — the BDD equivalent of the app repo's
+  guards against a frontend-only deploy — the BDD equivalent of the app repo's
   `frontend/e2e/app-shell.spec.ts`. Run it alone with **`npm run bddgen && npx playwright test
   --project=smoke`** (only the frontend need be served; no Oracle — and the `bddgen` first for the reason
-  in *Scenario tags*). Wire THIS command into the per-PR CI job; gate the full data-backed suite
-  (`chromium` project, needs the seeded delivery DB) behind an opt-in/live-data job — see
-  *CI / manual gate — delivery-DB verification*.
+  in *Scenario tags*). CI runs it alongside the data-backed projects rather than instead of them — see
+  *CI — the whole suite runs on every PR*.
 
 ## Seeded database image — how it's built and refreshed
 

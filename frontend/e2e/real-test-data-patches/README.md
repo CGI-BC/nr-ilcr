@@ -19,6 +19,14 @@ id for a negative case, a missing FK parent from a one-hop extract — do we add
 - **Documented.** State which UC/scenario needs it and *why real data fell short*.
 - **Re-verify on re-extract.** Real data is non-deterministic across extracts; revisit patches when
   the DB is refreshed (each `.sql` should carry its own re-pick/verification query).
+- **Fold it into the CI seed, in the same change.** **These patches never run in CI.** The CI e2e job has
+  no extract image and no `sqlplus` step — it rebuilds the schema with Flyway from
+  `backend/src/test/resources/db/` plus `db-e2e/R__80_e2e_anchor_seed.sql`. So every anchor a patch here
+  creates must also be transcribed into that seed, following **its** conventions (plain `INSERT`s with
+  pre-claimed ids against an empty schema, not the guarded PL/SQL used here) with its ID-CLAIMS header
+  extended. Skip this and the suite passes locally and 404s in CI, which reads as an app defect rather
+  than as missing data. `preflight/ci-seed-parity.setup.ts` fails the run if you forget; it needs no
+  database, so it fires locally too.
 
 ## Layout (added as needed)
 ```
@@ -60,7 +68,8 @@ After applying to an already-running backend, **evict the app's reference-data c
 
 > **Why three patches exist purely to create ANCHORS (2026-08-27) — read this before adding a fourth.**
 > The extract has run out of usable mill-years, and the numbers are worth knowing before you go hunting:
-> **114** (mill, year) keys are already pinned across the six domain fixtures; Home offers only reporting
+> **114** (mill, year) keys were already pinned across the six domain fixtures when this was measured — 119
+> now, these five anchors included; Home offers only reporting
 > years **2015-2021** (`GET /api/v1/reporting-years`), so an anchor outside that range cannot be selected by
 > a scenario at all; and across the 17 ACT mills × those 7 years exactly **four** unclaimed pairs are
 > openable — every one of them NON-DRAFT, which disables Check Status. So a new mutating scenario in sch2,
@@ -72,10 +81,19 @@ After applying to an already-running backend, **evict the app's reference-data c
 > HTTP 500 `scheduleNotSavedErrorMsg`, logged type-only as `DataIntegrityViolationException`. The comparison
 > that explained it: a working anchor held 11 category rows and the bare one held none.
 >
-> **When searching for a free anchor, do not grep line-by-line.** Anchors are declared in two forms and one
-> of them spans four lines (`at(\n MILL_987,\n 12050,\n 2015,`), so a line-based search reports a claimed
-> pair as free. Collapse whitespace first, then match both `millId: N, year: Y` and `at(MILL_x, N, Y,`. That
-> mistake cost two wrong "no anchors exist" conclusions before Schedule 4's preflight caught it.
+> **When searching for a free anchor, do not write your own grep — reuse `preflight/anchor-keys.ts`.**
+> Anchors are declared in three shapes and two of them defeat a line-based search: `at(...)` entries wrap
+> across four lines (`at(\n MILL_987,\n 12050,\n 2015,`), and `sec` interleaves `millNumber`/`millName`
+> between `millId` and `year`. That module pairs each `millId` with the `year` in its own enclosing braces
+> and handles both. Under-scanning here has cost real time — two wrong "no anchors exist" conclusions
+> (caught by Schedule 4's preflight), and the cross-domain guard itself missed 62 of the 119 keys, twice,
+> for those two reasons.
+
+**All five patches above are also folded into `backend/src/test/resources/db-e2e/R__80_e2e_anchor_seed.sql`**
+(as of 2026-08-28), so the same anchors exist in CI. `preflight/ci-seed-parity.setup.ts` keeps them in step.
+The one thing NOT transcribed is the eleven `ILCR_REPORT_CATEGORY` rows per anchor: the real Oracle's
+composite FK is what makes them necessary, and the Flyway test schema has no such FK (that omission is
+recorded in the seed's own header).
 
 Add entries only as real gaps are hit during test creation/testing.
 
