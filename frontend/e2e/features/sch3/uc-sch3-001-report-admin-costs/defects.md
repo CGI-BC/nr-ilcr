@@ -402,7 +402,7 @@ count does.
     | sch11 | `@S21` / `@S22` (inline row editor, NOT the Add panel) | sch11 DIV-5 |
 
     Ex-**GAP-4** tracked the absence of these and was CLOSED by writing them.
-  - **CLOSE-OUT CHECKLIST — QA must not close this family on the fix alone.** When #359 lands all nine go
+  - **CLOSE-OUT CHECKLIST — QA must not close this family on the fix alone.** When #359 lands all TEN go
     green on their own. Then, per domain: retire the `@discovered-divergence` tag AND the `[DISCOVERED …]`
     title marker together, close that domain's pointer entry with the date and the fixing PR, and correct its
     coverage.md count. Leave the assertions alone — a red that goes green by itself is the whole design. Two
