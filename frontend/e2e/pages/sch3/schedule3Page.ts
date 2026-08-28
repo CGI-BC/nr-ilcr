@@ -172,9 +172,17 @@ export class Schedule3Page {
    * also a substring of another cell's text.
    */
   private lineRow(line: LineSpec): Locator {
-    const index = ['27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37'].indexOf(
-      String(line.code),
-    );
+    const codes = ['27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37'];
+    const index = codes.indexOf(String(line.code));
+    // Guard the -1: Playwright reads `nth(-1)` as the LAST element, so an unknown code would silently
+    // assert against the wrong row — a passing test proving nothing about the line it names. Theoretical
+    // while the 11 codes are fixed, and one line to close (raised in review on PR #11).
+    if (index < 0) {
+      throw new Error(
+        `Schedule 3 line code ${line.code} ("${line.label}") is not one of the 11 fixed lines `
+          + `(${codes.join(', ')}), so it has no row position. Fix the caller or LINES.`,
+      );
+    }
     return this.costTable.locator('tbody tr').nth(index);
   }
 
@@ -393,11 +401,18 @@ export class Schedule3Page {
 
   async openOtherAcceptableReadOnly(route: string): Promise<void> {
     await this.otherAcceptableLink.click();
+    // ORDER IS LOAD-BEARING, and was wrong until 2026-08-28 (raised in review on PR #11).
+    // `toHaveCount(0)` passes the instant the count is zero — which it is before React has rendered
+    // anything at all — so asserting it FIRST proved nothing: had the read-only path regressed and
+    // started showing the discard modal, this would very likely still have passed. That is precisely
+    // the vacuous-negative-assertion class this suite documents elsewhere.
+    // `toHaveURL` auto-waits for the client-side navigation to settle, so once it has resolved the
+    // page is rendered and the absence of the dialog is a real observation.
+    await expect(this.page).toHaveURL(new RegExp(`${route}$`));
     await expect(
       this.leaveDialog,
       'a read-only Schedule 3 must not ask to discard unsaved edits — there are none',
     ).toHaveCount(0);
-    await expect(this.page).toHaveURL(new RegExp(`${route}$`));
   }
 
   async cancelLeave(): Promise<void> {

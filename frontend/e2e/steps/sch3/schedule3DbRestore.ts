@@ -67,11 +67,20 @@ export function applySch3Patch(): void {
       throw new Error(out);
     }
   } catch (err) {
+    // Two different failures arrive here and they carry their detail in different places:
+    //  - the ORA-* path above throws with sqlplus's own stdout as the message;
+    //  - a non-zero EXIT gives Node's terse "Command failed: …" and puts the real output on
+    //    err.stdout / err.stderr, because execFileSync ran with stdio: 'pipe'.
+    // Until 2026-08-28 only `.message` was reported, so the exit-code path promised diagnostics and
+    // delivered none — a failed restore said nothing about why (raised in review on PR #11).
+    const e = err as Error & { stdout?: Buffer | string; stderr?: Buffer | string };
+    const detail = [e.message, e.stdout?.toString(), e.stderr?.toString()]
+      .map((part) => part?.trim())
+      .filter((part) => part)
+      .join('\n');
     throw new Error(
       `Failed to re-apply the Schedule 3 seed patch (real-test-data-patches/sch3/draft-anchors.sql). ` +
-        `The deleted anchor is still missing, so the next run will fail its preflight. sqlplus said:\n${
-          (err as Error).message
-        }`,
+        `The deleted anchor is still missing, so the next run will fail its preflight. sqlplus said:\n${detail}`,
     );
   }
 }

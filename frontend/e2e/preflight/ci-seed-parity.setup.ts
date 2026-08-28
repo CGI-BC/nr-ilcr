@@ -213,6 +213,34 @@ function unwrap(value: string): string | null {
 }
 
 /**
+ * Names the reason an INSERT cannot be zipped by column name, or null if the shape is unrecognised.
+ *
+ * Both forms are valid SQL and neither carries a positional column list this gate can pair with its
+ * values, so reading them would need a real parser. Naming them is what keeps the skip honest.
+ */
+function unreadableForm(rest: string): 'insert-select' | 'no-column-list' | null {
+  if (/^\s*\([^)]*\)\s*SELECT\b/i.test(rest)) return 'insert-select';
+  if (/^\s*VALUES\s*\(/i.test(rest)) return 'no-column-list';
+  return null;
+}
+
+/**
+ * The statements this gate genuinely cannot read, with the reason each is harmless.
+ *
+ * Keyed `TABLE:form`. Enumerated rather than skipped so a NEW unreadable INSERT into a parsed table
+ * fails — the DELIBERATELY_ABSENT pattern applied to the parser instead of the data.
+ */
+const KNOWN_UNREADABLE = new Map<string, string>([
+  [
+    'BIOGEOCLIMATIC_CATALOGUE:insert-select',
+    'db/V29__seed_schedule11_biogeo_cap_fixtures.sql generates 51 filler rows with '
+      + "`SELECT 8900 + LEVEL … CONNECT BY LEVEL <= 51`, i.e. ids 8901-8951. This gate reads this table "
+      + "ONLY for explicit-id collisions, and the seed's biogeo claims stop at 8855, so the generated "
+      + 'band cannot collide. Re-check that if either range moves.',
+  ],
+]);
+
+/**
  * Every INSERT into one table, as column-name -> value maps.
  *
  * Columns are zipped BY NAME, never by position: the seed's own statements vary their column lists
@@ -229,6 +257,23 @@ function parseInserts(sql: string, table: string): Record<string, string | null>
     const rest = source.slice(match.index! + match[0].length);
     const shape = rest.match(/^\s*\(([^)]*)\)\s*VALUES\s*\(/i);
     if (!shape) {
+      // NOTHING IS SKIPPED SILENTLY — that used to be a bare `continue`, which is the very thing the
+      // arity check below refuses to do: an unread statement is a row this gate believes is missing,
+      // and the MIN_* floors would only notice at scale. Raised in review on PR #11.
+      //
+      // Two legitimate SQL forms cannot be zipped by name and so cannot be read here at all:
+      // `INSERT INTO t (cols) SELECT …` (set-based) and `INSERT INTO t VALUES (…)` with no column
+      // list. Both exist on the tree. Rather than hard-fail on long-standing SQL or wave them
+      // through, they are RECOGNISED and enumerated — see KNOWN_UNREADABLE and the test that asserts
+      // the set, the same shape as DELIBERATELY_ABSENT. Anything the classifier cannot even name
+      // still throws immediately.
+      if (unreadableForm(rest) === null) {
+        const preview = rest.slice(0, 120).replace(/\s+/g, ' ').trim();
+        throw new Error(
+          `could not parse an INSERT INTO THE.${table}, and could not classify the form either. `
+            + `Teach parseInserts about it rather than leaving the statement unread. Saw: ${preview}…`,
+        );
+      }
       continue;
     }
     const columns = shape[1].split(',').map((c) => c.trim().toUpperCase());
@@ -493,6 +538,45 @@ test('seed parity: the seed’s explicit ids are unique, unclaimed, and parented
   expect(parsed, 'parsed no explicit ids at all — the parser is not matching').toBeGreaterThan(200);
   expect(problems, `${SEED} would fail at flyway:migrate or seed unreachable rows:\n${problems.join('\n')}`)
     .toEqual([]);
+});
+
+test('seed parity: every INSERT this gate cannot read is a known, harmless one', async () => {
+  // The other half of "nothing is skipped silently": parseInserts recognises two unreadable SQL forms
+  // and walks past them, so this asserts the set it walked past is exactly the enumerated one. A new
+  // INSERT…SELECT into a parsed table — the form that would make this gate under-count without saying
+  // so — fails here. Raised in review on PR #11.
+  const { all } = readMigrations();
+  const source = all.replace(SQL_COMMENT, ' ');
+  const found = new Map<string, number>();
+
+  for (const table of Object.keys(EXPLICIT_ID_COLUMNS).concat([
+    'ILCR_MILL_REPORT_STATUS',
+    'ILCR_REPORTING_PERIOD',
+  ])) {
+    const start = new RegExp(`INSERT\\s+INTO\\s+THE\\.${table}(?![A-Z0-9_])`, 'gi');
+    for (const match of source.matchAll(start)) {
+      const rest = source.slice(match.index! + match[0].length);
+      if (/^\s*\([^)]*\)\s*VALUES\s*\(/i.test(rest)) continue;
+      const form = unreadableForm(rest);
+      const key = `${table}:${form ?? 'UNCLASSIFIED'}`;
+      found.set(key, (found.get(key) ?? 0) + 1);
+    }
+  }
+
+  const unexpected = [...found.keys()].filter((k) => !KNOWN_UNREADABLE.has(k)).sort();
+  expect(
+    unexpected,
+    'these INSERTs cannot be zipped by column name, so this gate would not see their rows, and they '
+      + 'are not enumerated as harmless. Either teach parseInserts the form or add it to '
+      + `KNOWN_UNREADABLE with the reason it cannot matter: ${unexpected.join(', ')}`,
+  ).toEqual([]);
+
+  // Shrink-only, like DELIBERATELY_ABSENT: an allowance for a statement that no longer exists is cover.
+  const dead = [...KNOWN_UNREADABLE.keys()].filter((k) => !found.has(k)).sort();
+  expect(
+    dead,
+    `KNOWN_UNREADABLE allows forms that are no longer on the tree — delete these: ${dead.join(', ')}`,
+  ).toEqual([]);
 });
 
 test('seed parity: the e2e-only seed carries no anchor no fixture pins', async ({}, testInfo) => {

@@ -113,14 +113,27 @@ export function fixtureFiles(fixturesDir: string): { domain: string; file: strin
 
   return domains.map((d) => {
     const dir = path.join(fixturesDir, d.name);
-    const [file] = fs.readdirSync(dir).filter((n) => n.endsWith('-test-data.ts'));
-    if (!file) {
+    const files = fs.readdirSync(dir).filter((n) => n.endsWith('-test-data.ts'));
+    if (files.length === 0) {
       throw new Error(
         `fixtures/${d.name} contains no *-test-data.ts — an anchor guard cannot scan it, so it would `
           + 'pass without checking that domain. Add the fixture or remove the directory.',
       );
     }
-    return { domain: d.name, file: path.join(dir, file) };
+    // Throwing on TWO matters as much as throwing on zero, and was missed until 2026-08-28 (raised in
+    // review on PR #11). `const [file] = …` silently took the first, so a domain that split its
+    // fixtures would have every anchor in the second file invisible to both guards — the same
+    // "passes while blind" shape this module's header is about, one level down again. Scanning both
+    // would also work; throwing is chosen because it forces a decision about which file is
+    // authoritative rather than quietly unioning two.
+    if (files.length > 1) {
+      throw new Error(
+        `fixtures/${d.name} contains ${files.length} *-test-data.ts files (${files.join(', ')}). The `
+          + 'anchor guards assume one per domain and would silently scan only the first. Merge them, or '
+          + 'teach fixtureFiles() to return all of them.',
+      );
+    }
+    return { domain: d.name, file: path.join(dir, files[0]) };
   });
 }
 

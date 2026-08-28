@@ -237,7 +237,11 @@ export async function putOtherAcceptable(
   rows: { id?: number | null; description: string; total: number | null; pop: number | null }[],
 ): Promise<Sch3OtherAcceptableDocument> {
   const res = await request.put(otherAcceptableUrl(key.millId, key.year), {
-    data: { rows: rows.map((r) => ({ id: r.id ?? null, ...r })) },
+    // `{ ...r, id: … }`, not `{ id: …, ...r }` — the spread has to come FIRST or it overwrites the
+    // default and the `?? null` can never fire. Worse, an explicit `id: undefined` would serialize the
+    // field away entirely, and absent-vs-null may well mean insert-vs-update to this batch endpoint
+    // (the #292 rule, one layer up). Dead until a caller passes `id`; corrected in review on PR #11.
+    data: { rows: rows.map((r) => ({ ...r, id: r.id ?? null })) },
   });
   await expect(
     res,
@@ -253,7 +257,11 @@ export async function putUnacceptable(
   rows: { id?: number | null; description: string; total: number | null }[],
 ): Promise<Sch3UnacceptableDocument> {
   const res = await request.put(unacceptableUrl(key.millId, key.year), {
-    data: { rows: rows.map((r) => ({ id: r.id ?? null, ...r })) },
+    // `{ ...r, id: … }`, not `{ id: …, ...r }` — the spread has to come FIRST or it overwrites the
+    // default and the `?? null` can never fire. Worse, an explicit `id: undefined` would serialize the
+    // field away entirely, and absent-vs-null may well mean insert-vs-update to this batch endpoint
+    // (the #292 rule, one layer up). Dead until a caller passes `id`; corrected in review on PR #11.
+    data: { rows: rows.map((r) => ({ ...r, id: r.id ?? null })) },
   });
   await expect(
     res,
