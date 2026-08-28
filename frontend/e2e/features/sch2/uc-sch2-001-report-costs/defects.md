@@ -226,8 +226,10 @@ at-rest state.
     and without the stack. E2E would need a second route-interception fixture, take ~10s per scenario, and
     prove strictly less.
   - **And unlike the backend ITs, Vitest DOES gate:** CI runs `npm run test:cov` (`analysis.yml`), so a
-    regression in these fallbacks would fail the build — which an E2E test could not claim, since the
-    data-backed suite is a manual gate (see GAP-5).
+    regression in these fallbacks would fail the build. (This bullet used to add "which an E2E test could
+    not claim, since the data-backed suite is a manual gate" — no longer true since upstream #327 runs the
+    full suite on every PR. The placement argument above is unaffected: it rests on cost and on where a
+    route-interception fallback belongs, not on which suite gates.)
   - **Where it belongs — NOT here.** A component test on `components/schedule2` is Schedule 2 story
     territory (3.3), not this verification story (3.4); and this suite changes no files outside
     `frontend/e2e/`. Two cases, ~10 lines, beside the existing 11.
@@ -296,8 +298,10 @@ at-rest state.
   - **Test:** four clean sweeps in `accessibility.feature`; the fifth state intentionally not swept.
 
 - **GAP-5 — CLOSED 2026-08-14, not pursued: a stale domain list in a CI workflow comment.**
-  - `.github/workflows/reusable-tests.yml` describes the manual gate by naming domains, so the list
-    goes stale each time a suite lands. Cosmetic only — the job greps `@smoke` and is unaffected.
+  - `.github/workflows/reusable-tests.yml` described the manual gate by naming domains, so the list
+    went stale each time a suite lands. Cosmetic only — the job greps `@smoke` and was unaffected.
+  - **Moot since 2026-08-28:** upstream #327 rewrote that comment block wholesale (the job now runs the
+    full suite, no domain enumeration), so the stale list is gone without anyone editing it for its own sake.
   - **Closed deliberately.** Editing a shared CI file pulls in reviewers for a comment that changes no
     behaviour. Not worth the churn; whoever is next in that file can drop the enumeration if they care.
   - **Status:** CLOSED — won't pursue. No action owed by anyone.

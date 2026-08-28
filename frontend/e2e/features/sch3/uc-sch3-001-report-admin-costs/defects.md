@@ -765,3 +765,7 @@ deliberately excluded was re-checked against the new app rather than inherited â
   positional `at(MILL_x, id, year)` builder). The scan now covers both forms and every deliberate share
   is declared with its reason. This is the same silent-under-scanning class as that file's own VER-8
   note, one level down â€” worth remembering as a pattern, not just a fix. (Verified 2026-08-25.)
+  **It happened a third time, for a third reason:** all three patterns required `millId` and `year` to be
+  ADJACENT, and `sec` interleaves two properties between them, so that whole domain had always been
+  invisible. Fixed 2026-08-28 by moving the scan to `preflight/anchor-keys.ts` and pairing on the enclosing
+  braces; recorded in full as **sch4's VER-9**, together with the CI-seed drift found alongside it.

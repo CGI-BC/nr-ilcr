@@ -947,7 +947,65 @@ entries are kept only because their ids are cited elsewhere:**
           Schedule 1 line items and Other Costs. **The narrowest margin of the five** — both are on the 1-10
           track — so the exemption is written to say that if any Schedule 1 scenario ever starts WRITING this
           anchor, it must be removed.
-    - **The durable problem, recorded not fixed:** CI cannot catch this class at all. `reusable-tests.yml`
-      runs only `--project=smoke`, and its own comment states the data-backed `setup + chromium` projects are
-      "a LOCAL/manual gate". The `setup` project that hosts every preflight guard therefore never executes in
-      CI, so a preflight regression is invisible until someone runs the full suite locally.
+    - **The durable problem — RESOLVED 2026-08-28 by upstream PR #327.** This entry used to close: "CI
+      cannot catch this class at all … the `setup` project that hosts every preflight guard never executes
+      in CI, so a preflight regression is invisible until someone runs the full suite locally." That was
+      true of `reusable-tests.yml` as it then stood. #327 deployed a shared Oracle to the OpenShift tools
+      namespace and now runs the FULL suite on every PR — `smoke`, `setup` and `chromium` in one job, gated
+      on `npm run test:gate`. Every preflight guard, including the two this entry is about, executes in CI.
+    - **Follow-on:** the same under-scanning class recurred twice more and is recorded as **VER-9**.
+
+- **VER-9 — The cross-domain anchor guard was still blind to a whole domain, and the CI seed had drifted
+  from the fixtures. Both found 2026-08-28 while folding the seed patches into upstream #327's CI seed;
+  both fixed.** Two separate findings, recorded together because they share a root cause — a rule about test
+  data that only a human enforced.
+    - **Finding 1 — the guard never saw the `sec` domain.** After VER-8's fix the scan handled both
+      `millId`/`year` property orders and (from `78b366e`) the positional `at(...)` builder — but all three
+      patterns require `millId` and `year` to be **adjacent**. `fixtures/sec/working-context-test-data.ts`
+      interleaves `millNumber` and `millName` between them, so every one of its five anchors was invisible
+      from the day the guard was written. It scanned 6 files, reported success, and compared 5 fewer keys
+      than it believed. Two of those five (`13/2017`, `16050/2016`) are shared with three other domains and
+      were already allow-listed for other reasons, which is why nothing ever looked wrong.
+        - **Fixed** by moving the scan into `preflight/anchor-keys.ts` — shared with the new parity gate, so
+          it cannot be re-derived divergently — and pairing each `millId` with the `year` in its own
+          enclosing braces instead of the next one along. Distinct keys: 119, from 6 domains.
+        - **What it surfaced: three more cross-domain shares, all adjudicated SAFE and allow-listed with
+          reasons.** `13050/2017` (sch1 `MUTABLE_DRAFT`, the S01 write target + sec `DEFAULT_CONTEXT`),
+          `12050/2017` (sch1 Other-Costs inline-edit + sec `OPEN_WITH_STATUS`), `9050/2019` (sch4
+          `validation-recovery`, mutating + sec `OPEN_ALT`). sec writes nothing — Home's Save is a resolve
+          GET — and it asserts only the mill number/name and the two track-status banner lines. Nothing a
+          schedule save does can move those: the only writer of `ILCR_MILL_REPORT_STATUS` anywhere in
+          `backend/src/main/java` is `ReportingYearRepository` (the admin open-year flow), and nothing
+          writes `ILCR_MILL_REPORT_STATUS_RPT_VW` at all, which is where the banner date comes from.
+        - **Why the guard could not report it:** every assertion in it compares two things it derived
+          itself, so under-scanning is indistinguishable from "no collisions". It is now asserted directly —
+          each domain must contribute keys, or the run fails.
+    - **Finding 2 — four seed patches were missing from the CI seed, so a whole domain would have failed in
+      CI.** #327's `db-e2e/R__80_e2e_anchor_seed.sql` folded in `sch4/view-mode-amounts.sql` by hand but not
+      `sch3/draft-anchors.sql` (17 Schedule 3 summaries, 1 Schedule 1 summary, 115 detail rows) or the three
+      BR-12 `unsaved-check-anchors.sql` patches. CI has no extract image and no `sqlplus` step, so a patch
+      that is not transcribed there does not exist in CI. Also missing: mill 1 and its `1/2016` row (sch3's
+      409 closed-mill guard), and the `17052/2015` 'S' / `22051/2015` 'V' read-only render anchors.
+      Measured: 12 of 119 pinned anchors had no report-status row, of which only 4 were deliberate.
+        - **Why the failure would have misled:** every sch3 scenario would have 404'd, which reads as an app
+          defect, and `sch3-anchors.setup.ts` would have failed first with "apply the seed patch" — advice
+          that is impossible to follow in CI.
+        - **Fixed** by transcribing all four patches into the seed, following its conventions (plain
+          `INSERT`s with pre-claimed ids, ranges extended in its ID CLAIMS header) rather than pasting the
+          patches' guarded PL/SQL. The eleven `ILCR_REPORT_CATEGORY` rows per anchor were deliberately NOT
+          transcribed and the decision recorded in the seed: they exist because the real Oracle has a
+          composite FK, and the Flyway test schema models that table with no FK at all.
+        - **Made a gate, not a note:** `preflight/ci-seed-parity.setup.ts` reads the fixtures and the
+          migration SQL off disk — no database — and fails when a pinned anchor is neither seeded nor listed
+          as a deliberate absence. It checks **both** directions: a bare set-difference would report the
+          four guard anchors as missing, and seeding them to clear it would silently disable four
+          scenarios. It also catches duplicate/colliding explicit ids (`ORA-00001` at `flyway:migrate`,
+          which the backend's `FlywayMigrationConventionTest` states as out of its own scope) and orphaned
+          detail rows.
+        - **Each check was run against a deliberately broken seed before being trusted** — five negative
+          controls. That is not ceremony: the duplicate-id check was written as `!seen.add(id)`, and
+          `Set.add` returns the Set rather than a boolean, so it detected nothing and passed. Only the
+          negative run found it. A gate seen only green is a gate that cannot be vouched for.
+    - **Priority / env:** neither is an app defect — finding 1 is suite quality, finding 2 is test data. No
+      ticket. Recorded here because both are the same dead-guard class as VER-8 and the register is where
+      that history lives.

@@ -76,7 +76,7 @@ reading the matrix below:
 | Check Status success / missing (S07, S08) | `check-status.feature` ×3 | `covered` |
 | written after implementation per AD-10 (verification, not red phase) | 3.1–3.3 were `done` before this suite was authored | satisfied |
 | axe: zero violations **or** triaged disposition (NFR1) | `accessibility.feature` — 4 clean renders; the 5th is GAP-4's recorded disposition | `covered` |
-| CI: wired into the pipeline **or** documented as a manual gate | `reusable-tests.yml` runs the data-independent `@smoke` project; the data-backed suite is a documented manual gate in `e2e/README.md` | satisfied (manual-gate branch) |
+| CI: wired into the pipeline **or** documented as a manual gate | `reusable-tests.yml` runs the FULL suite on every PR since upstream #327 (2026-08-28) — `smoke`, `setup` and `chromium` against the shared tools-namespace Oracle, gated on `npm run test:gate`. This row previously read "manual gate"; it is now the pipeline branch of the AC | satisfied (pipeline branch) |
 
 > **Note on the issue's stated context (`514/2021`).** #78 describes the local setup as "context 514/2021";
 > that is an example working context for bringing the stack up, not a constraint on which records the
@@ -280,7 +280,8 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-13. *
 - **Overall: 18/18 slices covered** (S17/S18, the unsaved-edit arms, covered 2026-08-27 by two deliberate
   reds against #359 — see the header). On messages: **the two GAP-3 fallbacks are no longer
   `deferred`** — covered in Vitest by [#298](https://github.com/bcgov/nr-ilcr/issues/298) on
-  2026-08-26, which is where they belong (Vitest gates in CI; this data-backed suite is a manual gate).
+  2026-08-26, which is where they belong (a route-interception fallback is a component concern, and Vitest
+  needs no database to prove it).
   Two rows remain uncovered: the `blocked` role item (GAP-1) and `Unable to check status.`, the latter
   **added to the catalog by the #298 code review** — the verdict here previously read "every
   message-catalog row except GAP-1", measured against a list that silently omitted the page's fourth

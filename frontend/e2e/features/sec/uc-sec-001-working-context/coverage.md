@@ -55,16 +55,17 @@ structure. Behavioral parity against the ACs:
 | AC2 context DISPLAYS on the schedule tombstone | ✅ | `@tombstone` — Schedule 2 header shows the saved mill + both track statuses (banner → tombstone, #227) |
 | AC3 AD-10 (verification, not red) | ✅ | Post-implementation assertions of observed behavior |
 | AC4 axe WCAG 2.1 AA, zero/triaged | ⚠️ **triaged, not zero** | `@a11y` on landing + populated-banner + the Schedule 2 tombstone (`wcag2a/2aa/21a/21aa`). The tombstone sweep is green. The two HOME sweeps are RED on `color-contrast` and are the **triaged** half of this AC: `defects.md` BUG-1, admin-authored welcome-message colours (2.15:1 and 4.27:1 against white), not app CSS. Split into their own `@discovered-bug` scenarios 2026-08-24 so the `@p0` save journey and the `@p1` landing journey stay green and inside `test:gate`, with the contrast tracked rather than skipped. NOTE a green here would not by itself prove a fix — editing the welcome message also clears it; see BUG-1. |
-| AC5 CI wired or manual gate documented | ✅ (manual gate) | See **Manual verification gate** below; no CI (app+DB not containerized for CI here) |
+| AC5 CI wired or manual gate documented | ✅ (CI wired) | `reusable-tests.yml` runs the full suite on every PR since upstream #327 (2026-08-28), against the shared tools-namespace Oracle. The local commands below remain the authoring/manual route |
 | AC6 data-reality confirmed, not invented | ✅ | All anchors grounded via live API 2026-07-30; finding queries pinned in `fixtures/sec/` |
 
 Residual vs the app team's suite: **S04/S05/S08 remain contract-only** here (the mount default pre-selects
 both dropdowns, so the empty state is UI-unreachable — DIV-2). This also makes the app team's
 browser `S04` **stale** (it assumed the old `514` default was absent). Flagged for BA/PO.
 
-## Manual verification gate (HOME-1.5 AC5)
+## Verification gate (HOME-1.5 AC5)
 
-No CI wiring (the app + delivery Oracle are not containerized in this pipeline). Manual gate:
+CI runs the full suite on every PR (see the AC5 row above). The same run locally, which is also the
+authoring loop:
 1. Bring up the stack per `../../../README.md` (backend `:8080` `local` profile + datasource on; Vite `:3000`;
    seeded Docker Oracle `THE/…@localhost:1525/DBDOCK_01`, security off).
 2. `cd frontend/e2e && npm test` (the `pretest` hook runs `bddgen`).
