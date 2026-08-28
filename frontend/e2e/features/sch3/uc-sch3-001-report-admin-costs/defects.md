@@ -387,7 +387,8 @@ count does.
     POINTER entry — **sch1 DIV-6, sch2 DIV-2, sch4 DIV-8, sch11 DIV-5** — holding only their own scenarios,
     anchors and re-groundings. The reasoning lives here and only here; keep it that way, because two copies
     of one caveat diverged inside a single session on ilcr-bmad PR #92.
-  - **COVERAGE IS NOW COMPLETE — nine scenarios across five domains (2026-08-27).** Both arms exist
+  - **COVERAGE IS NOW COMPLETE — TEN scenarios across five domains** (nine of them written 2026-08-27,
+    alongside the pre-existing `@S12` below). Both arms exist
     everywhere, because they fail in OPPOSITE directions: the false-GREEN arm lets an incomplete schedule
     look ready (how a bad schedule gets submitted), and the false-RED arm keeps reporting what the reporter
     has already fixed (the direction they meet most often).

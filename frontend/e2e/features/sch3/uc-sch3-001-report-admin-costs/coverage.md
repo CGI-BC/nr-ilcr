@@ -112,8 +112,9 @@ goes green on its own when its fix lands.
 
 **DIV-6 is the app-wide one, and this UC is its home.** Schedules 1, 2, 4 and 11 carry the same divergence
 with their own scenarios and short pointer entries (sch1 DIV-6, sch2 DIV-2, sch4 DIV-8, sch11 DIV-5); nine
-scenarios across five domains track it, all on the one ticket. Ex-**GAP-4** tracked their absence and was
-CLOSED 2026-08-27 by writing them.
+**ten** scenarios across five domains track it, all on the one ticket — nine written 2026-08-27 plus this
+suite's pre-existing `@S12`. One command runs them all: `npm test -- --grep @check-status-unsaved`.
+Ex-**GAP-4** tracked the missing nine and was CLOSED 2026-08-27 by writing them.
 
 ## Story AC traceability — bcgov/nr-ilcr#83 (Story 28.3, epic #226)
 
@@ -384,7 +385,7 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-25. *
   than deferred. Every message-catalog row is dispositioned: covered, `divergence`, `not-applicable` with a
   reason, or `deferred` (the page-fallback strings, which belong in Vitest). **THREE of this suite's four
   coverage gaps are closed:** GAP-2 and GAP-3 on 2026-08-26 by writing them (`concurrency.feature`,
-  `subpage-back.feature`), and **GAP-4 on 2026-08-27, also by writing them** — nine scenarios across five
+  `subpage-back.feature`), and **GAP-4 on 2026-08-27, also by writing them** — nine new scenarios across five
   domains, which is the way a coverage gap is supposed to close. **GAP-1 is the only one still open**, and it
   is missing app behaviour rather than missing coverage.
 - **Verdict: PASS** — no waiver needed. GAP-1 is missing app behaviour rather than missing coverage (both
