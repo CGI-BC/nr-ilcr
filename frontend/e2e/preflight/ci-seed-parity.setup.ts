@@ -59,6 +59,15 @@ import {
  *     file checks. The class to remember: a NEIGHBOURING schedule's data on the same (mill, year) can
  *     change the served document of the schedule under test, and the seed's parity claim covers
  *     report-status states, not that.
+ *
+ *     A SECOND ESCAPE, same day, different mechanism: sch3's two read-only render anchors were given
+ *     report-status rows with tracks 'S' and 'V' but no category-3 summary, which is a
+ *     Submitted-and-UNSAVED schedule. Everything here passed (mill, status row, year all present) and
+ *     so did the domain preflight, because since defect #296 an unsaved schedule still answers 200 and
+ *     its track is still right — the only visible symptom was one sub-page scenario failing in CI, four
+ *     steps from the cause. Fixed in the seed, and `sch3-anchors.setup.ts` now asserts that a pinned
+ *     TRACK also implies a SAVED schedule. Generalise it: "the row exists" is weaker than "the state
+ *     the fixture means", and this file only ever checks the former.
  *  2. Track codes. The fixtures declare an expected track ('S'/'V'/Draft) in prose and in one typed
  *     table only, so deriving it from source needs its own allow-list. The runtime preflights assert
  *     it. Only the PARSER's grip on the two track columns is checked here, by the probes below.

@@ -289,6 +289,20 @@ test('every Schedule 3 render-state anchor still produces its guard response', a
       if (doc.trackStatus !== anchor.track || doc.editable) {
         drifted.push(`${key} -> track ${doc.trackStatus}, editable ${doc.editable}`);
       }
+      // A pinned track ALSO implies a SAVED schedule, and that has to be asserted separately.
+      // Added 2026-08-28 after this check passed against a seed where these two anchors had the right
+      // report-status row and no category-3 summary at all: since defect #296 an unsaved schedule
+      // answers 200, so `expectHttp` and `trackStatus` were both satisfied by a
+      // Submitted-and-UNSAVED schedule. It renders read-only exactly as S15 expects, and then its
+      // Other Costs link hits the save-first gate (ALT-002) instead of opening the sub-page — so only
+      // the sub-page scenario failed, in CI only, four steps away from the cause.
+      // `revisionCount` is the server's saved marker (loose `== null`, as `isScheduleSaved` reads it).
+      if (doc.revisionCount == null) {
+        drifted.push(
+          `${key} is track '${anchor.track}' but UNSAVED (no revisionCount) — it needs a category-3 `
+            + 'summary, not just a report-status row, or its sub-pages hit the save-first gate',
+        );
+      }
     }
   }
   expect(
