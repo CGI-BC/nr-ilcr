@@ -63,7 +63,26 @@ and env flags as **defaults to adjust for your app** — override them via `.env
    that already contains the **real extracted test data** — no repo checkout, `docker compose`, or manual
    load step is needed.
 
-   **Step 1 — pull and run the image** (map the Oracle listener to host port **1525**):
+   The image lives in a **private** GitHub Packages registry under the
+   [CGI-BC](https://github.com/CGI-BC) org, so steps 1 and 2 are a one-time authorization per machine.
+   Skip them and the `docker pull` in step 3 is simply refused — and a registry denial does not always
+   read like one, so it is easy to mistake for a bad image tag.
+
+   **Step 1 — create a PAT** for the GitHub account you use for [CGI-BC](https://github.com/CGI-BC). The
+   packages themselves are listed at <https://github.com/orgs/CGI-BC/packages>.
+   - **Classic token:** tick at least the **`read:packages`** scope.
+   - **Fine-grained token:** grant **Packages: Read-only** for the **CGI-BC** organisation.
+
+   Read-only is genuinely all that is needed here — this is a pull, never a push.
+
+   **Step 2 — log in to the GitHub container registry** using that same account:
+   ```bash
+   docker login ghcr.io -u YOUR_GITHUB_USERNAME
+   ```
+   When it prompts for a password, paste the **PAT** — not your GitHub account password. Docker stores
+   the credential, so this is not repeated on later pulls.
+
+   **Step 3 — pull and run the image** (map the Oracle listener to host port **1525**):
    ```bash
    docker run -d --name real-data-seeded-ilcr-db -p 1525:1521 \
      ghcr.io/cgi-bc/nr-mof-oracle-ilcr-real-test-data-seeded:latest
@@ -76,7 +95,7 @@ and env flags as **defaults to adjust for your app** — override them via `.env
      `real-data-seeded-ilcr-db`), set `DB_CONTAINER` for the sqlplus
      wrapper (see [`.env.example`](.env.example)).
 
-   **Step 2 — apply the seed patches** (once per fresh container; the image does **not** include them).
+   **Step 4 — apply the seed patches** (once per fresh container; the image does **not** include them).
    These are the minimal seed rows the real extract can't supply (see
    [`real-test-data-patches/`](real-test-data-patches)). 
    
@@ -271,7 +290,8 @@ and portable. Register it project-scoped (e.g. a repo `.mcp.json` for Claude Cod
 project. Point `ORACLE_DSN` / `ORACLE_USER` / `ORACLE_PASSWORD` at your seeded DB (defaults match the
 `localhost:1525/DBDOCK_01` `THE`/`default` dev DB — throwaway local creds, not secrets).
 
-> Prereq for the actual queries: the seeded Oracle Docker DB must be up (see step 1 of *Prerequisites*).
+> Prereq for the actual queries: the seeded Oracle Docker DB must be up (see *Seeded Oracle DB* under
+> *Prerequisites*).
 
 ## Notes
 
