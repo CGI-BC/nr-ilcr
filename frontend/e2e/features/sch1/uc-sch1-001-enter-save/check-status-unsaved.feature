@@ -1,4 +1,4 @@
-# DIVERGENCE — both scenarios here are DELIBERATELY RED. They reproduce defects.md DIV-4, tracked upstream
+# DIVERGENCE — both scenarios here are DELIBERATELY RED. They reproduce defects.md DIV-6, tracked upstream
 # as bcgov/nr-ilcr#359, and stay failing until Check Status accounts for what is on screen. Do not weaken
 # them, skip them, or "fix" them by asserting the current behaviour: the failing state IS the tracking
 # signal. Filter them out of a fresh-failures run with `npm run test:gate`.
@@ -39,7 +39,7 @@ Feature: Report Average Cost of Logging (Schedule 1) — Check Status and unsave
   So that I am not told the schedule is fine when what I am looking at is not
 
   @discovered-divergence @p1 @S27
-  Scenario: Check Status reports a mandatory volume cleared on screen but not saved [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-4 / issue #359]
+  Scenario: Check Status reports a mandatory volume cleared on screen but not saved [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-6 / issue #359]
     Given the Schedule 1 anchor "requirements-met" is an editable Draft
     And I have selected that mill and reporting year on the Home page
     And I open Schedule 1
@@ -54,7 +54,7 @@ Feature: Report Average Cost of Logging (Schedule 1) — Check Status and unsave
     And the Schedule 1 data should be unchanged
 
   @discovered-divergence @p1 @S28
-  Scenario: Check Status stops reporting a missing volume once it is supplied on screen [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-4 / issue #359]
+  Scenario: Check Status stops reporting a missing volume once it is supplied on screen [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-6 / issue #359]
     Given the Schedule 1 anchor "missing-line-item-volume" is an editable Draft
     And I have selected that mill and reporting year on the Home page
     And I open Schedule 1

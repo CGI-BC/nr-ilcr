@@ -149,6 +149,36 @@ at-rest state.
     `components/schedule{1,2,3,4}/__tests__/derived.test.ts` and each page's `#291` tests, with
     expectations transcribed from the backend service tests.
 
+- **DIV-2 — Check Status judges the SAVED schedule and ignores unsaved on-screen edits (APP-WIDE, 11 of 12
+  schedules).**
+  - **This entry is a POINTER, on purpose.** The full analysis — what legacy did, why the rewrite cannot,
+    the app-wide sweep and the fix direction — lives in **ONE** place:
+    **`sch3/defects.md` DIV-6** (`features/sch3/uc-sch3-001-report-admin-costs/defects.md`). Do not restate it here. Two copies
+    of the same reasoning diverged inside a single session on ilcr-bmad PR #92, so this register carries only
+    what is genuinely local to Schedule 2.
+  - **What's wrong, in one line:** Check Status reports on the last saved Schedule 2 and silently ignores
+    anything typed since, so the purchased-log cost can be empty on screen while the schedule is reported
+    complete — or supplied on screen and still reported missing.
+  - **Ticket:** [bcgov/nr-ilcr#359](https://github.com/bcgov/nr-ilcr/issues/359) — the same ticket for every
+    affected schedule. One fix turns all of these green.
+  - **Local facts (this is what belongs here):**
+    - **Scenarios:** `check-status-unsaved.feature` `@discovered-divergence @p1 @S17` (the false-GREEN arm)
+      and `@S18` (the false-RED arm). Both are needed: they fail in OPPOSITE directions.
+    - **Anchors:** two SEEDED, dedicated mill-years — `check-unsaved-violation` (23052/2015) and
+      `check-unsaved-fix` (23052/2016), created by
+      `real-test-data-patches/sch2/unsaved-check-anchors.sql`. That patch's header records why the extract
+      could not supply them. Reusing `check-met` / `saved-incomplete` was tried first and collides with
+      S07/S08 under `fullyParallel`, because their Givens seed through the API.
+    - **Re-grounding note:** Schedule 2 renders Check Status issues as **warning** notifications, not errors
+      (unlike Schedules 1 and 3), so these scenarios assert "the warning" — matching S08.
+  - **Priority / env:** p1 · local seeded DB · Chrome.
+  - **Status:** OPEN — confirmed and triaged against the shared ticket. Dev to send the on-screen values with
+    the check-status request and evaluate those, following Schedule 6's `Schedule6CheckRequest`; QA
+    re-verifies and closes this entry when the fix lands. The scenarios assert the CORRECT behaviour, so they
+    go green on their own, at which point their tags and `[DISCOVERED …]` title markers come off together.
+    No test change is needed. Added 2026-08-27.
+  - **Test:** `check-status-unsaved.feature` ×2 — both RED by design.
+
 ---
 
 ## Coverage gap

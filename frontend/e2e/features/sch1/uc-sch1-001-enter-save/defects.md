@@ -303,6 +303,36 @@ obsolete, one follow-up was confirmed done, one Coverage gap was closed, and thr
     only that inputs are absent and actions disabled. `not-applicable (E2E, current scope)` in
     coverage.md; revisit with the submission/review UC.
 
+- **DIV-6 — Check Status judges the SAVED schedule and ignores unsaved on-screen edits (APP-WIDE, 11 of 12
+  schedules).**
+  - **This entry is a POINTER, on purpose.** The full analysis — what legacy did, why the rewrite cannot,
+    the app-wide sweep and the fix direction — lives in **ONE** place:
+    **`sch3/defects.md` DIV-6** (`features/sch3/uc-sch3-001-report-admin-costs/defects.md`). Do not restate it here. Two copies
+    of the same reasoning diverged inside a single session on ilcr-bmad PR #92, and this register carries
+    only the facts that are genuinely local to Schedule 1.
+  - **What's wrong, in one line:** Check Status reports on the last saved Schedule 1 and silently ignores
+    anything typed since, so a reporter can be told the schedule is complete while a mandatory value is
+    empty on screen — or told to fix something they have just fixed.
+  - **Ticket:** [bcgov/nr-ilcr#359](https://github.com/bcgov/nr-ilcr/issues/359) — the same ticket for every
+    affected schedule. One fix turns all of these green.
+  - **Local facts (this is what belongs here):**
+    - **Scenarios:** `check-status-unsaved.feature` `@discovered-divergence @p1 @S27` (the false-GREEN arm —
+      clear a mandatory volume) and `@S28` (the false-RED arm — supply a flagged one). Both arms are needed:
+      they fail in OPPOSITE directions.
+    - **Anchors:** the existing READ-ONLY Check Status fixtures, shared as this suite already shares them —
+      `requirements-met` (24050/2017, `requirementsMet: true` at rest) for S27, and
+      `missing-line-item-volume` (24051/2016, 22 errors at rest) for S28. Typing without saving writes
+      nothing, which each scenario proves with the unchanged revision token.
+    - **Re-grounding note:** S28 asserts only that ITS OWN field's error stops being reported, not that the
+      schedule becomes met — the anchor's other 21 values are genuinely still missing.
+  - **Priority / env:** p1 · local seeded DB · Chrome.
+  - **Status:** OPEN — confirmed and triaged against the shared ticket. Dev to send the on-screen values with
+    the check-status request and evaluate those, following Schedule 6's `Schedule6CheckRequest`; QA
+    re-verifies and closes this entry when the fix lands. The scenarios assert the CORRECT behaviour, so they
+    go green on their own, at which point their tags and `[DISCOVERED …]` title markers come off together.
+    No test change is needed. Added 2026-08-27.
+  - **Test:** `check-status-unsaved.feature` ×2 — both RED by design.
+
 **Coverage gaps (not tested yet — no app problem):**
 
 - **GAP-1 — There is no role-dependent Schedule 1 behaviour to cover yet.** _(reworded 2026-08-07 — the

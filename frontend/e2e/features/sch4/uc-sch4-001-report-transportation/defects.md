@@ -480,6 +480,38 @@ seeded delivery Oracle) on **2026-08-17**, branch `test/schedule-4-e2e`, app com
     ("The open Edit panel keeps its row actions accessible" and "The read-only location panel keeps its row
     action accessible", both `@discovered-divergence`).
 
+- **DIV-8 — Check Status judges the SAVED locations and ignores unsaved edits in the open panel (APP-WIDE,
+  11 of 12 schedules).**
+  - **This entry is a POINTER, on purpose.** The full analysis — what legacy did, why the rewrite cannot,
+    the app-wide sweep and the fix direction — lives in **ONE** place:
+    **`sch3/defects.md` DIV-6** (`features/sch3/uc-sch3-001-report-admin-costs/defects.md`). Do not restate it here. Two copies
+    of the same reasoning diverged inside a single session on ilcr-bmad PR #92, so this register carries only
+    what is genuinely local to Schedule 4.
+  - **What's wrong, in one line:** Check Status reports on the last saved locations and silently ignores what
+    is typed in an open location panel, so a location can be reported incomplete after the reporter has
+    filled the missing Cost in front of them — or reported ready after they have emptied it.
+  - **Ticket:** [bcgov/nr-ilcr#359](https://github.com/bcgov/nr-ilcr/issues/359) — the same ticket for every
+    affected schedule. One fix turns all of these green.
+  - **Local facts (this is what belongs here):**
+    - **Scenario:** `check-status-unsaved.feature` `@discovered-divergence @p1 @S33 @S34` — **ONE** scenario
+      carrying BOTH directions, unlike the other schedules' two. Not a shortcut: this suite enforces one
+      dedicated (mill, year) per mutating scenario plus "used in at most one feature file", and the extract
+      has no free Draft left, so a second anchor had to be seeded for no gain. Split it the day one frees up.
+    - **Anchor:** `check-unsaved` (9050/2015), SEEDED by
+      `real-test-data-patches/sch4/unsaved-check-anchors.sql`. A first attempt reused 12050/2015 and
+      preflight caught it — that pair is `nav-subpage-back`, declared across four lines, which a line-based
+      search misses.
+    - **Re-grounding note:** Schedule 4 saves per LOCATION from the panel's own Save while Check Status is a
+      page-level action, so "unsaved" here means an open panel holding typed amounts — the same state DIV-3
+      is about.
+  - **Priority / env:** p1 · local seeded DB · Chrome.
+  - **Status:** OPEN — confirmed and triaged against the shared ticket. Dev to send the on-screen values with
+    the check-status request and evaluate those, following Schedule 6's `Schedule6CheckRequest`; QA
+    re-verifies and closes this entry when the fix lands. The scenario asserts the CORRECT behaviour, so it
+    goes green on its own, at which point its tag and `[DISCOVERED …]` title marker come off together. No
+    test change is needed. Added 2026-08-27.
+  - **Test:** `check-status-unsaved.feature` ×1 — RED by design.
+
 **Coverage gaps (not tested yet  — no app problem):**
 
 - **GAP-1 — There is no role-dependent Schedule 4 behaviour reachable from a browser.**

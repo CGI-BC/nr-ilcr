@@ -4,9 +4,10 @@
 
 Sources reconciled: `UC-SCH1-001-S01..S28.feature` (28 slices; `../../../../tests/UC-SCH1-001/gherkin/`).
 S25/S26 were derived 2026-08-07 (the per-row inline edit, a spec gap this suite found); **S27/S28 arrived
-upstream 2026-08-27 with ilcr-bmad PR #92** — the two Check-Status-on-unsaved-edits arms, which are
-`deferred` here and gated on [#359](https://github.com/bcgov/nr-ilcr/issues/359) along with the rest of that
-family (Schedule 3's GAP-4 tracks it across all twelve schedules). Note the catalogue also carries a
+upstream 2026-08-27 with ilcr-bmad PR #92** — the two Check-Status-on-unsaved-edits arms, **covered the same
+day** by two deliberate `@discovered-divergence` reds tracking
+[#359](https://github.com/bcgov/nr-ilcr/issues/359) (defects.md **DIV-6**, a pointer; the analysis for that
+app-wide divergence lives once, in `sch3/defects.md` DIV-6). Note the catalogue also carries a
 COARSER business-value numbering (`S1`/`S2`/`S3`) in the high-level UC; those are not these
 + `UC-SCH1-001-slices.md` (control/message matrix) + `UC-SCH1-001-technical.md` (message/error catalog),
 against the app's real write path (`schedule1/api/Schedule1Api.java` PUT/GET/DELETE + `dto/Schedule1Request.java`
@@ -24,9 +25,9 @@ S25/S26)**; **clearing a saved amount (`clear-amounts.feature`)**; persistence +
 (`accessibility.feature`, AC4/NFR1 — zero violations); and **S08 the save-first gate on Other Costs**
 (`save-first-gate.feature`).
 
-**Disposition: 26 of the 28 slices `covered`, 2 `deferred`.** The two deferred are the new **S27/S28**
-Check-Status-on-unsaved-edits arms, held until [#359](https://github.com/bcgov/nr-ilcr/issues/359) lands —
-writing them now would add reds that all track one ticket, which is the same call Schedule 3's GAP-4 makes.
+**Disposition: all 28 slices `covered`.** The last two to land were **S27/S28**, the
+Check-Status-on-unsaved-edits arms, covered 2026-08-27 by two deliberate reds against
+[#359](https://github.com/bcgov/nr-ilcr/issues/359).
 **S08 was the last of the original 24 to land:** `deferred` until 2026-08-07, then `not-applicable (E2E)` as
 unreachable dead code, and **covered from 2026-08-27** once defect #296 gave the branch a real trigger. See
 defects.md GAP-3 (closed).
@@ -58,9 +59,9 @@ this matrix:
   `not-applicable (E2E)` to `covered` — guarded by a reopen at the end of the clear-amounts scenario.
 
 > ### Suite state — the ONE place this is recorded
-> **28 scenarios / 40 tests after Scenario-Outline expansion: 39 green + 1 deliberate
-> `@discovered-divergence` RED** (S12 / DIV-3). Measured from the generated specs and a full run on
-> **2026-08-27**.
+> **30 scenarios / 42 tests after Scenario-Outline expansion: 39 green + 3 deliberate
+> `@discovered-divergence` REDs** — S12 / DIV-3 (row delete confirm, #362) and **S27/S28 / DIV-6** (Check
+> Status on unsaved edits, #359). Measured from the generated specs and a full run on **2026-08-27**.
 >
 > Counts used to be restated three times in this section, from three different runs and on two different
 > denominators (57 was this UC alone; 163 and 164 included the 126-check preflight, which has itself grown).

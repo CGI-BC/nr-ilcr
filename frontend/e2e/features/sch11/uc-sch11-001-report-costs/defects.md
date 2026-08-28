@@ -163,6 +163,43 @@ location with no costs stores real NULLs (which render as blank, not "0").
     only that the Add panel and row actions are absent and Check Status is disabled. `not-applicable
     (E2E, current scope)` in coverage.md; revisit with the submission/review UC (Epic 26).
 
+- **DIV-5 — Check Status judges the SAVED data and ignores unsaved on-screen edits (APP-WIDE, 11 of 12
+  schedules).**
+  - **This entry is a POINTER, on purpose.** The full analysis — what legacy did, why the rewrite cannot,
+    the app-wide sweep and the fix direction — lives in **ONE** place:
+    **`sch3/defects.md` DIV-6** (`features/sch3/uc-sch3-001-report-admin-costs/defects.md`). Do not restate it here. Two copies
+    of the same reasoning diverged inside a single session on ilcr-bmad PR #92, so this register carries only
+    what is genuinely local to Schedule 11.
+  - **What's wrong, in one line:** Check Status reports on the last saved locations and silently ignores a row
+    being edited on screen, so a location's Actual Cost can be empty in the inline editor while the schedule
+    is reported complete — or typed in and still reported missing.
+  - **Ticket:** [bcgov/nr-ilcr#359](https://github.com/bcgov/nr-ilcr/issues/359) — the same ticket for every
+    affected schedule. One fix turns all of these green.
+  - **Local facts (this is what belongs here):**
+    - **Scenarios:** `check-status-unsaved.feature` `@discovered-divergence @p1 @S21` (the false-GREEN arm)
+      and `@S22` (the false-RED arm). Both are needed: they fail in OPPOSITE directions.
+    - **Anchors:** two SEEDED, dedicated mill-years — `check-unsaved-violation` (10050/2015) and
+      `check-unsaved-fix` (10050/2016), created by
+      `real-test-data-patches/sch11/unsaved-check-anchors.sql`. Reusing `check-met` /
+      `check-missing-actual` was tried first and collides with S04/S05 under `fullyParallel`, because their
+      Givens add a location through the API.
+    - **RE-GROUNDING NOTE — THE IMPORTANT ONE HERE.** Schedule 11 has **no page-level Save** (DIV-1 above):
+      every row saves itself, so the unsaved state is a row sitting in the **inline editor** with
+      typed-but-unconfirmed values, not a dirty form. It is reachable only because Check Status is not gated
+      on it — row actions are disabled during a row edit (`schedule11/index.tsx:810`) while Check Status is
+      only `!editable || saving` (`:876`), verified in source 2026-08-27. The upstream slices
+      `UC-SCH11-001-S21/S22` describe this against `addActualCost`, the **Add panel** — a NEW row, not a
+      stored requirement changed on screen, so it cannot express the rule. The slices are right about legacy
+      (which batch-saved a grid behind a page-level Save); it is the re-grounding that had to move to the
+      inline editor. Do not "correct" these scenarios back to the Add panel.
+  - **Priority / env:** p1 · local seeded DB · Chrome.
+  - **Status:** OPEN — confirmed and triaged against the shared ticket. Dev to send the on-screen values with
+    the check-status request and evaluate those, following Schedule 6's `Schedule6CheckRequest`; QA
+    re-verifies and closes this entry when the fix lands. The scenarios assert the CORRECT behaviour, so they
+    go green on their own, at which point their tags and `[DISCOVERED …]` title markers come off together.
+    No test change is needed. Added 2026-08-27.
+  - **Test:** `check-status-unsaved.feature` ×2 — both RED by design.
+
 ---
 
 ## Coverage gap

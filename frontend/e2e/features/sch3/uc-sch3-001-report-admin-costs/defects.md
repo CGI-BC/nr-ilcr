@@ -383,10 +383,43 @@ count does.
     scenario asserts the CORRECT behaviour, so it is RED today and goes green on its own when the fix
     lands, at which point its tag comes off. No test change is needed. Found 2026-08-25 by the repo owner;
     legacy-source-confirmed and scoped across the app the same day.
-  - **Test:** `features/sch3/uc-sch3-001-report-admin-costs/check-status-unsaved.feature` (S12,
-    `@discovered-divergence`) — the Override input only. The amount variant, the fix-a-flagged-field
-    mirror and the same scenario on the other ten schedules are **GAP-4**, deliberately held until this
-    fix lands.
+  - **THIS ENTRY IS THE ANALYSIS HOME for the whole family.** Schedules 1, 2, 4 and 11 each carry a short
+    POINTER entry — **sch1 DIV-6, sch2 DIV-2, sch4 DIV-8, sch11 DIV-5** — holding only their own scenarios,
+    anchors and re-groundings. The reasoning lives here and only here; keep it that way, because two copies
+    of one caveat diverged inside a single session on ilcr-bmad PR #92.
+  - **COVERAGE IS NOW COMPLETE — nine scenarios across five domains (2026-08-27).** Both arms exist
+    everywhere, because they fail in OPPOSITE directions: the false-GREEN arm lets an incomplete schedule
+    look ready (how a bad schedule gets submitted), and the false-RED arm keeps reporting what the reporter
+    has already fixed (the direction they meet most often).
+
+    | Domain | Scenarios | Pointer entry |
+    |---|---|---|
+    | sch3 (here) | `@S12` Override · `@S25` cleared amount · `@S26` the mirror | — |
+    | sch1 | `@S27` / `@S28` | sch1 DIV-6 |
+    | sch2 | `@S17` / `@S18` | sch2 DIV-2 |
+    | sch4 | `@S33 @S34` (one scenario, both directions — anchor limit) | sch4 DIV-8 |
+    | sch11 | `@S21` / `@S22` (inline row editor, NOT the Add panel) | sch11 DIV-5 |
+
+    Ex-**GAP-4** tracked the absence of these and was CLOSED by writing them.
+  - **CLOSE-OUT CHECKLIST — QA must not close this family on the fix alone.** When #359 lands all nine go
+    green on their own. Then, per domain: retire the `@discovered-divergence` tag AND the `[DISCOVERED …]`
+    title marker together, close that domain's pointer entry with the date and the fixing PR, and correct its
+    coverage.md count. Leave the assertions alone — a red that goes green by itself is the whole design. Two
+    things remain genuinely outstanding, and neither blocks closing the above:
+    1. **Schedule 6 deserves the inverse test** — it is the one page built correctly
+       (`@RequestBody Schedule6CheckRequest`), so a green scenario there protects the precedent the fix copies
+       from. No sch6 suite exists yet.
+    2. **The six schedules with no suite** (5, 7a, 7b, 8, 9, 10 — plus Schedule 8's sample sub-page as a
+       second surface), picked up as each suite is built.
+
+    The recipe, for whoever writes those: assert the violation appears without a save **and** that the
+    optimistic-lock token has not moved, so a fix cannot satisfy the test by quietly saving. Seed the anchor
+    so it PASSES Check Status as stored — that is what makes the unsaved-edit change observable.
+  - **Test:** `features/sch3/uc-sch3-001-report-admin-costs/check-status-unsaved.feature` — **three**
+    scenarios, all `@discovered-divergence`: `@p1 @S12` (the Override input), `@p1 @S25` (a mandatory amount
+    cleared on screen) and `@p1 @S26` (the mirror — correcting a flagged Harvest). S25 CLEARS a field rather
+    than typing a violation because the only at-rest-PASSING anchor passes *because* Override is "Y", which
+    legitimately suppresses the Harvest≥PO&P comparison — the required-field checks it does not suppress.
 
 - **DIV-7 — the "save the schedule first" gate on the Included Unacceptable Costs link shows the OTHER
   COSTS wording. Legacy had two different messages, one per link; the rewrite has one.**
@@ -543,8 +576,32 @@ count does.
   - **Status:** CLOSED (covered) 2026-08-26. Found 2026-08-25 as a gap; closed by writing the test.
   - **Test:** `subpage-back.feature` `@p2 @S04` — GREEN.
 
-- **GAP-4 — the "Check Status on UNSAVED edits" slices are missing everywhere except the one Override
-  case in this suite. GATED on the fix for [#359](https://github.com/bcgov/nr-ilcr/issues/359).**
+- **GAP-4 — CLOSED (covered) 2026-08-27. The "Check Status on UNSAVED edits" scenarios were written, for
+  every domain that has a Check Status.**
+  - **Closed the way a coverage gap is supposed to close: by writing the tests.** Nine scenarios across five
+    domains — sch3 `@S25`/`@S26` beside its existing `@S12`, sch1 `@S27`/`@S28`, sch2 `@S17`/`@S18`,
+    sch11 `@S21`/`@S22`, sch4 `@S33 @S34`. All are deliberate `@discovered-divergence` reds tracking
+    [#359](https://github.com/bcgov/nr-ilcr/issues/359); DIV-6 above owns the analysis and the close-out
+    checklist. Measured 2026-08-27: 400 tests, 375 passing, 25 tracked reds, zero untagged failures.
+  - **What it took, recorded because the next person will hit the same wall.** Three of the five domains had
+    NO anchor available: 114 (mill, year) keys were already pinned across the six fixtures, Home offers only
+    reporting years 2015-2021, and every unclaimed openable pair in that range is non-Draft — which disables
+    Check Status. So `real-test-data-patches/{sch2,sch11,sch4}/unsaved-check-anchors.sql` seed five dedicated
+    Draft mill-years. Two prerequisites were only found by trying: the Home year range above, and that a
+    report-status row alone is NOT enough — a working mill-year also carries **eleven**
+    `ILCR_REPORT_CATEGORY` rows, without which the page opens but the first save fails 500
+    (`DataIntegrityViolationException`).
+  - **Still outstanding, and NOT this gap:** Schedule 6's inverse green test, and the six schedules with no
+    suite at all (5, 7a, 7b, 8, 9, 10). Both are line items in DIV-6's close-out checklist, where they belong
+    — a gap in this UC's register cannot track another UC's missing suite.
+  - **Status:** **CLOSED (covered) 2026-08-27.** Raised 2026-08-25 as a test-design blind spot; the source
+    slices were recovered upstream by ilcr-bmad PR #92 on 2026-08-27 and the scenarios written the same day.
+  - **Test:** `check-status-unsaved.feature` in each of the five domains — see the table in DIV-6.
+
+  *The original analysis follows, kept because DIV-6's close-out checklist is written from it.*
+
+- **GAP-4 (original text) — the "Check Status on UNSAVED edits" slices are missing everywhere except the one
+  Override case in this suite. GATED on the fix for [#359](https://github.com/bcgov/nr-ilcr/issues/359).**
   - **Why not:** test-design blind spot, not a weak assertion. All four original Check Status scenarios
     (S09–S12) seed or save first and *then* check, so screen and database always agreed and the whole
     class of "does the verdict describe what I am looking at" was never asked. DIV-6 exists because the

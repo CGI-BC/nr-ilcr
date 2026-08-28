@@ -7,7 +7,7 @@
 
 | Source | What it contributed |
 |---|---|
-| `UC-SCH4-001/gherkin/*.feature` (**34** slices S01–S34) | the executable scenarios. S32 is "Correct a Sub-Page Row In Place"; **S33/S34 arrived upstream 2026-08-27 with ilcr-bmad PR #92** — the Check-Status-on-unsaved-edits arms, `deferred` here and gated on [#359](https://github.com/bcgov/nr-ilcr/issues/359) (Schedule 3's GAP-4 is the cross-schedule tracker and carries the one live red) |
+| `UC-SCH4-001/gherkin/*.feature` (**34** slices S01–S34) | the executable scenarios. S32 is "Correct a Sub-Page Row In Place"; **S33/S34 arrived upstream 2026-08-27 with ilcr-bmad PR #92** — the Check-Status-on-unsaved-edits arms, **covered** 2026-08-27 by ONE deliberate `@discovered-divergence` scenario carrying both directions (`check-status-unsaved.feature` `@S33 @S34` — an anchor limit, not a shortcut; see that file's header), against [#359](https://github.com/bcgov/nr-ilcr/issues/359). Register entry: defects.md **DIV-8**, a pointer; the analysis lives once, in `sch3/defects.md` DIV-6 |
 | `UC-SCH4-001-slices.md` (Relevant Controls / Messages / Fields / Business Rules per slice; Gap Analysis) | 9 business rules (BR-01…BR-09), 27 fields, the deliberate-exclusion list |
 | `UC-SCH4-001-technical.md` (Confirmed Messages, Validation Rules, UI Element Reference) | the ERR/WRN/STA/CNT/FLD/SUC/EF2/NAV catalogue (25 rows) |
 
@@ -185,7 +185,7 @@ named rather than absorbed — three of them counting against coverage, GAP-3 cl
 | Parallel stress ×3 | `--repeat-each=5` (twice at default workers, once at `--workers=4`) | **512 / 514 each run — 1,542 executions, 6 failures, ALL at the entry point (app-shell paint, Home's first fetch, one Chrome launch >60 s), never the same test twice, and ZERO data-contention failures.** Two genuine readiness waits were stabilised as a result (see `defects.md`); the rest is this box's dev-mode Vite server saturating under ~24 concurrent browsers for 20+ min. Reported as measured rather than retried away or timeout-inflated — see the note below. |
 
 > ### Suite state — the ONE place this is recorded
-> **73 scenarios / 91 tests after Scenario-Outline expansion: 82 green + 9 deliberately-red.** Measured
+> **74 scenarios / 92 tests after Scenario-Outline expansion: 82 green + 10 deliberately-red.** Measured
 > from the generated specs and a full run on **2026-08-27**. The run rows above are the dated
 > authoring-time records and are left as written. No whole-suite total is written down anywhere by design —
 > the e2e [`README.md`](../../../README.md) gives the command to measure one.
@@ -195,13 +195,14 @@ named rather than absorbed — three of them counting against coverage, GAP-3 cl
 > tags had already been retired in the feature files, so the tables disagreed with the suite they described.
 > Re-measure with `npx playwright test --list --project=chromium` and edit **this block only**.
 
-The 9 remaining deliberate reds (6 `@discovered-divergence` + 3 `@discovered-bug`), grouped by the
-`defects.md` entry each is named in. Five rows, because some entries are red in more than one scenario —
-the inline `×n` is a scenario count (absent means ×1), and those counts sum to 9. All 9 are plain
+The 10 deliberate reds (7 `@discovered-divergence` + 3 `@discovered-bug`), grouped by the
+`defects.md` entry each is named in. Six rows, because some entries are red in more than one scenario —
+the inline `×n` is a scenario count (absent means ×1), and those counts sum to 10. All 10 are plain
 `Scenario`s; none expands through `Examples`:
 
 | Red | Entry | What it tracks |
 |---|---|---|
+| check-status-unsaved `@S33 @S34` | DIV-8 | Check Status judges the SAVED locations, ignoring the open panel (#359, app-wide — one scenario carries both arms) |
 | check-status `@S28` | DIV-2 | the Check Status issue does not name the category |
 | nav-and-recompute `@S12` ×3 | DIV-3 | NAV-001 confirm is not implemented — panel Back, Add New Location, and sub-page Back |
 | update `@S02` ×2 | BUG-4 | a category cleared to fully-empty is silently discarded (data loss) |

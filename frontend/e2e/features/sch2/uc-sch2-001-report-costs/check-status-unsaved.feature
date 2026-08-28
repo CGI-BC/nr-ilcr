@@ -1,4 +1,4 @@
-# DIVERGENCE — both scenarios here are DELIBERATELY RED. They reproduce defects.md DIV-4, tracked upstream
+# DIVERGENCE — both scenarios here are DELIBERATELY RED. They reproduce defects.md DIV-2, tracked upstream
 # as bcgov/nr-ilcr#359, and stay failing until Check Status accounts for what is on screen. Do not weaken
 # them, skip them, or "fix" them by asserting the current behaviour: the failing state IS the tracking
 # signal. Filter them out of a fresh-failures run with `npm run test:gate`.
@@ -36,7 +36,7 @@ Feature: Report Purchased and Private Log Costs and Sales (Schedule 2) — Check
   So that I am not told the schedule is fine when what I am looking at is not
 
   @discovered-divergence @p1 @S17
-  Scenario: Check Status reports the purchased-log cost cleared on screen but not saved [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-4 / issue #359]
+  Scenario: Check Status reports the purchased-log cost cleared on screen but not saved [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-2 / issue #359]
     Given the Schedule 2 anchor "check-unsaved-violation" has a saved schedule
     And I have selected that mill and reporting year on the Home page
     When I open Schedule 2
@@ -51,7 +51,7 @@ Feature: Report Purchased and Private Log Costs and Sales (Schedule 2) — Check
     And the stored Schedule 2 revision is unchanged
 
   @discovered-divergence @p1 @S18
-  Scenario: Check Status stops reporting the missing purchased-log cost once it is supplied on screen [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-4 / issue #359]
+  Scenario: Check Status stops reporting the missing purchased-log cost once it is supplied on screen [DISCOVERED DIVERGENCE — Check Status judges the SAVED schedule, ignoring the screen; defects.md DIV-2 / issue #359]
     Given the Schedule 2 anchor "check-unsaved-fix" has a saved schedule with no purchased log cost
     And I have selected that mill and reporting year on the Home page
     When I open Schedule 2

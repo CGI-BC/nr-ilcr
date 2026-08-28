@@ -53,6 +53,30 @@ After applying to an already-running backend, **evict the app's reference-data c
 |---|---|---|
 | `sch4/view-mode-amounts.sql` (+ `.teardown.sql`) | `UC-SCH4-001` | The extract contains **no Schedule 4 amounts at all** — 289 category-"4" `TRANSPORTATION_REPORT` rows but not one `ILCR_COST_REPORT_DETAIL` row with a Schedule 4 cost item (40–55), so all 68 locations have an empty category grid and no sub-page rows. Draft scenarios don't care (they create their own data through the app's own endpoints), but the read-only S18/STA-001 arm cannot: the Draft gate answers 409 to any write on a Submitted/Verified mill-year, and no non-Draft location has amounts to render. Adds ONE sentinel location (`E2E View Location`, `ENTRY_USERID='E2E_SEED'`) with a fixed category, a distance category and one Towing row, on each of the two non-Draft anchors. Reversible + double-sentinel-keyed; verified idempotent (2× apply → 1 copy) and fully removed by its teardown. |
 
+| `sch3/draft-anchors.sql` (+ `.teardown.sql`) | `UC-SCH3-001` | Schedule 3 had **no create path** before defect #296, so a summary could not be made through the app: the patch seeds an empty category-3 summary on 17 Draft mill-years, one category-1 Schedule 1 for the BR-09 crown anchor, and stored amounts on 5 read-only Check Status / a11y anchors. Part 1 is retirable since #296 but deliberately kept — parts 2 and 3 depend on those summaries, and the read-only anchors must not be written to by any scenario. |
+| `sch2/unsaved-check-anchors.sql` (+ `.teardown.sql`) | `UC-SCH2-001` | Two dedicated Draft mill-years for the BR-12 / #359 arms. See the note below — the extract had no free anchor left. |
+| `sch11/unsaved-check-anchors.sql` (+ `.teardown.sql`) | `UC-SCH11-001` | Two dedicated Draft mill-years for the BR-12 / #359 arms. Same reason. |
+| `sch4/unsaved-check-anchors.sql` (+ `.teardown.sql`) | `UC-SCH4-001` | One dedicated Draft mill-year for the BR-12 / #359 scenario. Same reason, and Schedule 4's preflight is the strictest — it enforces one anchor per mutating scenario *and* "used in at most one feature file". |
+
+> **Why three patches exist purely to create ANCHORS (2026-08-27) — read this before adding a fourth.**
+> The extract has run out of usable mill-years, and the numbers are worth knowing before you go hunting:
+> **114** (mill, year) keys are already pinned across the six domain fixtures; Home offers only reporting
+> years **2015-2021** (`GET /api/v1/reporting-years`), so an anchor outside that range cannot be selected by
+> a scenario at all; and across the 17 ACT mills × those 7 years exactly **four** unclaimed pairs are
+> openable — every one of them NON-DRAFT, which disables Check Status. So a new mutating scenario in sch2,
+> sch4 or sch11 has nowhere to live without seeding.
+>
+> **Two prerequisites, both found the hard way.** A mill-year needs (1) an `ILCR_MILL_REPORT_STATUS` row —
+> `MillContextService` answers 404 without it — and (2) **eleven `ILCR_REPORT_CATEGORY` rows**, which is what
+> every real reporting mill-year carries. With only (1) the page opens fine and then the first save fails
+> HTTP 500 `scheduleNotSavedErrorMsg`, logged type-only as `DataIntegrityViolationException`. The comparison
+> that explained it: a working anchor held 11 category rows and the bare one held none.
+>
+> **When searching for a free anchor, do not grep line-by-line.** Anchors are declared in two forms and one
+> of them spans four lines (`at(\n MILL_987,\n 12050,\n 2015,`), so a line-based search reports a claimed
+> pair as free. Collapse whitespace first, then match both `millId: N, year: Y` and `at(MILL_x, N, Y,`. That
+> mistake cost two wrong "no anchors exist" conclusions before Schedule 4's preflight caught it.
+
 Add entries only as real gaps are hit during test creation/testing.
 
 ## Notes on re-creating a container

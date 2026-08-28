@@ -16,7 +16,7 @@ APIs, `Schedule3Controller`, `Schedule3Service`, `Schedule3Constants`, `dto/Sche
 > the app repo). Repo-root-relative paths in `ilcr-bmad`:
 > `_bmad-output/implementation-artifacts/tests/UC-SCH3-001/gherkin/` (the 26 `.feature` slices — S25 and
 > S26 were added upstream 2026-08-27 by ilcr-bmad PR #92, the "Check Status evaluates unsaved on-screen
-> edits" recovery; they are this suite's **GAP-4** / **DIV-6**) and
+> edits" recovery; both are covered here by **DIV-6**'s deliberate reds) and
 > `_bmad-output/planning-artifacts/requirements/use-cases/UC-SCH3-001/` (the detailed UC, slice catalog
 > and technical sidecar).
 
@@ -92,22 +92,28 @@ this suite because the state they describe could not be reached; the defect #296
 both are covered as of 2026-08-26 (S19 by a deliberate red, see DIV-7).
 
 > ### Suite state — the ONE place this is recorded
-> **38 scenarios / 47 tests after Scenario-Outline expansion: 44 green + 3 deliberate
-> `@discovered-divergence` REDs** (DIV-5, DIV-6, DIV-7). Measured from the generated specs and a full
-> run on **2026-08-27**, not incremented. Priorities: **5 × p0, 29 × p1, 13 × p2** (= 47, and that sum is
-> worth re-checking whenever you edit this — a breakdown that no longer adds up to its total is how three
-> of these numbers went stale unnoticed).
+> **40 scenarios / 49 tests after Scenario-Outline expansion: 44 green + 5 deliberate
+> `@discovered-divergence` REDs** — DIV-5 (row delete confirm, #362), **DIV-6 ×3** (Check Status on unsaved
+> edits, #359 — the Override input, a cleared mandatory amount and the mirror) and DIV-7 (the save-first
+> wording, #373). Measured from the generated specs and a full run on **2026-08-27**, not incremented.
+> Priorities: **5 × p0, 31 × p1, 13 × p2** (= 49, and that sum is worth re-checking whenever you edit this —
+> a breakdown that no longer adds up to its total is how three of these numbers went stale unnoticed).
 >
 > Every other file that used to restate these numbers now points here instead, because they moved four
 > times in three days and the copies disagreed each time. If you change a scenario, re-measure with
 > `npx playwright test --list --project=chromium` and edit **this block only**.
 
 A clean run is `npm run test:gate` (regenerates the features first and excludes every `@discovered-*`
-red). The three reds are DIV-5 (row delete has no confirm, [#362](https://github.com/bcgov/nr-ilcr/issues/362)),
-DIV-6 (Check Status ignores unsaved edits, [#359](https://github.com/bcgov/nr-ilcr/issues/359)) and DIV-7
-(the Included Unacceptable save-first gate shows the Subtotal Other Costs wording,
+red). The five reds are DIV-5 (row delete has no confirm, [#362](https://github.com/bcgov/nr-ilcr/issues/362)),
+**DIV-6 ×3** (Check Status ignores unsaved edits, [#359](https://github.com/bcgov/nr-ilcr/issues/359)) and
+DIV-7 (the Included Unacceptable save-first gate shows the Subtotal Other Costs wording,
 [#373](https://github.com/bcgov/nr-ilcr/issues/373)). Each asserts the correct legacy behaviour, so each
 goes green on its own when its fix lands.
+
+**DIV-6 is the app-wide one, and this UC is its home.** Schedules 1, 2, 4 and 11 carry the same divergence
+with their own scenarios and short pointer entries (sch1 DIV-6, sch2 DIV-2, sch4 DIV-8, sch11 DIV-5); nine
+scenarios across five domains track it, all on the one ticket. Ex-**GAP-4** tracked their absence and was
+CLOSED 2026-08-27 by writing them.
 
 ## Story AC traceability — bcgov/nr-ilcr#83 (Story 28.3, epic #226)
 
@@ -228,7 +234,7 @@ recorded rather than silently dropped:
 | WCAG 2.1 AA across the distinct renders | NFR1 / #83 AC2 | — | `accessibility.feature` ×4 | `covered` | — |
 | Two people saving the same schedule (stale lock token → 409) | *(rewrite-only, AR11 — no legacy slice)* | `Schedule3Repository.bumpRevision` | `concurrency.feature` `@p1 @S01` | `covered` | ex-**GAP-2**, closed 2026-08-26 |
 | The Back-with-unsaved-edits prompt on a sub-page | `S04`/`S05` (navigate-away dialog) | `useEditableCostRows.handleBack` (`:293-298`) | `subpage-back.feature` `@p2 @S04` | `covered` | ex-**GAP-3**, closed 2026-08-26 — asserts the warning, that Cancel keeps the edit, and that Continue writes nothing |
-| Check Status on unsaved edits — the *amount* variant, the fix-a-flagged-field mirror, and the same scenario on the other ten affected schedules | `S09`–`S12` (the unsaved half none of them ask for) | `Schedule3Api.checkStatus` (no `@RequestBody`) | — (Override variant only, `check-status-unsaved.feature` `@discovered-divergence @p1 @S12`) | `deferred` — **gated on #359** | **GAP-4** / **DIV-6** |
+| Check Status on unsaved edits — the Override input, the *amount* variant AND the fix-a-flagged-field mirror | `S12`, `S25`, `S26` (the unsaved half none of the original slices asked for) | `Schedule3Api.checkStatus` (no `@RequestBody`) | `check-status-unsaved.feature` `@discovered-divergence @p1 @S12` + `@p1 @S25` + `@p1 @S26` | `covered` (3 deliberate reds) | **DIV-6** → [#359](https://github.com/bcgov/nr-ilcr/issues/359). The same divergence on Schedules 1/2/4/11 is covered in those suites — ex-GAP-4, closed 2026-08-27 |
 
 ## Message catalog
 
@@ -298,7 +304,7 @@ recorded rather than silently dropped:
 | BR-09 a changed Crown Timber volume propagates into Schedule 1 | `crown-push.feature` both scenarios, read back on Schedule 1 | `covered` |
 | BR-10 Override "Y" suppresses the Harvest≥PO&P check (8 PO&P-bearing fixed lines + other-acceptable rows) | `check-status.feature` `@p1 @S12` + its mirror | `covered` — legacy-faithful; was wider than the sidecar described, which is now corrected at source (ex-**SPEC-1**; raised as DIV-2, retracted) |
 | BR-11 Check Status requires the amounts, both volumes and each row's description + cost | `check-status.feature` `@p0 @S10` (main page, whole inventory) + `@p1 @S10` (sub-page rows) | `covered` |
-| BR-12 Check Status evaluates what is ON SCREEN, including unsaved edits (legacy's `ajax="false"` full postback) | `check-status-unsaved.feature` `@p1 @S12 @discovered-divergence` — the Override arm only | `divergence` — **DIV-6** ([#359](https://github.com/bcgov/nr-ilcr/issues/359)); the remaining arms are **GAP-4**. Recovered upstream 2026-08-27 (ilcr-bmad PR #92) as slices S25/S26; this rule had been missing from the catalogue, which is why every Check Status scenario here checks AFTER a save |
+| BR-12 Check Status evaluates what is ON SCREEN, including unsaved edits (legacy's `ajax="false"` full postback) | `check-status-unsaved.feature` `@discovered-divergence` ×3 — `@p1 @S12` Override, `@p1 @S25` a cleared mandatory amount, `@p1 @S26` the mirror | `divergence` — **DIV-6** ([#359](https://github.com/bcgov/nr-ilcr/issues/359)), fully covered here and on Schedules 1/2/4/11. Recovered upstream 2026-08-27 (ilcr-bmad PR #92) as slices S25/S26; this rule had been missing from the catalogue, which is why every OTHER Check Status scenario here checks AFTER a save |
 
 ## Deliberately excluded by the slice catalogue — re-checked against the new app
 
@@ -370,20 +376,21 @@ Audited against the skill's `quality-and-coverage-gates.md` §A on 2026-08-25. *
 - **P0: 100%** — all 5 P0 items exercised and all 5 GREEN: the happy path (entry, save, full derived
   arithmetic, reload), the BR-09 crown push, both Check Status headline outcomes, and the never-started
   schedule opening enterable (`no-create.feature` — the ex-DIV-1 red, green since #296).
-- **P1: 100%** of P1 items covered — 29 tests, 27 green plus the DIV-5 and DIV-6 reds, which **count as
-  covered** (they map to S04's confirm-before-delete and S12's evaluate-the-screen, and are red on purpose).
+- **P1: 100%** of P1 items covered — 31 tests, 27 green plus the DIV-5 red and DIV-6's three, which **count
+  as covered** (they map to S04's confirm-before-delete and to S12/S25/S26's evaluate-the-screen, and are red
+  on purpose).
 - **Overall: 26/26 slices `covered`.** S18/S19 stopped being `not-applicable` when #296 made their state
-  reachable; S25/S26 arrived upstream with ilcr-bmad PR #92 and are carried by DIV-6's red plus GAP-4.
-  Every message-catalog row is dispositioned: covered, `divergence`, `not-applicable` with a reason, or
-  `deferred` (the page-fallback strings, which belong in Vitest). **GAP-2 and GAP-3 were CLOSED 2026-08-26
-  by writing them** (`concurrency.feature`, `subpage-back.feature`), so the remaining two are GAP-1 (the
-  role half of BR-01 — no schedule-level role branch exists to test) and GAP-4 (the rest of the Check
-  Status-on-unsaved-edits family, deliberately held until #359 lands). Neither is P0/P1-critical: the
-  P0/P1 half of the Check Status behaviour is already carried by DIV-6's deliberate red.
+  reachable; S25/S26 arrived upstream with ilcr-bmad PR #92 and are now covered by DIV-6's own reds rather
+  than deferred. Every message-catalog row is dispositioned: covered, `divergence`, `not-applicable` with a
+  reason, or `deferred` (the page-fallback strings, which belong in Vitest). **THREE of this suite's four
+  coverage gaps are closed:** GAP-2 and GAP-3 on 2026-08-26 by writing them (`concurrency.feature`,
+  `subpage-back.feature`), and **GAP-4 on 2026-08-27, also by writing them** — nine scenarios across five
+  domains, which is the way a coverage gap is supposed to close. **GAP-1 is the only one still open**, and it
+  is missing app behaviour rather than missing coverage.
 - **Verdict: PASS** — no waiver needed. GAP-1 is missing app behaviour rather than missing coverage (both
-  roles hold the same schedule actions, verified 2026-08-26) and a gate should treat it as waived; GAP-4 is
-  blocked on the #359 fix by design — its scenarios only become meaningful (and green) once the fix
-  lands, and writing them early would add ten-plus reds all tracking one ticket.
+  roles hold the same schedule actions, verified 2026-08-26) and a gate should treat it as waived. Note what
+  closing GAP-4 does NOT mean: the app is still wrong on 11 of 12 schedules — DIV-6's nine reds are what hold
+  that, and its close-out checklist is what stops #359 being signed off on one schedule.
 
 ## Accessibility (NFR1 / issue #83 AC2)
 
