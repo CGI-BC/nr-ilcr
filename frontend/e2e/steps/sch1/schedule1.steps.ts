@@ -563,18 +563,31 @@ Then('the Schedule 1 should no longer be saved', async ({ request, world }) => {
   // Prove the delete persisted through the real write path. The GET no longer 404s for a missing
   // summary (defect #296 serves the 200 empty EDITABLE document instead), so "deleted" is that
   // document's own signal: no revisionCount — the server's not-saved marker, the same field the
-  // client's isScheduleSaved reads to close the Delete gate — with zero stored detail rows. Checked
-  // loosely (`== null`) exactly as that helper does: the serializer OMITS the null field, so it
-  // arrives as undefined (the absent-vs-null rule behind defect #292). Poll — the DELETE +
-  // in-place redisplay is UI-triggered, so the commit can trail the click.
+  // client's isScheduleSaved reads to close the Delete gate. Checked loosely (`== null`) exactly as
+  // that helper does: the serializer OMITS the null field, so it arrives as undefined (the
+  // absent-vs-null rule behind defect #292). Poll — the DELETE + in-place redisplay is UI-triggered,
+  // so the commit can trail the click.
+  //
+  // `lineItems.length === 0` WAS also asserted here and is deliberately gone (2026-08-28). It cannot
+  // work on this anchor, and it is not a store readout at all: `lineItems` is the SERVED projection,
+  // and when Schedule 1 holds no volumes while its Schedule 3 carries a Crown Timber volume the server
+  // pre-fills all nine codes from it (`Schedule1Service` :686-694, `prefill = sch3CrownVolume != null
+  // && allVolumesEmpty(details)`, BR-09/WRN-001). The delete target 25052/2016 has exactly that
+  // Schedule 3 (item 119 volume 1111), so the response carries nine pre-filled rows BEFORE and AFTER
+  // the delete — measured — and the clause could never be satisfied.
+  // Worth knowing WHY it looked correct: the CI Flyway seed gives 25052/2016 no category-3 summary at
+  // all, so there is no crown volume to pre-fill from and `lineItems` really is empty there. The
+  // assertion therefore PASSES in CI and FAILS locally against the real extract — the environment-split
+  // failure `preflight/ci-seed-parity.setup.ts` exists to prevent, in the one direction that gate
+  // cannot see (it compares openability, not neighbouring-schedule data). Recorded as sch1 VER-1.
   const { millId, year } = world.scheduleKey!
   await expect
     .poll(async () => {
       const res = await request.get(scheduleUrl(millId, year))
       if (!res.ok()) return `GET -> HTTP ${res.status()}`
-      const doc = (await res.json()) as { revisionCount?: number | null; lineItems: unknown[] }
-      if (doc.revisionCount == null && doc.lineItems.length === 0) return 'deleted'
-      return `revisionCount=${doc.revisionCount}, lineItems=${doc.lineItems.length}`
+      const doc = (await res.json()) as { revisionCount?: number | null }
+      if (doc.revisionCount == null) return 'deleted'
+      return `still saved: revisionCount=${doc.revisionCount}`
     })
     .toBe('deleted')
 })

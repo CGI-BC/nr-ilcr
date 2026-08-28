@@ -431,6 +431,44 @@ obsolete, one follow-up was confirmed done, one Coverage gap was closed, and thr
 
 **Verified — not a defect:**
 
+_(Entries in this register are unnumbered unless something cross-references them — VER-1 below is cited
+from a step comment, so it carries an id.)_
+
+- **VER-1 — The delete read-back asserted `lineItems.length === 0`, which passes in CI and fails locally.
+  Found 2026-08-28; the app is correct and the assertion was wrong.** The `S13` delete scenario went red
+  on merging fork `main`, on `And the Schedule 1 should no longer be saved`: `revisionCount=undefined,
+  lineItems=9`.
+  - **What's wrong, in plain terms:** nothing, for any user. The delete works. The test was reading the
+    wrong thing to prove it, and only one of our two databases exposed that.
+  - **The delete genuinely worked.** Watched at the DB through the scenario: summary 3564 and all 13 of
+    its detail rows present, then **gone**, then restored by the teardown. `revisionCount` absent is the
+    correct "not saved" signal, exactly what `utils/schedule.ts isScheduleSaved` reads.
+  - **Why nine line items still came back:** `lineItems` is the SERVED projection, not a store readout.
+    When Schedule 1 holds no volumes and its Schedule 3 carries a Crown Timber volume, the server
+    pre-fills all nine codes from it — `Schedule1Service:686` `prefill = sch3CrownVolume != null &&
+    allVolumesEmpty(details)` (BR-09 / WRN-001, and this suite's own `crown-prefill.feature` covers it).
+    The delete target 25052/2016 has precisely that Schedule 3: summary 3563, item 119 volume 1111. So
+    the response carries nine pre-filled rows **before and after** the delete, and the clause could never
+    be satisfied there. (Its stored rows all carried volume 1111 too — someone had saved after a
+    pre-fill — so the shape is identical either side of the delete.)
+  - **Why it looked correct to whoever wrote it — and the part worth remembering:** the CI Flyway seed
+    (`db-e2e/R__80_e2e_anchor_seed.sql`) gives 25052/2016 **no category-3 summary at all**, so there is no
+    crown volume to pre-fill from and `lineItems` really is empty in CI. The assertion therefore **passes
+    in CI and fails locally against the real extract**. That is the environment-split failure
+    `preflight/ci-seed-parity.setup.ts` was written to prevent, arriving in the one direction that gate
+    cannot see: it compares openability — a mill, a status row, a reporting year — not whether a
+    NEIGHBOURING schedule on the same mill-year holds data that changes this one's served document. The
+    seed's header claims the two databases hold "identical states" so the unmodified suite passes against
+    either; this is a counter-example to that claim, and it is now noted in both files.
+  - **Fix:** the clause is gone, with the measurement recorded at `steps/sch1/schedule1.steps.ts`.
+    `revisionCount == null` is the whole assertion, which is also what the step is named for. Proving the
+    detail rows went too would need a DB read, not this projection; the rows are deleted in one
+    repository call with the summary (`Schedule1Repository.deleteSchedule` → `deleteDetailsBySummary` then
+    `deleteSummary`), so the summary's absence is sufficient evidence through the API.
+  - **Status:** CLOSED 2026-08-28 — assertion corrected, no app change. `delete.feature` `@S13 @p1` GREEN;
+    the sch1 domain re-run afterwards was **204 passed, 6 tracked `@discovered-*` reds, none untagged**
+    (that grep spans sch11 too, since `@sch1` prefixes `@sch11`).
+
 - **The #296 fix left TWO stale assertions in THIS suite, red on the fork's `main` before this branch
   touched them. Re-grounded 2026-08-26 against legacy; no app defect.**
   - **What was stale:** defect #296 ("open a blank, usable form when nothing is saved yet", fork `main`
