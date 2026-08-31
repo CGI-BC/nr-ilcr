@@ -30,6 +30,7 @@ import {
   TextArea,
   TextInput,
 } from '@carbon/react'
+import { Add, CheckmarkOutline, Copy, Edit, TrashCan, View } from '@carbon/icons-react'
 import apiService from '@/service/api-service'
 import { useScheduleContextGuard } from '@/hooks/useScheduleContextGuard'
 import { useScheduleDocument } from '@/hooks/useScheduleDocument'
@@ -1182,7 +1183,12 @@ const Schedule5: FC = () => {
       // AC collapses the column to a single View and Schedule 6 set the same precedent, so the inert
       // control is dropped. Net user-reachable behaviour is identical (deviation (B)).
       return (
-        <Button kind="ghost" size="sm" onClick={() => openEditOrView(camp, 'view')}>
+        <Button
+          kind="ghost"
+          size="sm"
+          renderIcon={View}
+          onClick={() => openEditOrView(camp, 'view')}
+        >
           View
         </Button>
       )
@@ -1192,6 +1198,7 @@ const Schedule5: FC = () => {
         <Button
           kind="ghost"
           size="sm"
+          renderIcon={Edit}
           disabled={saving}
           onClick={() =>
             panelOpen && panelDirty
@@ -1204,6 +1211,7 @@ const Schedule5: FC = () => {
         <Button
           kind="danger--ghost"
           size="sm"
+          renderIcon={TrashCan}
           disabled={saving}
           onClick={() => setConfirmDelete(camp)}
         >
@@ -1211,7 +1219,13 @@ const Schedule5: FC = () => {
         </Button>
         {/* Legacy attaches no confirm to Copy in either editable column, so an open panel is
             replaced without one — copyCamp() calls addNewCamp() directly. */}
-        <Button kind="ghost" size="sm" disabled={saving} onClick={() => openCopy(camp)}>
+        <Button
+          kind="ghost"
+          size="sm"
+          renderIcon={Copy}
+          disabled={saving}
+          onClick={() => openCopy(camp)}
+        >
           Copy
         </Button>
       </>
@@ -1368,6 +1382,7 @@ const Schedule5: FC = () => {
         <Column sm={4} md={8} lg={16} className="schedule-5__actions">
           <Button
             kind="primary"
+            renderIcon={Add}
             disabled={!editable || saving}
             onClick={() =>
               panelOpen && panelDirty ? setPendingSwitch({ kind: 'new' }) : openNew()
@@ -1382,6 +1397,7 @@ const Schedule5: FC = () => {
               a verdict must never be shown that contradicts visible unsaved input. */}
           <Button
             kind="tertiary"
+            renderIcon={CheckmarkOutline}
             disabled={!editable || saving || panelOpen}
             onClick={handleCheckStatus}
           >
