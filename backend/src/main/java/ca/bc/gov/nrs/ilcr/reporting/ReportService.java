@@ -1,6 +1,8 @@
 package ca.bc.gov.nrs.ilcr.reporting;
 
 import ca.bc.gov.nrs.ilcr.millcontext.ScheduleNotFoundException;
+import ca.bc.gov.nrs.ilcr.millinformation.MillInformationService;
+import ca.bc.gov.nrs.ilcr.millinformation.dto.MillInformationSection;
 import ca.bc.gov.nrs.ilcr.schedule1.Schedule1Service;
 import ca.bc.gov.nrs.ilcr.schedule1.dto.Schedule1Response;
 import ca.bc.gov.nrs.ilcr.schedule10.Schedule10Service;
@@ -19,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,12 +82,18 @@ public class ReportService {
   private final Schedule9Service schedule9Service;
   private final Schedule10Service schedule10Service;
   private final Schedule11Service schedule11Service;
+  private final MillInformationService millInformationService;
   private final ReportVirtualizerFactory virtualizerFactory;
 
   /**
-   * Compiled templates, built on first use and cached (boot-safe); keyed by {@link ScheduleKey}.
+   * Compiled templates, built on first use and cached (boot-safe); keyed by classpath template
+   * path.
+   *
+   * <p>Keyed by PATH rather than by {@link ScheduleKey} because not every report is a schedule —
+   * the Mill Information report has no place in that enum, whose iteration order IS the combined
+   * print's fixed section order (BR-08).
    */
-  private final Map<ScheduleKey, JasperReport> compiledTemplates = new ConcurrentHashMap<>();
+  private final Map<String, JasperReport> compiledTemplates = new ConcurrentHashMap<>();
 
   /**
    * Constructs a new ReportService.
@@ -109,6 +118,7 @@ public class ReportService {
    *     — through the service, not the repository)
    * @param schedule10Service the Schedule 10 read (bean-datasource feed, Story 20.4)
    * @param schedule11Service the Schedule 11 read (bean-datasource feed)
+   * @param millInformationService the Mill Information read (all mills for one reporting year)
    * @param virtualizerFactory builds the per-render Jasper swap-file virtualizer (Story 29.2) so a
    *     large or combined fill spills page objects to disk instead of pinning them on the heap
    */
@@ -126,6 +136,7 @@ public class ReportService {
       Schedule9Service schedule9Service,
       Schedule10Service schedule10Service,
       Schedule11Service schedule11Service,
+      MillInformationService millInformationService,
       ReportVirtualizerFactory virtualizerFactory) {
     this.dataSource = dataSource;
     this.schedule1Service = schedule1Service;
@@ -138,6 +149,7 @@ public class ReportService {
     this.schedule7bService = schedule7bService;
     this.schedule8Service = schedule8Service;
     this.schedule9Service = schedule9Service;
+    this.millInformationService = millInformationService;
     this.schedule10Service = schedule10Service;
     this.schedule11Service = schedule11Service;
     this.virtualizerFactory = virtualizerFactory;
@@ -154,9 +166,7 @@ public class ReportService {
    * @return the filled report, ready to stream to the response (the caller closes it after export)
    */
   public RenderedReport renderSchedule9(long millId, int year) {
-    JRSwapFileVirtualizer virtualizer = virtualizerFactory.create();
-    boolean ownershipTransferred = false;
-    try {
+    try (VirtualizerHandle handle = new VirtualizerHandle(virtualizerFactory.create())) {
       // Schedule 9 fills from its embedded-SQL template and carries its own title block, so the
       // resolved bean-section title block is irrelevant here (passed null, ignored by
       // fillSchedule9).
@@ -170,19 +180,78 @@ public class ReportService {
               PrintOptions.showEverything(),
               null,
               null,
-              virtualizer);
+              handle.virtualizer());
       if (print == null) {
         throw new ScheduleNotFoundException();
       }
-      RenderedReport report = new RenderedReport(List.of(print), virtualizer);
-      ownershipTransferred = true;
-      return report;
-    } finally {
-      // The empty-schedule 404 or any fill failure produces no PDF, so clean the swap file here;
-      // otherwise ownership passes to the RenderedReport, which the streaming caller closes.
-      if (!ownershipTransferred) {
-        virtualizer.cleanup();
+      return handle.transferTo(List.of(print));
+    }
+  }
+
+  /** Fill parameter gating the report body; the templates read it in printWhenExpressions. */
+  private static final String PARAM_PRINT_BODY = "p_do_print_body";
+
+  /** Fill parameter carrying a section's PDF outline title, or null to suppress its anchor. */
+  private static final String PARAM_BOOKMARK_TITLE = "bookmarkTitle";
+
+  /**
+   * The Mill Information report's classpath template. Not a {@link ScheduleKey} — it is not a
+   * schedule.
+   */
+  private static final String MILL_INFORMATION_TEMPLATE = "reports/mill-information.jrxml";
+
+  /**
+   * Render the Mill Information report for one reporting year: every mill with a report-status row
+   * for that year, one section each, combined into a single PDF (BR-01/BR-05).
+   *
+   * <p>One fill per mill rather than one fill over an all-mills datasource, which is the legacy
+   * shape ({@code ILCRPrintService.getMillReportPrintStream} adds one JasperPrint per mill and
+   * exports the list). It is what gives each mill its own title block and its own first page, and
+   * it lets the outline anchor stay a fill parameter as in every other template here.
+   *
+   * <p>A year with no mills yields no PDF and a 404 of its own ({@link
+   * MillInformationNoMillsException}). By the time this runs the caller has already rejected any
+   * year that is not an OPEN reporting period, so reaching here means an opened year genuinely has
+   * no mill report statuses — a data condition, not a fault, which is why it does not share the
+   * catch-all {@code undefinedError} that a real render failure raises.
+   *
+   * @param year the reporting year
+   * @return the filled report, ready to stream (the caller closes it after export)
+   */
+  public RenderedReport renderMillInformation(int year) {
+    List<MillInformationSection> sections = millInformationService.findSections(year);
+    if (sections.isEmpty()) {
+      // WARN, not ERROR: the year is open and simply has no mills initialised against it. Nobody
+      // needs to fix code for this, so it must not raise the 5xx rate or page anyone.
+      log.warn("No mill carries a report status for year {} — nothing to render", year);
+      throw new MillInformationNoMillsException();
+    }
+    try (VirtualizerHandle handle = new VirtualizerHandle(virtualizerFactory.create())) {
+      List<JasperPrint> prints = new ArrayList<>();
+      for (MillInformationSection section : sections) {
+        prints.add(fillMillInformation(section, year, handle.virtualizer()));
       }
+      log.info("Rendered {} mill information sections for year {}", prints.size(), year);
+      return handle.transferTo(prints);
+    }
+  }
+
+  /**
+   * Fill one mill's section. Always exactly one detail row, so there is no skip-empty case here.
+   */
+  private JasperPrint fillMillInformation(
+      MillInformationSection section, int year, JRSwapFileVirtualizer virtualizer) {
+    Map<String, Object> params = new HashMap<>();
+    params.put("year", year);
+    params.put(PARAM_PRINT_BODY, Boolean.TRUE);
+    params.put(JRParameter.REPORT_VIRTUALIZER, virtualizer);
+    SectionData data = MillInformationSectionMapper.map(section);
+    try {
+      return JasperFillManager.fillReport(
+          template(MILL_INFORMATION_TEMPLATE), params, new JRMapCollectionDataSource(data.rows()));
+    } catch (JRException e) {
+      log.error("Mill Information fill failed for mill {} year {}", section.millId(), year, e);
+      throw new MillInformationReportException();
     }
   }
 
@@ -455,9 +524,9 @@ public class ReportService {
     Map<String, Object> params = new HashMap<>();
     params.put("millId", millId);
     params.put("year", year);
-    params.put("p_do_print_body", options.printBody());
+    params.put(PARAM_PRINT_BODY, options.printBody());
     params.put("p_do_print_comment", options.printComment());
-    params.put("bookmarkTitle", bookmarkTitle);
+    params.put(PARAM_BOOKMARK_TITLE, bookmarkTitle);
     params.put(JRParameter.REPORT_VIRTUALIZER, virtualizer);
     try (Connection connection = dataSource.getConnection()) {
       return JasperFillManager.fillReport(template(ScheduleKey.SCHEDULE_9), params, connection);
@@ -475,15 +544,20 @@ public class ReportService {
     Map<String, Object> params = new HashMap<>();
     params.put("millTitleBlock", millTitleBlock);
     params.put("year", year);
-    params.put("p_do_print_body", options.printBody());
+    params.put(PARAM_PRINT_BODY, options.printBody());
     params.put("p_do_print_comment", options.printComment());
-    params.put("bookmarkTitle", bookmarkTitle);
+    params.put(PARAM_BOOKMARK_TITLE, bookmarkTitle);
     return params;
   }
 
   /** The compiled template for a schedule, loaded on first use and cached (boot-safe). */
   private JasperReport template(ScheduleKey key) {
-    return compiledTemplates.computeIfAbsent(key, ReportService::load);
+    return template(key.templatePath());
+  }
+
+  /** The compiled template at a classpath {@code .jrxml} path, loaded on first use and cached. */
+  private JasperReport template(String templatePath) {
+    return compiledTemplates.computeIfAbsent(templatePath, ReportService::load);
   }
 
   /**
@@ -493,12 +567,51 @@ public class ReportService {
    * never compiles a report. The {@code .jrxml} stays the source of truth; only the extension
    * swaps.
    */
-  private static JasperReport load(ScheduleKey key) {
-    String path = key.templatePath().replaceAll("\\.jrxml$", ".jasper");
+  private static JasperReport load(String templatePath) {
+    String path = templatePath.replaceAll("\\.jrxml$", ".jasper");
     try (InputStream in = new ClassPathResource(path).getInputStream()) {
       return (JasperReport) JRLoader.loadObject(in);
     } catch (IOException | JRException e) {
       throw new ReportGenerationException("Failed to load the compiled report template " + path, e);
+    }
+  }
+
+  /**
+   * Owns a fill's virtualizer until a {@link RenderedReport} takes it over.
+   *
+   * <p>The swap file has exactly one owner at a time. Until the report exists that owner is this
+   * handle, so a fill that throws — or an empty result that never becomes a PDF — still releases
+   * it. Once {@link #transferTo} hands the virtualizer to the report, the streaming caller closes
+   * it and this handle has nothing left to release.
+   *
+   * <p>This replaces a {@code boolean ownershipTransferred} plus {@code finally} in both render
+   * methods. Same behaviour, but the transfer is now a method call rather than a flag a future edit
+   * could forget to set.
+   */
+  private static final class VirtualizerHandle implements AutoCloseable {
+
+    private JRSwapFileVirtualizer virtualizer;
+
+    VirtualizerHandle(JRSwapFileVirtualizer virtualizer) {
+      this.virtualizer = virtualizer;
+    }
+
+    JRSwapFileVirtualizer virtualizer() {
+      return virtualizer;
+    }
+
+    /** Hand the virtualizer to a report, which becomes responsible for closing it. */
+    RenderedReport transferTo(List<JasperPrint> sections) {
+      RenderedReport report = new RenderedReport(sections, virtualizer);
+      virtualizer = null;
+      return report;
+    }
+
+    @Override
+    public void close() {
+      if (virtualizer != null) {
+        virtualizer.cleanup();
+      }
     }
   }
 }

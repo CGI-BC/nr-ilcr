@@ -16,10 +16,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 /**
- * Print Schedule PDF endpoints (Epic 20). Authorizes by naming the action (AD-7) — {@code
- * VIEW_SCHEDULE}, because printing is read-only for every role (BR-01) — delegates ALL mill/year
- * validation to {@link MillContextService} as its first line (AD-4), and streams the PDF from
- * {@link ReportService} (AD-16). It never touches repositories directly (AD-1).
+ * Report PDF endpoints. Authorizes by naming the action (AD-7), delegates mill/year validation to
+ * {@link MillContextService} as its first line (AD-4), and streams the PDF from {@link
+ * ReportService} (AD-16). It never touches repositories directly (AD-1).
+ *
+ * <p>The schedule endpoints authorize on {@code VIEW_SCHEDULE} — printing is read-only for every
+ * role (BR-01) — and validate a mill/year working context. The Mill Information report does
+ * NEITHER: it is administrator-only ({@code GENERATE_MILL_REPORTS}) and covers every mill for a
+ * chosen year, so it has no context to validate. Both differences are behaviour, not oversight.
  *
  * <p>Mirrors the Schedule 9 read controller's guard/auth posture; the only difference is the binary
  * response ({@code application/pdf} + an attachment Content-Disposition). The empty-schedule 404 is
@@ -77,6 +81,42 @@ public class ReportController implements ReportApi {
     return pdfResponse("schedules_print.pdf", context.millId(), context.year(), report);
   }
 
+  @Override
+  @PreAuthorize("@permissions.hasPermission(authentication, 'GENERATE_MILL_REPORTS')")
+  public ResponseEntity<StreamingResponseBody> getMillInformationPdf(
+      String year, Authentication authentication) {
+    // No MillContextService call here, deliberately: this report has no mill and no working context
+    // (BR-08). The year is the only input, and it is the only thing to validate.
+    int reportYear = requireOpenYear(year);
+    RenderedReport report = reportService.renderMillInformation(reportYear);
+    return pdfResponse("mills_print.pdf", null, reportYear, report);
+  }
+
+  /**
+   * Parse and validate the report year. Absent, blank and non-numeric collapse to one rejection —
+   * the legacy control was a dropdown of opened periods, so any value that is not a year means no
+   * year was chosen. A parseable year that is not an OPEN period is rejected separately: without
+   * that check {@code year=0} or a mistyped {@code 202} would reach the report, find no mills and
+   * surface as {@code undefinedError}, which reads as a system fault rather than a bad selection.
+   */
+  private int requireOpenYear(String year) {
+    if (year == null || year.isBlank()) {
+      throw new ReportYearRequiredException();
+    }
+    int parsed;
+    try {
+      parsed = Integer.parseInt(year.trim());
+    } catch (NumberFormatException e) {
+      throw new ReportYearRequiredException();
+    }
+    boolean open =
+        millContextService.listReportingYears().stream().anyMatch(y -> y.reportYear() == parsed);
+    if (!open) {
+      throw new ReportYearNotOpenException();
+    }
+    return parsed;
+  }
+
   /**
    * Stream a filled report as an {@code application/pdf} attachment. The {@link
    * StreamingResponseBody} exports directly to the servlet output stream (no full-PDF {@code
@@ -94,7 +134,7 @@ public class ReportController implements ReportApi {
    * timeout produces the same truncated shape.
    */
   private static ResponseEntity<StreamingResponseBody> pdfResponse(
-      String filename, long millId, int year, RenderedReport report) {
+      String filename, Long millId, int year, RenderedReport report) {
     StreamingResponseBody body =
         out -> {
           try (report) {
@@ -103,7 +143,7 @@ public class ReportController implements ReportApi {
             log.error(
                 "Report export failed after the response was committed for mill {} year {} ({}) — "
                     + "the client received a truncated PDF",
-                millId,
+                millId == null ? "n/a (not mill-scoped)" : millId,
                 year,
                 filename,
                 e);
