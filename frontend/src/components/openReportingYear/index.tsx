@@ -10,6 +10,7 @@ import type {
   OpenReportingYearResponse,
   ReportingYearAdminView,
 } from '@/interfaces/ReportingYearAdmin'
+import './index.scss'
 
 const api = () => apiService.getAxiosInstance()
 const CONFIRM_PROMPT = 'Please confirm you would like to create a new reporting year?'
@@ -108,7 +109,12 @@ const OpenReportingYear: FC = () => {
             </p>
           )}
 
-          <Button disabled={saving || view === null} renderIcon={ArrowRight} onClick={requestOpen}>
+          <Button
+            className="open-reporting-year__action"
+            disabled={saving || view === null}
+            renderIcon={ArrowRight}
+            onClick={requestOpen}
+          >
             Open Reporting Year
           </Button>
         </Column>
