@@ -5,7 +5,7 @@ import { Printer, Reset } from '@carbon/icons-react'
 import apiService from '@/service/api-service'
 import { useScheduleContextGuard } from '@/hooks/useScheduleContextGuard'
 import ScheduleTombstone from '@/components/core/ScheduleTombstone'
-import { extractBlobDetail, triggerDownload } from '@/utils/download'
+import { assertCompletePdf, extractBlobDetail, triggerDownload } from '@/utils/download'
 import './index.scss'
 
 const PRINT_PATH = '/v1/reports/print'
@@ -138,6 +138,10 @@ const PrintSchedules: FC = () => {
         .post(`${PRINT_PATH}?millId=${String(millId)}&year=${String(year)}`, body, {
           responseType: 'blob',
         })
+      // Belt and braces — see assertCompletePdf; the backend now spools the export before it
+      // commits a status, so a failed render is a 500 rather than a short 200. Checked before the
+      // freshness re-read below so the save stays the last thing that happens.
+      await assertCompletePdf(response.data as Blob)
       if (!dispatchedCurrent()) {
         return
       }
