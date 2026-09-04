@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import ca.bc.gov.nrs.ilcr.support.AbstractOracleIT;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,23 @@ class CheckStatusSweepIT extends AbstractOracleIT {
   private static final String ENDPOINT = "/api/v1/check-status";
   private static final String TRACK_1_TO_10 = "$.schedules1To10";
   private static final String TRACK_11 = "$.schedule11";
+  private static final List<String> SCHEDULE_DATA_TABLES =
+      List.of(
+          "ILCR_REPORT_SUMMARY",
+          "ILCR_COST_REPORT_DETAIL",
+          "TRANSPORTATION_REPORT",
+          "CAMP_REPORT",
+          "ROAD_MAINTENANCE_REPORT",
+          "BRIDGE_REPORT",
+          "CULVERT_REPORT",
+          "TREE_TO_TRUCK_REPORT",
+          "TREE_TO_TRUCK_DETAIL_REPORT",
+          "TREE_TO_TRUCK_RATE_DETAIL",
+          "CONTRACTUAL_WORK_REPORT",
+          "ROAD_CONSTRUCTION_REPRT",
+          "ROAD_CONSTRUCTION_REPRT_DTL",
+          "BASIC_SILVICULTURE_REPORT",
+          "ILCR_MILL_REPORT_STATUS");
 
   @Autowired private JdbcTemplate jdbcTemplate;
 
@@ -46,33 +64,20 @@ class CheckStatusSweepIT extends AbstractOracleIT {
   }
 
   /**
-   * Row counts across the tables the twelve validations read, plus the status row's two track
-   * codes, folded into one comparable fingerprint (the {@code Schedule4CheckStatusIT.footprint}
-   * pattern, widened to the sweep's reach). A change in ANY of them fails the equality.
+   * Global row counts across every schedule-owned table reached by the twelve validations, plus
+   * this mill/year's two track-status codes, folded into one comparable fingerprint. Global counts
+   * deliberately include child tables whose rows reach mill/year only through different parent
+   * shapes; the integration suite is not parallelized, so any insert/delete by the sweep fails the
+   * equality without an incomplete chain of parent joins. The explicit status values also catch a
+   * transition, whose row count would otherwise stay unchanged.
    */
   private String footprint(long mill, int year) {
-    Integer summaries =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM THE.ILCR_REPORT_SUMMARY WHERE ILCR_MILL_ID = ? AND REPORT_YEAR = ?",
-            Integer.class,
-            mill,
-            year);
-    Integer costDetails =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM THE.ILCR_COST_REPORT_DETAIL d"
-                + " JOIN THE.ILCR_REPORT_SUMMARY s"
-                + " ON s.ILCR_REPORT_SUMMARY_ID = d.ILCR_REPORT_SUMMARY_ID"
-                + " WHERE s.ILCR_MILL_ID = ? AND s.REPORT_YEAR = ?",
-            Integer.class,
-            mill,
-            year);
-    Integer transportation =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM THE.TRANSPORTATION_REPORT"
-                + " WHERE ILCR_MILL_ID = ? AND REPORT_YEAR = ?",
-            Integer.class,
-            mill,
-            year);
+    StringBuilder fingerprint = new StringBuilder();
+    for (String table : SCHEDULE_DATA_TABLES) {
+      Integer count =
+          jdbcTemplate.queryForObject("SELECT COUNT(*) FROM THE." + table, Integer.class);
+      fingerprint.append(table).append('=').append(count).append(';');
+    }
     String trackCodes =
         jdbcTemplate.queryForObject(
             "SELECT NVL(ILCR_MILL_REPORT_STATUS_CODE, '-') || '/'"
@@ -81,7 +86,7 @@ class CheckStatusSweepIT extends AbstractOracleIT {
             String.class,
             mill,
             year);
-    return summaries + ":" + costDetails + ":" + transportation + ":" + trackCodes;
+    return fingerprint.append("TRACK_CODES=").append(trackCodes).toString();
   }
 
   @Test

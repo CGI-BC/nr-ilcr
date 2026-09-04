@@ -27,6 +27,7 @@ import ca.bc.gov.nrs.ilcr.schedule9.Schedule9Service;
 import ca.bc.gov.nrs.ilcr.schedule9.dto.Schedule9CheckStatusResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -185,6 +186,7 @@ public class CheckStatusSweepService {
    * @return the per-schedule verdicts for that track only
    */
   public List<ScheduleCheckResult> checkTrack(ScheduleTrack track, long millId, int year) {
+    Objects.requireNonNull(track, "track");
     List<ScheduleCheckResult> results = new ArrayList<>();
     for (ScheduleCheck check : checks) {
       if (check.schedule().track() == track) {

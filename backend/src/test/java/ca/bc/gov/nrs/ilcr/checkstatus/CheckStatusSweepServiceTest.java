@@ -387,6 +387,17 @@ class CheckStatusSweepServiceTest {
     verify(schedule1Service, never()).checkSchedule1Status(anyLong(), anyInt());
   }
 
+  @Test
+  @DisplayName("checkTrack rejects a missing track instead of returning a vacuously complete list")
+  void checkTrack_nullTrack_rejected() {
+    assertThatThrownBy(() -> service.checkTrack(null, MILL, YEAR))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("track");
+
+    verify(schedule1Service, never()).checkSchedule1Status(anyLong(), anyInt());
+    verify(schedule11Service, never()).checkStatus(anyLong(), anyInt());
+  }
+
   // ===============================================================================================
   // S02 — the correct-and-re-check loop: the sweep holds no state
   // ===============================================================================================

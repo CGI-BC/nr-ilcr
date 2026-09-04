@@ -30,10 +30,11 @@ public interface CheckStatusApi {
 
   /**
    * Re-run every schedule's validation for a mill and reporting year, on both tracks, changing
-   * nothing (UC-CHK-001 BR-02/BR-03/BR-04/BR-05, FR5). Guards, in order: missing/blank/non-numeric
-   * params → 400 ERR-001; no {@code VIEW_SCHEDULE} or a mill outside the caller's scope → 403; no
-   * {@code ILCR_MILL_REPORT_STATUS} row → 404 {@code checkStatusScheduleNotFoundErrorMsg} (the
-   * Check Status page's own text, UC-CHK-001 S06); mill closed for the year → 409 ERR-002.
+   * nothing (UC-CHK-001 BR-02/BR-03/BR-04/BR-05, FR5). Method authorization runs first: no {@code
+   * VIEW_SCHEDULE} → 403. For an authorized caller, missing/blank/non-numeric params → 400 ERR-001;
+   * a mill outside the caller's scope → 403; no {@code ILCR_MILL_REPORT_STATUS} row → 404 {@code
+   * checkStatusScheduleNotFoundErrorMsg} (the Check Status page's own text, UC-CHK-001 S06); mill
+   * closed for the year → 409 ERR-002.
    *
    * @param millId the raw mill id param (validated by millcontext; may be absent/malformed)
    * @param year the raw reporting year param (validated by millcontext; may be absent/malformed)
